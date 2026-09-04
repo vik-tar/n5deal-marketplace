@@ -6,6 +6,7 @@ import {
   PUBLIC_ASSET_FIELDS,
   isFullAsset,
   toAssetDto,
+  toFullAsset,
   toTeaserAsset,
 } from '@/lib/dto/asset'
 
@@ -85,6 +86,23 @@ describe('field classification', () => {
 
     const classified = [...PUBLIC_ASSET_FIELDS, ...CONFIDENTIAL_ASSET_FIELDS].sort()
     expect(classified).toEqual(columns)
+  })
+})
+
+describe('toFullAsset', () => {
+  it('narrows every money field on a full asset to a serialisable number', () => {
+    const full = toFullAsset(sample)
+    expect(typeof full.askingPriceCents).toBe('number')
+    expect(typeof full.revenueCents).toBe('number')
+    expect(typeof full.ebitdaCents).toBe('number')
+    expect(() => JSON.stringify(full)).not.toThrow()
+  })
+
+  it('preserves the confidential values it is meant to release', () => {
+    const full = toFullAsset(sample)
+    expect(full.legalName).toBe(sample.legalName)
+    expect(full.revenueCents).toBe(Number(sample.revenueCents))
+    expect(full.clientCount).toBe(sample.clientCount)
   })
 })
 

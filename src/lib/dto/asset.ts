@@ -43,6 +43,7 @@ export const PUBLIC_ASSET_FIELDS = [
 ] as const
 
 export type ConfidentialAssetField = (typeof CONFIDENTIAL_ASSET_FIELDS)[number]
+export type PublicAssetField = (typeof PUBLIC_ASSET_FIELDS)[number]
 
 /**
  * Money columns are `bigint` on the Prisma row and `number` from here upward.
@@ -53,7 +54,14 @@ export type ConfidentialAssetField = (typeof CONFIDENTIAL_ASSET_FIELDS)[number]
 const MONEY_FIELDS = ['askingPriceCents', 'revenueCents', 'ebitdaCents'] as const
 type MoneyField = (typeof MONEY_FIELDS)[number]
 
-export type TeaserAsset = Omit<Asset, ConfidentialAssetField | 'askingPriceCents'> & {
+/**
+ * Derived from `PUBLIC_ASSET_FIELDS` itself (via `Pick`), not from `Asset`
+ * minus `ConfidentialAssetField` — so the type and the runtime copy loop in
+ * `toTeaserAsset` are one description, not two. Forgetting to add a new
+ * column to the allowlist then makes every call site that reads it a type
+ * error, not just a runtime `undefined` the compiler stays quiet about.
+ */
+export type TeaserAsset = Omit<Pick<Asset, PublicAssetField>, 'askingPriceCents'> & {
   askingPriceCents: number
   redacted: true
 }
