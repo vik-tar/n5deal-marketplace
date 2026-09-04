@@ -51,5 +51,68 @@
     "body": "A marketplace manager has suspended this account. You cannot access listings, messages or your dashboard until it is reinstated.",
     "reasonLabel": "Reason",
     "noReason": "No reason was recorded for this suspension."
+  },
+  "assets": {
+    "title": "All listings",
+    "subtitle": "{count, plural, one {# licensed institution for sale} other {# licensed institutions for sale}}",
+    "searchPlaceholder": "Search by reference, title or description",
+    "searchSubmit": "Search",
+    "searchAiButton": "Ask in your own words",
+    "searchAiPending": "Thinking…",
+    "filters": {
+      "title": "Filters",
+      "categoryLabel": "Category",
+      "businessStatusLabel": "Business status",
+      "countryLabel": "Jurisdiction",
+      "countryPlaceholder": "e.g. MT, GB, US",
+      "priceLabel": "Asking price (EUR)",
+      "priceMinPlaceholder": "Min",
+      "priceMaxPlaceholder": "Max",
+      "apply": "Apply",
+      "clearAll": "Clear all"
+    },
+    "sort": {
+      "ariaLabel": "Sort listings",
+      "newest": "Newest",
+      "popular": "Most viewed",
+      "price_asc": "Price: low to high",
+      "price_desc": "Price: high to low"
+    },
+    "category": {
+      "BANK": "Bank",
+      "FINTECH": "Fintech",
+      "PAYMENT": "Payment institution",
+      "EMI": "E-money institution",
+      "CRYPTO": "Crypto"
+    },
+    "businessStatus": {
+      "ACTIVE": "Trading business",
+      "LICENSE_ONLY": "Licence only"
+    },
+    "card": {
+      "employees": "{count, plural, one {# employee} other {# employees}}",
+      "yearOfIssue": "Est. {year}",
+      "includedLabel": "Included in the sale",
+      "views": "{count, plural, one {# view} other {# views}}",
+      "askingPrice": "Asking price"
+    },
+    "chips": {
+      "ariaLabel": "Active filters",
+      "search": "Search: “{value}”",
+      "priceFrom": "From {value}",
+      "priceTo": "Up to {value}",
+      "remove": "Remove filter: {value}"
+    },
+    "empty": {
+      "title": "No listings match your filters",
+      "body": "Try widening your price range, clearing a filter, or searching different terms.",
+      "clearAction": "Clear all filters"
+    },
+    "pagination": {
+      "ariaLabel": "Pagination",
+      "previous": "Previous",
+      "next": "Next",
+      "status": "Page {page} of {total}"
+    }
   }
 }

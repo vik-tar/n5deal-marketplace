@@ -51,5 +51,68 @@
     "body": "Менеджер маркетплейса заблокировал этот аккаунт. Доступ к объявлениям, сообщениям и личному кабинету закрыт до восстановления.",
     "reasonLabel": "Причина",
     "noReason": "Причина блокировки не была зафиксирована."
+  },
+  "assets": {
+    "title": "Все объекты",
+    "subtitle": "{count, plural, one {# лицензированная организация на продажу} few {# лицензированные организации на продажу} many {# лицензированных организаций на продажу} other {# лицензированной организации на продажу}}",
+    "searchPlaceholder": "Поиск по номеру, названию или описанию",
+    "searchSubmit": "Найти",
+    "searchAiButton": "Спросить своими словами",
+    "searchAiPending": "Думаю…",
+    "filters": {
+      "title": "Фильтры",
+      "categoryLabel": "Категория",
+      "businessStatusLabel": "Статус бизнеса",
+      "countryLabel": "Юрисдикция",
+      "countryPlaceholder": "например, MT, GB, US",
+      "priceLabel": "Цена продажи (EUR)",
+      "priceMinPlaceholder": "От",
+      "priceMaxPlaceholder": "До",
+      "apply": "Применить",
+      "clearAll": "Сбросить всё"
+    },
+    "sort": {
+      "ariaLabel": "Сортировка объектов",
+      "newest": "Сначала новые",
+      "popular": "Популярные",
+      "price_asc": "Цена: по возрастанию",
+      "price_desc": "Цена: по убыванию"
+    },
+    "category": {
+      "BANK": "Банк",
+      "FINTECH": "Финтех",
+      "PAYMENT": "Платёжная организация",
+      "EMI": "Организация электронных денег",
+      "CRYPTO": "Криптоактивы"
+    },
+    "businessStatus": {
+      "ACTIVE": "Действующий бизнес",
+      "LICENSE_ONLY": "Только лицензия"
+    },
+    "card": {
+      "employees": "{count, plural, one {# сотрудник} few {# сотрудника} many {# сотрудников} other {# сотрудника}}",
+      "yearOfIssue": "Год выдачи: {year}",
+      "includedLabel": "Входит в сделку",
+      "views": "{count, plural, one {# просмотр} few {# просмотра} many {# просмотров} other {# просмотра}}",
+      "askingPrice": "Цена продажи"
+    },
+    "chips": {
+      "ariaLabel": "Активные фильтры",
+      "search": "Поиск: «{value}»",
+      "priceFrom": "От {value}",
+      "priceTo": "До {value}",
+      "remove": "Убрать фильтр: {value}"
+    },
+    "empty": {
+      "title": "Под эти фильтры ничего не найдено",
+      "body": "Попробуйте расширить диапазон цены, снять фильтр или изменить условия поиска.",
+      "clearAction": "Сбросить все фильтры"
+    },
+    "pagination": {
+      "ariaLabel": "Постраничная навигация",
+      "previous": "Назад",
+      "next": "Вперёд",
+      "status": "Страница {page} из {total}"
+    }
   }
 }
