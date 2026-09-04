@@ -9,47 +9,30 @@ Written 2026-09-04, mid-execution, so work can resume after a shutdown.
 - **Spec:** `docs/superpowers/specs/2026-09-04-n5deal-marketplace-design.md`.
 - **Full execution ledger:** `docs/superpowers/EXECUTION-LEDGER.md` — every ruling, every deferred minor, every interface fact, in order. This is the file to read first on resume. A live copy also sits at `.superpowers/sdd/2026-09-04-n5deal-marketplace/progress.md`, which is git-ignored scratch and will be destroyed by `git clean -fdx`; the committed copy is the durable one.
 
-## Status: 16 of 23 tasks complete
+## Status: 17 of 23 implemented, 16 reviewed
 
 Complete and reviewed: 1 scaffold, 2 Prisma schema, 3 i18n, 4 design system, 5 match scoring,
 6 authorization, 7 URL filters, 8 redaction, 9 AI layer, 10 seed data, 11 auth, 12 asset catalog,
 13 asset detail + NDA gate, 14 access requests, 15 listing creation, 16 buyer profile + mandate.
+Implemented but NOT yet reviewed: 17 buyer catalog for sellers.
 
-**217 tests pass, and the whole suite passes with `DATABASE_URL` unset** — no unit test depends on
+**233 tests pass, and the whole suite passes with `DATABASE_URL` unset** — no unit test depends on
 infrastructure. Keep that property.
 
-## Task 17 is mid-flight and UNCOMMITTED
+## Task 17 finished after the snapshot was taken
 
-An implementer was building the buyer catalog when the session ended. Its files are on disk but
-were never reviewed, may not compile, and no commit was made:
+The implementer completed and committed Task 17 as `86489c9`, on top of the `4b26a4e` WIP
+snapshot. It reconciled the delta itself and re-verified. **233 tests pass**, typecheck, lint and
+build are clean, and the suite still passes with `DATABASE_URL` unset.
 
-```
-modified:   src/lib/authz/rules.ts
-modified:   tests/unit/authz/rules.test.ts
-new:        src/components/domain/buyer-card.tsx
-new:        src/components/domain/buyer-filter-sidebar.tsx
-new:        src/components/domain/match-badge.tsx
-new:        src/server/actions/ai.ts
-new:        src/server/queries/buyer-where.ts
-new:        src/server/queries/buyers.ts
-new:        tests/unit/queries/buyer-where.test.ts
-```
-
-These files are now committed as `4b26a4e`, labelled WIP, purely so a stray clean cannot lose
-them. `pnpm typecheck` passes on that commit and the unit suite still runs — but the task was
-never finished, never reviewed, and its live verification (the tie-break evidence and the
-out-of-band ownership check the brief demands) was never performed. **Do not assume it is
-correct.**
-
-On resume, either finish and review it, or drop it with `git reset --hard 9ab4242` and
-re-dispatch Task 17 from its brief.
+Task 17 has NOT yet been through its task review — that is the first thing to do on resume.
 
 ## Restarting the environment
 
 ```bash
 docker start n5deal-pg          # Postgres 16, port 55432; data persists in the container
 pnpm install                    # if node_modules is stale
-pnpm test                       # expect 217 passing
+pnpm test                       # expect 233 passing
 pnpm dev
 ```
 
@@ -66,7 +49,7 @@ Demo logins: `buyer@n5deal.demo`, `seller@n5deal.demo`, `manager@n5deal.demo`, p
 
 | Task | | Cycle |
 |---|---|---|
-| 17 | Buyer catalog for sellers | accelerated (in flight) |
+| 17 | Buyer catalog for sellers | accelerated (implemented, review pending) |
 | 18 | Role dashboards | accelerated |
 | 19 | Messaging and inbox | **full cycle** |
 | 20 | Manager console and moderation | **full cycle** |
