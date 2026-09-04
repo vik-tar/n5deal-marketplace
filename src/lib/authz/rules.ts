@@ -45,6 +45,20 @@ export function canModerate(viewer: MaybeViewer): boolean {
   return isActive(viewer) && viewer.role === 'MANAGER'
 }
 
+/**
+ * The buyer directory (Task 17) is competitive intelligence, not a public
+ * catalog: only the parties who might actually approach a buyer directly (an
+ * active seller) or who moderate the market (a manager) may browse it. A
+ * buyer asking for it must not learn who else is shopping the same sellers'
+ * listings — `listBuyers` (`@/server/queries/buyers`) returns an empty
+ * result rather than a 403 for anyone this returns `false` for, exactly as
+ * `getAssetRequestQueue` (`@/server/queries/assets`) returns empty arrays
+ * instead of an error.
+ */
+export function canBrowseBuyers(viewer: MaybeViewer): boolean {
+  return isActive(viewer) && (viewer.role === 'SELLER' || viewer.role === 'MANAGER')
+}
+
 export function canPublishListing(viewer: MaybeViewer): boolean {
   return isActive(viewer) && viewer.role === 'SELLER' && viewer.sellerProfileId !== null
 }

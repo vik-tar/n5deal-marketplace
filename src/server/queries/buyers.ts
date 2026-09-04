@@ -1,0 +1,315 @@
+import type { BuyerType } from '@/generated/prisma/client'
+import { prisma } from '@/server/db'
+import type { BuyerFilters } from '@/lib/filters/buyer-filters'
+import { PAGE_SIZE } from '@/lib/filters/shared'
+import {
+  canBrowseBuyers,
+  canMessage,
+  canModerate,
+  isOwner,
+  type AssetRef,
+  type MaybeViewer,
+} from '@/lib/authz'
+import {
+  mandateSpecificity,
+  scoreMatch,
+  type AssetCriteria,
+  type MandateCriteria,
+  type MatchResult,
+} from '@/lib/matching'
+import { buildBuyerWhere } from './buyer-where'
+
+/**
+ * A buyer's mandate, plus how many of the five criteria it actually
+ * constrains (`mandateSpecificity`, `@/lib/matching`) — carried alongside
+ * every list row and the detail page so a consumer can tell a "100 from five
+ * constrained criteria" apart from a "100 because nothing is constrained"
+ * without recomputing it (ruling 3, Task 17).
+ */
+export interface BuyerMandateSummary extends MandateCriteria {
+  specificity: number
+}
+
+/** One row of the buyer catalog. `match` is `null` whenever the list was not scored against a listing. */
+export interface BuyerListItem {
+  id: string
+  displayName: string
+  buyerType: BuyerType
+  country: string
+  verified: boolean
+  createdAt: Date
+  mandate: BuyerMandateSummary
+  match: MatchResult | null
+}
+
+export interface ListBuyersResult {
+  items: BuyerListItem[]
+  total: number
+  /**
+   * The asset this list was actually scored against, or `null` — never
+   * simply an echo of the caller's `forAssetId` argument. It comes back
+   * `null` when `forAssetId` was omitted, pointed at a listing that does not
+   * exist, or pointed at a listing the caller does not own (ruling 3): a bad
+   * or hostile `forAssetId` degrades to the plain, unscored view rather than
+   * erroring or trusting a caller-supplied id at face value. The page uses
+   * this — not the raw search param — to decide whether to show "scored
+   * against" chrome.
+   */
+  scoredAssetId: string | null
+}
+
+/** The full profile and mandate for the buyer detail page (`/buyers/[id]`). */
+export interface BuyerDetail {
+  id: string
+  displayName: string
+  buyerType: BuyerType
+  country: string
+  bio: string
+  websiteUrl: string | null
+  verified: boolean
+  createdAt: Date
+  mandate: BuyerMandateSummary
+  match: MatchResult | null
+  scoredAssetId: string | null
+  /**
+   * Whether the viewer may message this buyer at all (`canMessage`,
+   * `@/lib/authz`) — Task 19 wires the actual "Contact buyer" button to
+   * `startConversation`; this page only needs to know whether to render it.
+   */
+  canContact: boolean
+}
+
+const MANDATE_SELECT = {
+  categories: true,
+  countries: true,
+  licenceTypes: true,
+  businessStatuses: true,
+  ticketMinCents: true,
+  ticketMaxCents: true,
+} as const
+
+interface MandateRow {
+  categories: MandateCriteria['categories']
+  countries: string[]
+  licenceTypes: string[]
+  businessStatuses: MandateCriteria['businessStatuses']
+  ticketMinCents: bigint | null
+  ticketMaxCents: bigint | null
+}
+
+/**
+ * A buyer with no `Mandate` row at all — legitimately possible, Task 16's
+ * ruling 2 — is treated exactly as a buyer whose mandate constrains nothing:
+ * every array empty, both bounds null, `specificity` 0. Money columns are
+ * converted from `bigint` to `number` right here, at the read (ruling 6) —
+ * the only place in this module a mandate's ticket bounds are touched.
+ */
+function toMandateCriteria(mandate: MandateRow | null): MandateCriteria {
+  return {
+    categories: mandate?.categories ?? [],
+    countries: mandate?.countries ?? [],
+    licenceTypes: mandate?.licenceTypes ?? [],
+    businessStatuses: mandate?.businessStatuses ?? [],
+    ticketMinCents: mandate?.ticketMinCents != null ? Number(mandate.ticketMinCents) : null,
+    ticketMaxCents: mandate?.ticketMaxCents != null ? Number(mandate.ticketMaxCents) : null,
+  }
+}
+
+/**
+ * Loads `assetId` and returns its `AssetCriteria` only when `viewer` owns it
+ * (or moderates the market) — the `isOwner(...) || canModerate(...)` idiom
+ * `getAssetRequestQueue` (`@/server/queries/assets`) already uses for the
+ * identical question ("may this viewer see something scoped to this listing
+ * that is not public"). Returns `null` for a missing asset and for one the
+ * caller does not own alike: `listBuyers`/`getBuyerDetail` must not let one
+ * seller learn how a buyer scores against a competitor's listing, and must
+ * not distinguish "no such listing" from "not yours" in a way that would
+ * confirm the id exists.
+ */
+async function loadOwnedAssetCriteria(
+  assetId: string,
+  viewer: MaybeViewer,
+): Promise<AssetCriteria | null> {
+  const asset = await prisma.asset.findUnique({
+    where: { id: assetId },
+    select: {
+      sellerProfileId: true,
+      status: true,
+      category: true,
+      country: true,
+      licenceType: true,
+      businessStatus: true,
+      askingPriceCents: true,
+      sellerProfile: { select: { user: { select: { status: true } } } },
+    },
+  })
+  if (!asset) return null
+
+  const ref: AssetRef = {
+    id: assetId,
+    sellerProfileId: asset.sellerProfileId,
+    status: asset.status,
+    ownerStatus: asset.sellerProfile.user.status,
+  }
+  if (!isOwner(viewer, ref) && !canModerate(viewer)) return null
+
+  return {
+    category: asset.category,
+    country: asset.country,
+    licenceType: asset.licenceType,
+    businessStatus: asset.businessStatus,
+    askingPriceCents: Number(asset.askingPriceCents),
+  }
+}
+
+/**
+ * The seller/manager-only buyer directory (ruling 1, Task 17): a buyer
+ * calling this gets `{ items: [], total: 0, scoredAssetId: null }`, never a
+ * 403 and never a peek at who else is shopping the market — the same
+ * "refuse by returning nothing, not by erroring" shape `getAssetRequestQueue`
+ * uses. Always filtered to active buyer accounts (`BUYER_VISIBILITY_FLOOR`,
+ * `@/server/queries/buyer-where`).
+ *
+ * Without `forAssetId`, buyers are sorted newest-first. With it (and only
+ * once `loadOwnedAssetCriteria` confirms the caller owns that listing),
+ * every returned buyer is scored with `scoreMatch` and sorted by score
+ * descending, ties broken by `specificity` descending, then `createdAt`
+ * descending (ruling 3) — a buyer who scored 100 because their mandate
+ * constrains all five criteria is a genuinely better lead than one who
+ * scored 100 because it constrains nothing, and this ordering is what makes
+ * that visible without the seller having to guess.
+ *
+ * Like `countMandateMatches` (`@/server/actions/profile`, Task 16) and
+ * `listAssets`'s facet counts, this scores every matching row in memory
+ * rather than pushing the ranking into SQL: with 12 seeded buyers (and no
+ * more expected at this prototype's scale) that is correct and simple. A
+ * real deployment would move this to a filtered query plus a
+ * background-computed score, exactly as Task 18's own README note for
+ * `getRecommendedAssets` says for the mirror-image query.
+ */
+export async function listBuyers(
+  filters: BuyerFilters,
+  viewer: MaybeViewer,
+  forAssetId?: string,
+): Promise<ListBuyersResult> {
+  if (!canBrowseBuyers(viewer)) {
+    return { items: [], total: 0, scoredAssetId: null }
+  }
+
+  const where = buildBuyerWhere(filters)
+  const [rows, asset] = await Promise.all([
+    prisma.buyerProfile.findMany({
+      where,
+      select: {
+        id: true,
+        displayName: true,
+        buyerType: true,
+        country: true,
+        verified: true,
+        createdAt: true,
+        mandate: { select: MANDATE_SELECT },
+      },
+    }),
+    forAssetId ? loadOwnedAssetCriteria(forAssetId, viewer) : Promise.resolve(null),
+  ])
+
+  const total = rows.length
+
+  const entries = rows.map((row) => {
+    const criteria = toMandateCriteria(row.mandate)
+    return { row, criteria, specificity: mandateSpecificity(criteria) }
+  })
+
+  const ordered =
+    asset !== null
+      ? entries
+          .map((entry) => ({ ...entry, match: scoreMatch(entry.criteria, asset) }))
+          .sort((a, b) => {
+            if (b.match.score !== a.match.score) return b.match.score - a.match.score
+            if (b.specificity !== a.specificity) return b.specificity - a.specificity
+            return b.row.createdAt.getTime() - a.row.createdAt.getTime()
+          })
+      : entries
+          .map((entry) => ({ ...entry, match: null }))
+          .sort((a, b) => b.row.createdAt.getTime() - a.row.createdAt.getTime())
+
+  const start = (filters.page - 1) * PAGE_SIZE
+  const page = ordered.slice(start, start + PAGE_SIZE)
+
+  const items: BuyerListItem[] = page.map(({ row, criteria, specificity, match }) => ({
+    id: row.id,
+    displayName: row.displayName,
+    buyerType: row.buyerType,
+    country: row.country,
+    verified: row.verified,
+    createdAt: row.createdAt,
+    mandate: { ...criteria, specificity },
+    match,
+  }))
+
+  return {
+    items,
+    total,
+    scoredAssetId: asset !== null && forAssetId ? forAssetId : null,
+  }
+}
+
+/**
+ * The buyer profile and full mandate for `/buyers/[id]`, restricted the same
+ * way as `listBuyers` (ruling 1 extends naturally to the detail page: a
+ * buyer must not reach another buyer's full mandate just by guessing an id).
+ * Returns `null` for anyone `canBrowseBuyers` refuses, for a buyer whose
+ * account is not active, and for an id that does not exist — a 404 either
+ * way, never a 403 that would confirm a suspended buyer's profile is there,
+ * mirroring `getAssetDetail`'s identical "hidden and non-existent look the
+ * same" rule.
+ *
+ * `forAssetId` is optional so `getBuyerDetail(id, viewer)` alone (the shape
+ * Task 18/19 are expected to call) keeps working: when supplied, the same
+ * ownership-checked `loadOwnedAssetCriteria` this file's `listBuyers` uses
+ * decides whether a match breakdown is computed, so the two entry points
+ * share one ownership check rather than two.
+ */
+export async function getBuyerDetail(
+  id: string,
+  viewer: MaybeViewer,
+  forAssetId?: string,
+): Promise<BuyerDetail | null> {
+  if (!canBrowseBuyers(viewer)) return null
+
+  const row = await prisma.buyerProfile.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      displayName: true,
+      buyerType: true,
+      country: true,
+      bio: true,
+      websiteUrl: true,
+      verified: true,
+      createdAt: true,
+      userId: true,
+      user: { select: { status: true } },
+      mandate: { select: MANDATE_SELECT },
+    },
+  })
+  if (!row || row.user.status !== 'ACTIVE') return null
+
+  const criteria = toMandateCriteria(row.mandate)
+  const asset = forAssetId ? await loadOwnedAssetCriteria(forAssetId, viewer) : null
+
+  return {
+    id: row.id,
+    displayName: row.displayName,
+    buyerType: row.buyerType,
+    country: row.country,
+    bio: row.bio,
+    websiteUrl: row.websiteUrl,
+    verified: row.verified,
+    createdAt: row.createdAt,
+    mandate: { ...criteria, specificity: mandateSpecificity(criteria) },
+    match: asset !== null ? scoreMatch(criteria, asset) : null,
+    scoredAssetId: asset !== null && forAssetId ? forAssetId : null,
+    canContact: canMessage(viewer, { userId: row.userId, status: row.user.status }),
+  }
+}

@@ -70,6 +70,26 @@ export function parseBuyerFilters(sp: RawSearchParams): BuyerFilters {
   }
 }
 
+/**
+ * `forAsset` selects which listing the buyer catalog is scored against
+ * (ruling 3, Task 17) — it is not part of `BuyerFilters` above, since it is
+ * a scoring parameter, not a facet of the buyer search itself, exactly as
+ * `AssetFilters`'s own `sort` is a distinct concern from its filter fields.
+ * Parsed separately so a page can pass it to `listBuyers`/`getBuyerDetail`
+ * without folding it into every filter round-trip.
+ *
+ * Returns `undefined` for anything but a single non-blank value, so a
+ * hostile or malformed query string (a repeated `forAsset`, a blank one)
+ * degrades to "not scoring" rather than being passed through as a truthy
+ * nonsense string — the query functions still verify ownership independently,
+ * but there is no reason to hand them garbage to check in the first place.
+ */
+export function parseForAssetId(sp: RawSearchParams): string | undefined {
+  const raw = Array.isArray(sp.forAsset) ? sp.forAsset[0] : sp.forAsset
+  const trimmed = raw?.trim() ?? ''
+  return trimmed === '' ? undefined : trimmed
+}
+
 export function buyerFiltersToSearchParams(
   filters: Partial<BuyerFilters>,
 ): URLSearchParams {

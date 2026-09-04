@@ -93,7 +93,17 @@ export default async function ListingsPage({
                   </li>
                 ))}
               </ul>
-              <Pagination filters={filters} totalPages={totalPages} className="mt-6" />
+              <Pagination
+                page={filters.page}
+                totalPages={totalPages}
+                hrefForPage={(targetPage) => ({
+                  pathname: '/listings',
+                  query: Object.fromEntries(
+                    assetFiltersToSearchParams({ ...filters, page: targetPage }),
+                  ),
+                })}
+                className="mt-6"
+              />
             </>
           )}
         </div>

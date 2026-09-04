@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   canAccessApp,
+  canBrowseBuyers,
   canDecideAccess,
   canEditAsset,
   canMessage,
@@ -226,6 +227,22 @@ describe('canPublishListing', () => {
     expect(canPublishListing(manager)).toBe(false)
     expect(canPublishListing(null)).toBe(false)
     expect(canPublishListing({ ...seller, status: 'SUSPENDED' })).toBe(false)
+  })
+})
+
+describe('canBrowseBuyers', () => {
+  it('allows an active seller and an active manager', () => {
+    expect(canBrowseBuyers(seller)).toBe(true)
+    expect(canBrowseBuyers(manager)).toBe(true)
+  })
+
+  it('denies a buyer, so a competitor cannot browse the directory', () => {
+    expect(canBrowseBuyers(buyer)).toBe(false)
+  })
+
+  it('denies an anonymous visitor and a suspended seller', () => {
+    expect(canBrowseBuyers(null)).toBe(false)
+    expect(canBrowseBuyers({ ...seller, status: 'SUSPENDED' })).toBe(false)
   })
 })
 

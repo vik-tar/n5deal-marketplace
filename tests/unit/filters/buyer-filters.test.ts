@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { buyerFiltersToSearchParams, parseBuyerFilters } from '@/lib/filters/buyer-filters'
+import {
+  buyerFiltersToSearchParams,
+  parseBuyerFilters,
+  parseForAssetId,
+} from '@/lib/filters/buyer-filters'
 
 describe('parseBuyerFilters', () => {
   it('returns defaults for empty input', () => {
@@ -69,6 +73,24 @@ describe('parseBuyerFilters', () => {
 
   it('truncates an overlong search string instead of rejecting it', () => {
     expect(parseBuyerFilters({ q: 'x'.repeat(500) }).q).toHaveLength(200)
+  })
+})
+
+describe('parseForAssetId', () => {
+  it('returns undefined when absent', () => {
+    expect(parseForAssetId({})).toBeUndefined()
+  })
+
+  it('returns the trimmed value when present', () => {
+    expect(parseForAssetId({ forAsset: '  asset-1  ' })).toBe('asset-1')
+  })
+
+  it('returns undefined for a blank value', () => {
+    expect(parseForAssetId({ forAsset: '   ' })).toBeUndefined()
+  })
+
+  it('takes the first value of a repeated parameter', () => {
+    expect(parseForAssetId({ forAsset: ['asset-1', 'asset-2'] })).toBe('asset-1')
   })
 })
 
