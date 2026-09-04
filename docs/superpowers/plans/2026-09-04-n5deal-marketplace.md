@@ -1552,7 +1552,7 @@ git commit -m "feat: add central authorization rules for the three roles"
   - `parseBuyerFilters(sp: RawSearchParams): BuyerFilters`
   - `buyerFiltersToSearchParams(f: Partial<BuyerFilters>): URLSearchParams`
   - types `AssetFilters`, `BuyerFilters`, `RawSearchParams`
-  - `ASSET_SORTS`, `PAGE_SIZE`
+  - `ASSET_SORTS`, `PAGE_SIZE`, `MAX_PAGE`, `MAX_FILTER_CENTS`
 
 Filters live in the URL (design decision D1), so this module is the boundary where untrusted strings become typed values. Every unknown or hostile value degrades to a default instead of throwing.
 
@@ -1683,23 +1683,39 @@ export function keepKnown<T extends string>(
   return values.filter((v): v is T => (allowed as readonly string[]).includes(v))
 }
 
+/** Largest page number the catalog will honour, bounding pagination arithmetic. */
+export const MAX_PAGE = 10_000
+
+/** Largest filter bound the catalog will honour: EUR 10 billion, in cents. */
+export const MAX_FILTER_CENTS = 1_000_000_000_000
+
 export function toPositiveInt(
   value: string | string[] | undefined,
   fallback: number,
 ): number {
   const raw = Array.isArray(value) ? value[0] : value
   const parsed = Number(raw)
-  if (!Number.isInteger(parsed) || parsed < 1) return fallback
+  if (!Number.isSafeInteger(parsed) || parsed < 1 || parsed > MAX_PAGE) return fallback
   return parsed
 }
 
-/** Reads a whole-euro query parameter and returns integer cents. */
+/**
+ * Reads a whole-euro query parameter and returns integer cents.
+ *
+ * The upper bound is not cosmetic. These values are handed to Prisma as
+ * `BigInt` for the money columns, and `BigInt()` on an integer-valued but
+ * unsafe double does not throw — it silently returns a different number
+ * (`BigInt(1e23)` is 99999999999999991611392). Rejecting here is the only
+ * place the problem is still visible.
+ */
 export function toCents(value: string | string[] | undefined): number | null {
   const raw = Array.isArray(value) ? value[0] : value
   if (raw === undefined || raw === '') return null
   const parsed = Number(raw)
   if (!Number.isFinite(parsed) || parsed < 0) return null
-  return Math.round(parsed * 100)
+  const cents = Math.round(parsed * 100)
+  if (!Number.isSafeInteger(cents) || cents > MAX_FILTER_CENTS) return null
+  return cents
 }
 
 export function toCountryCodes(value: string | string[] | undefined): string[] {
