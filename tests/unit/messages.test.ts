@@ -68,6 +68,13 @@ describe('message catalogues', () => {
       'profile.licenceType.MSO',
       'profile.licenceType.API',
       'profile.licenceType.CASP',
+      // Pure template-and-punctuation strings with no language-specific word
+      // in them at all — "{min} – {max}" and "{score}/100" render the same
+      // en-dash range notation and "/100" score suffix in Russian
+      // typography as in English, the same reasoning as the URL-example
+      // entries above.
+      'buyers.card.ticketRange',
+      'matchBadge.scoreValue',
     ])
     const identical = keyPaths(en).filter((path) => {
       if (sharedByDesign.has(path)) return false

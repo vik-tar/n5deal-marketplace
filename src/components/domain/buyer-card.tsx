@@ -13,9 +13,14 @@ import type { BuyerListItem } from '@/server/queries/buyers'
  * (`listings/page.tsx`, `mandate-form.tsx`): this app does not augment
  * next-intl's `Messages` type.
  */
-type Translator = (key: string, values?: Record<string, string | number>) => string
+export type Translator = (key: string, values?: Record<string, string | number>) => string
 
-function ticketLabel(
+/**
+ * Exported alongside `BuyerCard` (not just used internally) so
+ * `/buyers/[id]/page.tsx` renders the identical ticket-range text on the
+ * detail page instead of re-deriving its own "any/from/to/range" phrasing.
+ */
+export function ticketLabel(
   min: number | null,
   max: number | null,
   locale: string,
@@ -36,9 +41,11 @@ function ticketLabel(
  * One row of the mandate as a labelled chip group: a translated "Any X" chip
  * when the buyer set no preference on that criterion (an empty array is
  * meaningful — Task 16's ruling 2 — not an unfinished field), otherwise one
- * chip per value the mandate actually constrains.
+ * chip per value the mandate actually constrains. Exported for the same
+ * reason as `ticketLabel` above: `/buyers/[id]/page.tsx` renders the same
+ * mandate shape in full, not just this card's condensed version.
  */
-function MandateGroup({
+export function MandateGroup({
   label,
   values,
   anyLabel,
@@ -138,7 +145,9 @@ export function BuyerCard({
             </div>
 
             <p className="text-xs text-ink-muted">
-              {t('card.specificity', { count: buyer.mandate.specificity })}
+              {buyer.mandate.specificity === 0
+                ? t('card.specificityUnconstrained')
+                : t('card.specificity', { count: buyer.mandate.specificity })}
             </p>
           </div>
 

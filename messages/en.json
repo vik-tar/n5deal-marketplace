@@ -122,6 +122,94 @@
       "verifiedBadge": "Verified"
     }
   },
+  "buyers": {
+    "title": "Buyers",
+    "subtitle": "{count, plural, one {# investor mandate you can approach directly} other {# investor mandates you can approach directly}}",
+    "filters": {
+      "title": "Filters",
+      "buyerTypeLabel": "Buyer type",
+      "categoryLabel": "Mandate category",
+      "countryLabel": "Mandate jurisdiction",
+      "countryPlaceholder": "e.g. MT, GB, US",
+      "ticketMinLabel": "Minimum ticket they can meet (EUR)",
+      "ticketMinPlaceholder": "Min",
+      "apply": "Apply",
+      "clearAll": "Clear all"
+    },
+    "scoreAgainst": {
+      "label": "Score against",
+      "placeholder": "Choose one of your published listings",
+      "empty": "You have no published listings to score against yet."
+    },
+    "card": {
+      "verifiedBadge": "Verified",
+      "categoriesLabel": "Categories",
+      "countriesLabel": "Jurisdictions",
+      "licenceTypesLabel": "Licence types",
+      "specificity": "Constrains {count} of 5 mandate criteria",
+      "specificityUnconstrained": "This mandate constrains nothing — every listing would score the same",
+      "ticketLabel": "Ticket size",
+      "ticketAny": "Any ticket size",
+      "ticketFrom": "From {value}",
+      "ticketTo": "Up to {value}",
+      "ticketRange": "{min} – {max}"
+    },
+    "chips": {
+      "ariaLabel": "Active filters",
+      "search": "Search: “{value}”",
+      "ticketMin": "Can afford at least {value}",
+      "remove": "Remove filter: {value}"
+    },
+    "empty": {
+      "notASeller": {
+        "title": "Buyers are visible to sellers",
+        "body": "This directory lists investor mandates so a seller can reach out directly. Buyer accounts do not see it."
+      },
+      "noResults": {
+        "title": "No buyers match your filters",
+        "body": "Try widening the ticket size, clearing a filter, or removing a jurisdiction.",
+        "clearAction": "Clear all filters"
+      }
+    }
+  },
+  "buyerDetail": {
+    "verifiedBadge": "Verified",
+    "bioTitle": "About",
+    "noBio": "This buyer has not added a description yet.",
+    "mandateTitle": "Investment mandate",
+    "ticketLabel": "Ticket size",
+    "specificity": "This mandate constrains {count} of 5 criteria",
+    "specificityUnconstrained": "This mandate constrains nothing — every listing would score the same",
+    "notScored": "Select one of your published listings on the buyer directory to see how this buyer scores against it.",
+    "contactAction": "Contact buyer"
+  },
+  "matchBadge": {
+    "band": {
+      "STRONG": "Strong match",
+      "GOOD": "Good match",
+      "NONE": "No match"
+    },
+    "scoreValue": "{score}/100",
+    "reasonsTitle": "Why this score",
+    "reasonCode": {
+      "CATEGORY": "Category",
+      "COUNTRY": "Jurisdiction",
+      "PRICE": "Ticket size",
+      "BUSINESS_STATUS": "Business status",
+      "LICENCE_TYPE": "Licence type"
+    },
+    "reasonKind": {
+      "MATCH": "Matches the mandate",
+      "PARTIAL": "Partially within range",
+      "MISMATCH": "Does not match",
+      "NO_PREFERENCE": "No preference set"
+    },
+    "specificityNote": "Based on {count} of 5 mandate criteria",
+    "specificityUnconstrained": "Based on a mandate that constrains nothing — this buyer would score the same against any listing",
+    "ai": {
+      "loading": "Asking AI to explain…"
+    }
+  },
   "gate": {
     "open": {
       "title": "Confidential details",
