@@ -132,13 +132,27 @@ const decideAccessPayload = z.object({
  * `'REQUESTED'` — `canDecideAccess` enforces that with the `GrantState` read
  * here, this function does not re-check the transition itself.
  *
+ * That read-then-check is still a TOCTOU gap on its own: two concurrent
+ * `decideAccess` calls on the *same* request both read `'REQUESTED'` and
+ * both pass `canDecideAccess` before either writes. Postgres row-level
+ * locking serialises the two `UPDATE`s rather than raising a unique-
+ * constraint error (there is no unique constraint on `AccessRequest.status`
+ * to violate), so an unconditional `update` would let the second, later
+ * write silently overwrite the first's `status`/`decidedAt`/
+ * `decidedByUserId` — a `DECLINED` verdict could end up stamped over an
+ * `APPROVED` one that already has a `Conversation`. The write below is
+ * therefore conditioned on the exact state this function validated
+ * (`status: 'REQUESTED'`) via `updateMany`, so the database — not a caught
+ * exception — enforces the transition: the loser's write matches zero rows
+ * and this returns `FORBIDDEN` without touching anything else.
+ *
  * On approval, this is the moment the two parties may talk: it opens a
  * `Conversation` between them if one does not already exist (keyed by
- * `buildThreadKey`, so a request decided twice — which `canDecideAccess`
- * already forbids after the first decision — could never create a second
- * thread even if it somehow ran twice), seeded with the buyer's original
- * request message. The seller's inbox is never empty after they approve
- * someone.
+ * `buildThreadKey`), seeded with the buyer's original request message. The
+ * `updateMany` guard above means only the single winner of a concurrent
+ * decide ever reaches this step, so there is no remaining race on
+ * `Conversation.threadKey` either. The seller's inbox is never empty after
+ * they approve someone.
  */
 export async function decideAccess(input: DecideAccessInput): Promise<ActionResult> {
   const viewer = await requireViewer(input.locale)
@@ -180,57 +194,53 @@ export async function decideAccess(input: DecideAccessInput): Promise<ActionResu
 
   const { decision } = parsed.data
 
-  try {
-    await prisma.$transaction(async (tx) => {
-      await tx.accessRequest.update({
-        where: { id: request.id },
-        data: {
-          status: decision,
-          decidedAt: new Date(),
-          decidedByUserId: viewer.userId,
-        },
-      })
+  const result = await prisma.$transaction(async (tx) => {
+    // The write itself is conditioned on the exact state validated above,
+    // not just on `id` — this is what actually closes the race the doc
+    // comment describes. A concurrent decide that already settled this
+    // request between our read and this write leaves `status` no longer
+    // `'REQUESTED'`, so this matches zero rows instead of overwriting it.
+    const updated = await tx.accessRequest.updateMany({
+      where: { id: request.id, status: 'REQUESTED' },
+      data: {
+        status: decision,
+        decidedAt: new Date(),
+        decidedByUserId: viewer.userId,
+      },
+    })
+    if (updated.count === 0) {
+      return { ok: false, error: 'FORBIDDEN' } as const
+    }
 
-      if (decision === 'APPROVED') {
-        const threadKey = buildThreadKey({
-          assetId: ref.id,
-          buyerProfileId: request.buyerProfileId,
-          sellerProfileId: ref.sellerProfileId,
-        })
-        const conversation = await tx.conversation.findUnique({ where: { threadKey } })
-        if (!conversation) {
-          await tx.conversation.create({
-            data: {
-              threadKey,
-              assetId: ref.id,
-              buyerProfileId: request.buyerProfileId,
-              sellerProfileId: ref.sellerProfileId,
-              messages: {
-                create: {
-                  senderUserId: request.buyerProfile.userId,
-                  body: request.message,
-                },
+    if (decision === 'APPROVED') {
+      const threadKey = buildThreadKey({
+        assetId: ref.id,
+        buyerProfileId: request.buyerProfileId,
+        sellerProfileId: ref.sellerProfileId,
+      })
+      const conversation = await tx.conversation.findUnique({ where: { threadKey } })
+      if (!conversation) {
+        await tx.conversation.create({
+          data: {
+            threadKey,
+            assetId: ref.id,
+            buyerProfileId: request.buyerProfileId,
+            sellerProfileId: ref.sellerProfileId,
+            messages: {
+              create: {
+                senderUserId: request.buyerProfile.userId,
+                body: request.message,
               },
             },
-          })
-        }
+          },
+        })
       }
-    })
-  } catch (error) {
-    // Mirrors `requestAccess`'s P2002 guard: two concurrent `decideAccess`
-    // calls approving the *same* request can both read it as `'REQUESTED'`
-    // before either commits, both pass `canDecideAccess`, and both attempt
-    // to create the same `Conversation` (unique on `threadKey`) — the loser
-    // rolls back its whole transaction, including its own otherwise-valid
-    // `accessRequest.update`. By the time that happens the request has
-    // already been decided by the other caller, so this caller is no longer
-    // able to decide it — the same shape of answer `canDecideAccess` itself
-    // would give post-commit.
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-      return { ok: false, error: 'FORBIDDEN' }
     }
-    throw error
-  }
+
+    return { ok: true } as const
+  })
+
+  if (!result.ok) return result
 
   revalidatePath(`/${input.locale}/listings/${ref.id}`)
   return { ok: true }
@@ -249,6 +259,13 @@ export interface RevokeAccessInput {
  * The owner or a manager withdraws a previously approved grant. Legal only
  * from `'APPROVED'` — `canRevokeAccess` enforces that with the `GrantState`
  * read here.
+ *
+ * The same read-then-check-then-write gap `decideAccess` closes applies
+ * here too (not flagged separately, but the same shape): the final write is
+ * conditioned on `status: 'APPROVED'` via `updateMany`, not just on `id`, so
+ * a request a concurrent call already moved off `'APPROVED'` (revoked twice,
+ * or revoked the same instant a manager acted on it) matches zero rows
+ * instead of silently re-stamping `decidedAt`/`decidedByUserId`.
  *
  * Does not delete the `Conversation`: the parties already spoke, and erasing
  * that history would remove something a manager may later need to review.
@@ -285,10 +302,13 @@ export async function revokeAccess(input: RevokeAccessInput): Promise<ActionResu
     return { ok: false, error: 'FORBIDDEN' }
   }
 
-  await prisma.accessRequest.update({
-    where: { id: request.id },
+  const updated = await prisma.accessRequest.updateMany({
+    where: { id: request.id, status: 'APPROVED' },
     data: { status: 'REVOKED', decidedAt: new Date(), decidedByUserId: viewer.userId },
   })
+  if (updated.count === 0) {
+    return { ok: false, error: 'FORBIDDEN' }
+  }
 
   revalidatePath(`/${input.locale}/listings/${ref.id}`)
   return { ok: true }
