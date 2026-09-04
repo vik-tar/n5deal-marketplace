@@ -264,5 +264,95 @@
       "ALREADY_REQUESTED": "This request has already been decided.",
       "INVALID": "That action is not valid."
     }
+  },
+  "profile": {
+    "pageTitle": "Your profile",
+    "pageSubtitle": "This is not a settings page: the investment mandate below is the input to every match score you will ever see and every ranking a seller sees of you.",
+    "profileSection": {
+      "title": "Buyer profile",
+      "subtitle": "How sellers see you once you contact them or once they review your access requests.",
+      "fields": {
+        "displayNameLabel": "Display name",
+        "buyerTypeLabel": "Buyer type",
+        "countryLabel": "Your jurisdiction (ISO code)",
+        "countryPlaceholder": "e.g. GB",
+        "bioLabel": "About you",
+        "bioPlaceholder": "A short description sellers will see on your buyer profile.",
+        "websiteUrlLabel": "Website (optional)",
+        "websiteUrlPlaceholder": "https://..."
+      },
+      "savedNotice": "Profile saved."
+    },
+    "buyerType": {
+      "PE_FUND": "PE fund",
+      "STRATEGIC": "Strategic acquirer",
+      "FAMILY_OFFICE": "Family office",
+      "INDIVIDUAL": "Private individual"
+    },
+    "licenceType": {
+      "PI": "PI",
+      "EMI": "EMI",
+      "SEMI": "SEMI",
+      "MSO": "MSO",
+      "API": "API",
+      "CASP": "CASP",
+      "Banking": "Banking"
+    },
+    "mandate": {
+      "title": "Investment mandate",
+      "subtitle": "Every match score a buyer or seller sees is computed from this mandate. Narrow it to see more relevant matches; leave a group untouched to mean \"any\".",
+      "matchSummary": {
+        "count": "Matches {matchCount} of {totalListings} published listings today.",
+        "unconstrained": "This mandate does not constrain anything yet: every listing would tie for first place, so no ranking is shown. Fill in at least one preference below to see real matches."
+      },
+      "any": {
+        "category": "Any category",
+        "country": "Any jurisdiction",
+        "licenceType": "Any licence type",
+        "businessStatus": "Any business status",
+        "ticket": "Any ticket size",
+        "timeline": "No preference"
+      },
+      "fields": {
+        "categoriesLabel": "Categories",
+        "countriesLabel": "Jurisdictions",
+        "countryAddPlaceholder": "e.g. MT",
+        "countryAdd": "Add",
+        "removeCountry": "Remove {code}",
+        "licenceTypesLabel": "Licence types",
+        "businessStatusesLabel": "Business status",
+        "ticketMinLabel": "Minimum ticket (EUR)",
+        "ticketMaxLabel": "Maximum ticket (EUR)",
+        "ticketPlaceholder": "No limit",
+        "timelineLabel": "Investment timeline",
+        "timelineValue": "{count, plural, one {# month} other {# months}}",
+        "timelineNoPreference": "No timeline preference",
+        "notesLabel": "Notes (optional)",
+        "notesPlaceholder": "Anything else a matched seller should know about your mandate."
+      },
+      "savedNotice": "Mandate saved."
+    },
+    "actions": {
+      "saveProfile": "Save profile",
+      "saveMandate": "Save mandate",
+      "saving": "Saving..."
+    },
+    "errors": {
+      "required": "This field cannot be empty.",
+      "country": "Enter a 2-letter country code, e.g. MT.",
+      "tooLong": "Shorten this text.",
+      "url": "Enter a valid URL starting with http:// or https://, or leave it blank.",
+      "invalidSelection": "That selection is not valid.",
+      "money": "Enter a valid, non-negative amount in EUR, or leave it blank.",
+      "ticketRange": "The maximum ticket must be at least the minimum.",
+      "timeline": "Enter a number of months from 1 to 60, or mark \"No timeline preference\".",
+      "form": "Fix the highlighted fields and try again."
+    },
+    "error": {
+      "FORBIDDEN": "You are not able to edit this profile.",
+      "NOT_FOUND": "This profile could not be found.",
+      "ALREADY_REQUESTED": "That action is not valid here.",
+      "INVALID": "Some fields need attention before this can be saved."
+    }
   }
 }

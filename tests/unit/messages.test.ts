@@ -54,6 +54,20 @@ describe('message catalogues', () => {
       'gate.open.ebitda',
       'listingForm.fields.ebitdaLabel',
       'listingForm.fields.dataRoomUrlPlaceholder',
+      // A URL example, not language-specific — same reasoning as
+      // `listingForm.fields.dataRoomUrlPlaceholder` above.
+      'profile.profileSection.fields.websiteUrlPlaceholder',
+      // Regulatory licence-type acronyms: Russian fintech/legal writing keeps
+      // these in Latin script too, the same reasoning as the `ebitda` entries
+      // above. `profile.licenceType.Banking` is the one member of this fixed
+      // universe that is an ordinary English word, not an acronym, and it is
+      // translated ("Банковская лицензия") rather than exempted here.
+      'profile.licenceType.PI',
+      'profile.licenceType.EMI',
+      'profile.licenceType.SEMI',
+      'profile.licenceType.MSO',
+      'profile.licenceType.API',
+      'profile.licenceType.CASP',
     ])
     const identical = keyPaths(en).filter((path) => {
       if (sharedByDesign.has(path)) return false

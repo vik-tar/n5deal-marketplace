@@ -61,8 +61,17 @@ function priceReason(
   return { code, kind: 'MISMATCH', weight, earned: 0 }
 }
 
-/** Counts the criteria the mandate actually constrains. */
-function countSpecificity(mandate: MandateCriteria): number {
+/**
+ * Counts the criteria the mandate actually constrains, 0-5. Exported (not just
+ * an internal step of `scoreMatch`) because Task 16's profile page needs it on
+ * its own, independent of any one asset: the same number that tells a
+ * consumer of `MatchResult` "don't rank on this score alone" is also what the
+ * mandate-editing form itself must show the buyer, on the mandate that is
+ * about to become every future match's input — re-deriving this count inline
+ * there would duplicate the one definition of "constrains nothing" this
+ * module exists to own.
+ */
+export function mandateSpecificity(mandate: MandateCriteria): number {
   return (
     (mandate.categories.length > 0 ? 1 : 0) +
     (mandate.countries.length > 0 ? 1 : 0) +
@@ -93,5 +102,5 @@ export function scoreMatch(
   const band =
     score >= STRONG_THRESHOLD ? 'STRONG' : score >= GOOD_THRESHOLD ? 'GOOD' : 'NONE'
 
-  return { score, band, specificity: countSpecificity(mandate), reasons }
+  return { score, band, specificity: mandateSpecificity(mandate), reasons }
 }

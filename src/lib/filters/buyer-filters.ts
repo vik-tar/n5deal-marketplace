@@ -23,6 +23,31 @@ export const MANDATE_CATEGORIES = [
   'CRYPTO',
 ] as const satisfies readonly AssetCategory[]
 
+/**
+ * `Mandate.licenceTypes` and `Asset.licenceType` are both plain strings in
+ * `prisma/schema.prisma`, not a Prisma enum — but they are not arbitrary free
+ * text either: `prisma/seed-data/assets.ts` documents "the fixed licence-type
+ * universe" every seeded listing draws from (`CATEGORY_INFO[*].licenceOptions`),
+ * and `scoreMatch` (`@/lib/matching`) matches a mandate's `licenceTypes`
+ * against a listing's `licenceType` by exact string equality — so a mandate
+ * chip for a licence type that no listing could ever carry would silently
+ * never match anything. This is that same fixed universe, named once here so
+ * `mandateSchema` (`@/lib/validation/profile`, Task 16) and the mandate form's
+ * chip picker share one definition of "known licence type" instead of each
+ * guessing the list independently.
+ */
+export const MANDATE_LICENCE_TYPES = [
+  'PI',
+  'EMI',
+  'SEMI',
+  'MSO',
+  'API',
+  'CASP',
+  'Banking',
+] as const
+
+export type MandateLicenceType = (typeof MANDATE_LICENCE_TYPES)[number]
+
 export interface BuyerFilters {
   q: string
   buyerTypes: BuyerType[]

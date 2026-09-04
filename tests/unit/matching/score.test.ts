@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { scoreMatch } from '@/lib/matching'
+import { mandateSpecificity, scoreMatch } from '@/lib/matching'
 import type { AssetCriteria, MandateCriteria } from '@/lib/matching'
 
 const asset: AssetCriteria = {
@@ -128,5 +128,13 @@ describe('scoreMatch specificity', () => {
     const result = scoreMatch(emptyMandate, asset)
     expect(result.score).toBe(100)
     expect(result.band).toBe('STRONG')
+  })
+})
+
+describe('mandateSpecificity', () => {
+  it('is exported standalone, independent of any asset, and agrees with scoreMatch', () => {
+    expect(mandateSpecificity(emptyMandate)).toBe(0)
+    expect(mandateSpecificity(narrowMandate)).toBe(5)
+    expect(mandateSpecificity(narrowMandate)).toBe(scoreMatch(narrowMandate, asset).specificity)
   })
 })
