@@ -2,8 +2,18 @@ import type { Prisma, AssetCategory } from '@/generated/prisma/client'
 import { prisma } from '@/server/db'
 import type { AssetFilters } from '@/lib/filters/asset-filters'
 import { PAGE_SIZE } from '@/lib/filters/shared'
-import { toTeaserAsset, type TeaserAsset } from '@/lib/dto/asset'
-import type { MaybeViewer } from '@/lib/authz'
+import { isFullAsset, toAssetDto, toTeaserAsset, type AssetDto, type TeaserAsset } from '@/lib/dto/asset'
+import {
+  canModerate,
+  canRequestAccess,
+  canViewAsset,
+  canViewFullAsset,
+  isOwner,
+  type AssetRef,
+  type GrantState,
+  type MaybeViewer,
+} from '@/lib/authz'
+import { mapGrantState, selectGateStatus, type GateStatus } from '@/lib/gate'
 import { buildWhere, SORT_ORDER } from './asset-where'
 
 /** One category's result count under the current filters, for the sidebar checkboxes. */
@@ -81,4 +91,121 @@ export async function listAssets(
   const items = rows.map(toTeaserAsset)
 
   return { items, total, facets }
+}
+
+/**
+ * The seller as shown on the detail page. The seller's identity is exactly
+ * as confidential as the asset's own gated fields, and is redacted by the
+ * same rule: `companyName` is `null` — never sent and then hidden — whenever
+ * the gate is closed. `country` and `verified` are safe to show unconditionally
+ * (the teaser cards already imply a jurisdiction via the asset's own
+ * `country`, and "verified seller" is deliberately the one thing an
+ * anonymous visitor is told about who they might be dealing with).
+ */
+export interface SellerSummary {
+  id: string
+  companyName: string | null
+  country: string
+  verified: boolean
+}
+
+export interface AssetDetail {
+  asset: AssetDto
+  grant: GrantState
+  seller: SellerSummary
+  /**
+   * Which of the gate's four states the page should render (`@/lib/gate`).
+   * Computed here, not by the page or the component, because the correct
+   * answer depends on the asset's real `ownerStatus` — reconstructing it
+   * downstream from partial data risks the exact bug this codebase already
+   * removed once from `listAssets` (see the doc comment above): a
+   * stand-in value that happens to be right today but cannot fail a review
+   * because nothing ever re-derives it from the truth.
+   */
+  gateStatus: GateStatus
+  /** The viewer's own request date. Only meaningful when `gateStatus` is `'PENDING'`. */
+  requestedAt: Date | null
+}
+
+/**
+ * Loads one listing for the detail page and enforces the NDA gate
+ * server-side. `toAssetDto` receives only `canViewFullAsset`'s boolean
+ * answer, so the confidential fields (`legalName`, `revenueCents`,
+ * `ebitdaCents`, `clientCount`, `dataRoomUrl`, `confidentialNotes`) are never
+ * constructed — not hidden, not stripped after the fact — unless the gate is
+ * genuinely open for this viewer.
+ *
+ * Returns `null` when `canViewAsset` is false. A listing that exists but is
+ * not visible to this viewer (a draft, a suspended seller's listing, another
+ * seller's own draft) must look exactly like a listing that does not exist:
+ * a 404, never a 403 that would confirm the row is there. That check runs
+ * before any other query in this function, so the "hidden" and "does not
+ * exist" paths do the same single lookup and return — no extra query marks
+ * one case as slower than the other.
+ */
+export async function getAssetDetail(
+  id: string,
+  viewer: MaybeViewer,
+): Promise<AssetDetail | null> {
+  const row = await prisma.asset.findUnique({
+    where: { id },
+    include: { sellerProfile: { include: { user: { select: { status: true } } } } },
+  })
+  if (!row) return null
+
+  const { sellerProfile, ...asset } = row
+  const ref: AssetRef = {
+    id: asset.id,
+    sellerProfileId: asset.sellerProfileId,
+    status: asset.status,
+    ownerStatus: sellerProfile.user.status,
+  }
+
+  if (!canViewAsset(viewer, ref)) return null
+
+  // Only the viewer's own request against this asset — ruling 3 forbids
+  // loading every request for it, which would let a buyer learn something
+  // about another buyer's standing with this seller.
+  const viewerRequest =
+    viewer !== null && viewer.buyerProfileId !== null
+      ? await prisma.accessRequest.findUnique({
+          where: {
+            assetId_buyerProfileId: { assetId: asset.id, buyerProfileId: viewer.buyerProfileId },
+          },
+          select: { status: true, requestedAt: true },
+        })
+      : null
+
+  const grant = mapGrantState(viewerRequest?.status ?? null)
+  const canSeeConfidential = canViewFullAsset(viewer, ref, grant)
+
+  // A view only counts when neither the owner nor a manager is looking —
+  // their own visits are not market interest.
+  const exempt = isOwner(viewer, ref) || canModerate(viewer)
+  const current = exempt
+    ? asset
+    : await prisma.asset.update({
+        where: { id: asset.id },
+        data: { viewCount: { increment: 1 } },
+      })
+
+  const dto = toAssetDto(current, canSeeConfidential)
+  const gateStatus = selectGateStatus({
+    isFullAsset: isFullAsset(dto),
+    grant,
+    canRequest: canRequestAccess(viewer, ref, grant),
+  })
+
+  return {
+    asset: dto,
+    grant,
+    seller: {
+      id: sellerProfile.id,
+      companyName: canSeeConfidential ? sellerProfile.companyName : null,
+      country: sellerProfile.country,
+      verified: sellerProfile.verified,
+    },
+    gateStatus,
+    requestedAt: viewerRequest?.requestedAt ?? null,
+  }
 }

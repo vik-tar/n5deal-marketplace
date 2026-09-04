@@ -114,5 +114,42 @@
       "next": "Next",
       "status": "Page {page} of {total}"
     }
+  },
+  "assetDetail": {
+    "descriptionLabel": "About this listing",
+    "seller": {
+      "label": "Seller",
+      "verifiedBadge": "Verified"
+    }
+  },
+  "gate": {
+    "open": {
+      "title": "Confidential details",
+      "legalName": "Legal entity name",
+      "revenue": "Annual revenue",
+      "ebitda": "EBITDA",
+      "clientCount": "Clients",
+      "dataRoomLabel": "Data room",
+      "dataRoomLink": "Open data room",
+      "notesLabel": "Notes for approved buyers"
+    },
+    "requestable": {
+      "title": "Behind the NDA gate",
+      "body": "The legal entity name, financials, client count, data room and confidential notes are released once the seller approves your access request.",
+      "action": "Request access",
+      "comingSoon": "Request forms are coming soon."
+    },
+    "pending": {
+      "title": "Your request is with the seller",
+      "body": "Submitted on {date}. You will be notified as soon as the seller decides."
+    },
+    "closed": {
+      "title": "Confidential",
+      "declined": "The seller declined your request for access to this listing.",
+      "revoked": "Your access to this listing's confidential details has been revoked.",
+      "default": "The legal entity name, financials, client count and data room are released only to a buyer the seller has approved.",
+      "signInPrompt": "Sign in to request access to a listing's confidential details.",
+      "signInAction": "Sign in"
+    }
   }
 }

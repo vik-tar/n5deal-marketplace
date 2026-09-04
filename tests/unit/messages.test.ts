@@ -44,11 +44,14 @@ describe('message catalogues', () => {
   })
 
   it('translates Russian copy rather than leaving English placeholders', () => {
-    // Proper nouns and language endonyms are legitimately identical.
+    // Proper nouns, language endonyms, and untranslated financial acronyms
+    // are legitimately identical — Russian financial writing keeps "EBITDA"
+    // in Latin script rather than transliterating or translating it.
     const sharedByDesign = new Set([
       'common.appName',
       'localeSwitcher.locale.en',
       'localeSwitcher.locale.ru',
+      'gate.open.ebitda',
     ])
     const identical = keyPaths(en).filter((path) => {
       if (sharedByDesign.has(path)) return false
