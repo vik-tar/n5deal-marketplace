@@ -13,7 +13,12 @@ export function isAiEnabled(): boolean {
 
 function getClient(): Anthropic | null {
   if (!isAiEnabled()) return null
-  client ??= new Anthropic()
+  try {
+    client ??= new Anthropic()
+  } catch (error) {
+    console.error('[ai] client construction failed', error)
+    return null
+  }
   return client
 }
 

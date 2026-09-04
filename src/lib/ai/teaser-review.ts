@@ -35,10 +35,35 @@ Quote the offending text in "excerpt" exactly as it appears. Report nothing you
 cannot quote. Then give at most three short suggestions for making the teaser
 more useful to a buyer without revealing more.`
 
+/** Collapses whitespace and case so a quote survives cosmetic reformatting. */
+function normalise(text: string): string {
+  return text.replace(/\s+/g, ' ').trim().toLowerCase()
+}
+
+/**
+ * Drops any leak whose excerpt is not actually present in the teaser.
+ *
+ * The prompt tells the model to report nothing it cannot quote, but a prompt is
+ * not an enforcement mechanism. This is: the deterministic layer verifies the
+ * model's claim before a seller ever sees it, so a paraphrased or invented
+ * "quote" is discarded rather than presented as evidence of a leak.
+ */
+export function keepQuotedLeaks(
+  leaks: TeaserReview['leaks'],
+  teaserTitle: string,
+  teaserDescription: string,
+): TeaserReview['leaks'] {
+  const haystack = normalise(`${teaserTitle} ${teaserDescription}`)
+  return leaks.filter((leak) => {
+    const needle = normalise(leak.excerpt)
+    return needle.length > 0 && haystack.includes(needle)
+  })
+}
+
 export async function reviewTeaser(
   input: TeaserReviewInput,
 ): Promise<TeaserReview | null> {
-  return callStructured({
+  const result = await callStructured({
     system: SYSTEM,
     user: JSON.stringify({
       teaser: { title: input.teaserTitle, description: input.teaserDescription },
@@ -53,4 +78,11 @@ export async function reviewTeaser(
     maxTokens: 1024,
     effort: 'medium',
   })
+
+  if (result === null) return null
+
+  return {
+    leaks: keepQuotedLeaks(result.leaks, input.teaserTitle, input.teaserDescription),
+    suggestions: result.suggestions,
+  }
 }

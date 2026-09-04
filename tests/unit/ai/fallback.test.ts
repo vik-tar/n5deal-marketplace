@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { isAiEnabled } from '@/lib/ai/client'
 import { parseSearchQuery } from '@/lib/ai/search'
 import { explainMatch } from '@/lib/ai/explain'
@@ -6,7 +6,11 @@ import { reviewTeaser } from '@/lib/ai/teaser-review'
 
 describe('graceful degradation without an API key', () => {
   beforeEach(() => {
-    delete process.env.ANTHROPIC_API_KEY
+    vi.stubEnv('ANTHROPIC_API_KEY', '')
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
   })
 
   it('reports AI as disabled', () => {
