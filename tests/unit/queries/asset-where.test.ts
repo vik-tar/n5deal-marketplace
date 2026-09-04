@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildWhere } from '@/server/queries/assets'
+import { buildWhere } from '@/server/queries/asset-where'
 import { parseAssetFilters, type AssetFilters } from '@/lib/filters/asset-filters'
 
 /** `parseAssetFilters({})` gives the exact default shape; overrides layer on top. */
