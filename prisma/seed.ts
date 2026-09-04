@@ -1,5 +1,6 @@
 import { hash } from 'bcryptjs'
 import { prisma } from '@/server/db'
+import { buildThreadKey } from '@/lib/thread-key'
 import { ASSETS } from './seed-data/assets'
 import { BUYERS, DEMO_ACCOUNTS, DEMO_PASSWORD, MANAGER, SELLERS } from './seed-data/participants'
 
@@ -17,14 +18,6 @@ function findSeller(email: string) {
   const seller = SELLERS.find((s) => s.email === email)
   if (!seller) throw new Error(`Seed data error: no seller fixture for ${email}`)
   return seller
-}
-
-/**
- * Task 19 will export `buildThreadKey` from `@/lib/thread-key`; until it
- * lands, the identical expression is inlined here.
- */
-function buildThreadKey(assetId: string | null, buyerProfileId: string, sellerProfileId: string): string {
-  return `${assetId === null ? 'noasset' : `asset:${assetId}`}|buyer:${buyerProfileId}|seller:${sellerProfileId}`
 }
 
 interface MessageSeed {
@@ -48,7 +41,7 @@ async function createConversation(params: {
   }
   await prisma.conversation.create({
     data: {
-      threadKey: buildThreadKey(assetId, buyerProfileId, sellerProfileId),
+      threadKey: buildThreadKey({ assetId, buyerProfileId, sellerProfileId }),
       assetId,
       buyerProfileId,
       sellerProfileId,

@@ -1,6 +1,6 @@
 import { useTranslations } from 'next-intl'
-import { Button } from '@/components/ui/button'
 import { Card, CardBody, CardHeader } from '@/components/ui/card'
+import { RequestAccessForm } from '@/components/domain/request-access-form'
 import { FOCUS_RING, cn } from '@/lib/cn'
 import { isFullAsset, type AssetDto, type FullAsset } from '@/lib/dto/asset'
 import { formatCents } from '@/lib/money'
@@ -29,6 +29,7 @@ export function GatedSection({
   requestedAt,
   isAnonymous,
   locale,
+  assetId,
 }: {
   dto: AssetDto
   gateStatus: GateStatus
@@ -36,6 +37,7 @@ export function GatedSection({
   requestedAt: Date | null
   isAnonymous: boolean
   locale: string
+  assetId: string
 }) {
   const t = useTranslations('gate')
 
@@ -55,14 +57,7 @@ export function GatedSection({
         </CardHeader>
         <CardBody className="flex flex-col gap-4">
           <p className="text-sm text-ink-muted">{t('requestable.body')}</p>
-          <div>
-            {/* Task 14 wires this up to a short message form; rendered disabled
-                here rather than left out, so the gate's shape is visible now. */}
-            <Button type="button" disabled>
-              {t('requestable.action')}
-            </Button>
-            <p className="mt-2 text-xs text-ink-muted">{t('requestable.comingSoon')}</p>
-          </div>
+          <RequestAccessForm assetId={assetId} locale={locale} />
         </CardBody>
       </Card>
     )

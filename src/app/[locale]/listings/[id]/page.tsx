@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardBody, CardHeader } from '@/components/ui/card'
 import { StatusPill } from '@/components/domain/status-pill'
 import { GatedSection } from '@/components/domain/gated-section'
+import { AccessRequestQueue } from '@/components/domain/access-request-queue'
 import { getAssetDetail, type SellerSummary } from '@/server/queries/assets'
 import { getViewer } from '@/server/session'
 import { codeToFlag } from '@/lib/geo/flag'
@@ -30,7 +31,7 @@ export default async function AssetDetailPage({
   const detail = await getAssetDetail(id, viewer)
   if (!detail) notFound()
 
-  const { asset, grant, seller, gateStatus, requestedAt } = detail
+  const { asset, grant, seller, gateStatus, requestedAt, requestQueue } = detail
   const flag = codeToFlag(asset.country)
 
   return (
@@ -102,7 +103,10 @@ export default async function AssetDetailPage({
         requestedAt={requestedAt}
         isAnonymous={viewer === null}
         locale={locale}
+        assetId={id}
       />
+
+      <AccessRequestQueue queue={requestQueue} locale={locale} />
     </main>
   )
 }

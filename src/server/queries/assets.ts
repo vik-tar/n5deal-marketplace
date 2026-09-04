@@ -125,6 +125,89 @@ export interface AssetDetail {
   gateStatus: GateStatus
   /** The viewer's own request date. Only meaningful when `gateStatus` is `'PENDING'`. */
   requestedAt: Date | null
+  /**
+   * The requests the owning seller (or a manager) may act on for *this*
+   * listing — empty for every other viewer. Task 18's `getSellerOverview`
+   * will aggregate the equivalent queue across a seller's whole catalog for
+   * the dashboard; this per-listing slice exists so `decideAccess` and
+   * `revokeAccess` (`@/server/actions/access-requests`) have a real place to
+   * be invoked from today, on the listing they act on, rather than sitting
+   * unreachable until that dashboard lands.
+   */
+  requestQueue: AssetRequestQueue
+}
+
+/** One buyer's pending ask, as the owning seller or a manager should see it. */
+export interface PendingRequestSummary {
+  id: string
+  buyerDisplayName: string
+  message: string
+  requestedAt: Date
+}
+
+/** One buyer currently holding an approved grant on this listing. */
+export interface ApprovedGrantSummary {
+  id: string
+  buyerDisplayName: string
+  decidedAt: Date | null
+}
+
+export interface AssetRequestQueue {
+  pending: PendingRequestSummary[]
+  approved: ApprovedGrantSummary[]
+}
+
+/**
+ * The pending and approved `AccessRequest` rows against one listing, for its
+ * owning seller or a manager to decide or revoke. Returns empty arrays —
+ * never an error, never partial data — for anyone else, including the
+ * requesting buyers themselves: a buyer already sees their own standing via
+ * `grant`/`gateStatus` above, and must not learn about another buyer's
+ * request against the same listing.
+ *
+ * This is a real, narrow query, not a stand-in: unlike `listAssets`'s
+ * removed per-row `canViewAsset` re-check (see the doc comment on
+ * `listAssets`), the `isOwner`/`canModerate` guard here is the only gate
+ * between "no rows" and "this seller's real requests", so it is load-bearing
+ * and worth keeping.
+ */
+async function getAssetRequestQueue(ref: AssetRef, viewer: MaybeViewer): Promise<AssetRequestQueue> {
+  if (!isOwner(viewer, ref) && !canModerate(viewer)) {
+    return { pending: [], approved: [] }
+  }
+
+  const rows = await prisma.accessRequest.findMany({
+    where: { assetId: ref.id, status: { in: ['REQUESTED', 'APPROVED'] } },
+    orderBy: { requestedAt: 'asc' },
+    select: {
+      id: true,
+      status: true,
+      message: true,
+      requestedAt: true,
+      decidedAt: true,
+      buyerProfile: { select: { displayName: true } },
+    },
+  })
+
+  const pending: PendingRequestSummary[] = []
+  const approved: ApprovedGrantSummary[] = []
+  for (const row of rows) {
+    if (row.status === 'REQUESTED') {
+      pending.push({
+        id: row.id,
+        buyerDisplayName: row.buyerProfile.displayName,
+        message: row.message,
+        requestedAt: row.requestedAt,
+      })
+    } else {
+      approved.push({
+        id: row.id,
+        buyerDisplayName: row.buyerProfile.displayName,
+        decidedAt: row.decidedAt,
+      })
+    }
+  }
+  return { pending, approved }
 }
 
 /**
@@ -192,20 +275,32 @@ export async function getAssetDetail(
   const canSeeConfidential = canViewFullAsset(viewer, ref, grant)
 
   // A view only counts when neither the owner nor a manager is looking —
-  // their own visits are not market interest.
+  // their own visits are not market interest. The same `exempt` viewers are
+  // exactly who `getAssetRequestQueue` will return real rows to; everyone
+  // else gets `{ pending: [], approved: [] }` without an extra query.
   const exempt = isOwner(viewer, ref) || canModerate(viewer)
-  const current = exempt
-    ? asset
-    : await prisma.asset.update({
-        where: { id: asset.id },
-        data: { viewCount: { increment: 1 } },
-      })
+  const [current, requestQueue] = await Promise.all([
+    exempt
+      ? Promise.resolve(asset)
+      : prisma.asset.update({
+          where: { id: asset.id },
+          data: { viewCount: { increment: 1 } },
+        }),
+    getAssetRequestQueue(ref, viewer),
+  ])
 
   const dto = toAssetDto(current, canSeeConfidential)
   const gateStatus = selectGateStatus({
     isFullAsset: isFullAsset(dto),
     grant,
     canRequest: canRequestAccess(viewer, ref, grant),
+    // Re-runs the same predicate with a hypothetical `'NONE'` grant — "if
+    // this buyer had never asked, could they request right now?" — so a
+    // `'REQUESTED'` grant left behind by an asset later marked `SOLD`, or by
+    // a buyer suspended after requesting, renders `'CLOSED'` instead of a
+    // stale "Pending" forever. See the doc comment on `selectGateStatus`
+    // (`@/lib/gate`) for the full rationale.
+    requestStillEligible: canRequestAccess(viewer, ref, 'NONE'),
   })
 
   return {
@@ -219,5 +314,6 @@ export async function getAssetDetail(
     },
     gateStatus,
     requestedAt: viewerRequest?.requestedAt ?? null,
+    requestQueue,
   }
 }

@@ -137,7 +137,15 @@
       "title": "Behind the NDA gate",
       "body": "The legal entity name, financials, client count, data room and confidential notes are released once the seller approves your access request.",
       "action": "Request access",
-      "comingSoon": "Request forms are coming soon."
+      "submitting": "Sending...",
+      "messageLabel": "Message to the seller (optional)",
+      "messagePlaceholder": "Introduce yourself and explain your interest in this listing.",
+      "error": {
+        "FORBIDDEN": "You are not able to request access to this listing.",
+        "NOT_FOUND": "This listing could not be found.",
+        "ALREADY_REQUESTED": "You already have a request on file for this listing.",
+        "INVALID": "Your message is too long. Shorten it and try again."
+      }
     },
     "pending": {
       "title": "Your request is with the seller",
@@ -150,6 +158,25 @@
       "default": "The legal entity name, financials, client count and data room are released only to a buyer the seller has approved.",
       "signInPrompt": "Sign in to request access to a listing's confidential details.",
       "signInAction": "Sign in"
+    }
+  },
+  "requestQueue": {
+    "title": "Access requests",
+    "pendingTitle": "Pending requests",
+    "approvedTitle": "Approved buyers",
+    "requestedOn": "Requested {date}",
+    "decidedOn": "Approved {date}",
+    "approve": "Approve",
+    "decline": "Decline",
+    "revoke": "Revoke access",
+    "approving": "Approving...",
+    "declining": "Declining...",
+    "revoking": "Revoking...",
+    "error": {
+      "FORBIDDEN": "This request can no longer be acted on.",
+      "NOT_FOUND": "This request could not be found.",
+      "ALREADY_REQUESTED": "This request has already been decided.",
+      "INVALID": "That action is not valid."
     }
   }
 }
