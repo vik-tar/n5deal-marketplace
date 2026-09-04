@@ -63,6 +63,14 @@ describe('parseAssetFilters', () => {
   it('truncates an overlong search string instead of rejecting it', () => {
     expect(parseAssetFilters({ q: 'x'.repeat(500) }).q).toHaveLength(200)
   })
+
+  it('rejects page numbers beyond MAX_PAGE', () => {
+    expect(parseAssetFilters({ page: '100000000000000000000' }).page).toBe(1)
+  })
+
+  it('rejects price bounds beyond MAX_FILTER_CENTS', () => {
+    expect(parseAssetFilters({ priceMax: '1e21' }).priceMaxCents).toBe(null)
+  })
 })
 
 describe('assetFiltersToSearchParams', () => {
