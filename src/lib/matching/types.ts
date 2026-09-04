@@ -41,5 +41,11 @@ export type MatchBand = 'STRONG' | 'GOOD' | 'NONE'
 export interface MatchResult {
   score: number
   band: MatchBand
+  /**
+   * How many of the five criteria the mandate actually constrains, 0-5.
+   * A score of 100 at specificity 0 means "this mandate excludes nothing",
+   * not "this is a strong fit" — consumers must not rank on score alone.
+   */
+  specificity: number
   reasons: MatchReason[]
 }

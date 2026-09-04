@@ -100,3 +100,33 @@ describe('scoreMatch', () => {
     ])
   })
 })
+
+describe('scoreMatch specificity', () => {
+  it('reports zero for a mandate that constrains nothing', () => {
+    expect(scoreMatch(emptyMandate, asset).specificity).toBe(0)
+  })
+
+  it('reports five for a fully specified mandate', () => {
+    expect(scoreMatch(narrowMandate, asset).specificity).toBe(5)
+  })
+
+  it('counts a ticket band as one criterion however it is bounded', () => {
+    const base = { ...emptyMandate, ticketMinCents: 1_00, ticketMaxCents: null }
+    expect(scoreMatch(base, asset).specificity).toBe(1)
+    expect(scoreMatch({ ...base, ticketMinCents: null, ticketMaxCents: 1_00 }, asset).specificity).toBe(1)
+    expect(scoreMatch({ ...base, ticketMinCents: 1_00, ticketMaxCents: 2_00 }, asset).specificity).toBe(1)
+  })
+
+  it('counts only the criteria that are filled in', () => {
+    expect(scoreMatch({ ...emptyMandate, categories: ['EMI'] }, asset).specificity).toBe(1)
+    expect(
+      scoreMatch({ ...emptyMandate, categories: ['EMI'], countries: ['MT'] }, asset).specificity,
+    ).toBe(2)
+  })
+
+  it('leaves the score and band untouched', () => {
+    const result = scoreMatch(emptyMandate, asset)
+    expect(result.score).toBe(100)
+    expect(result.band).toBe('STRONG')
+  })
+})

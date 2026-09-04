@@ -61,6 +61,17 @@ function priceReason(
   return { code, kind: 'MISMATCH', weight, earned: 0 }
 }
 
+/** Counts the criteria the mandate actually constrains. */
+function countSpecificity(mandate: MandateCriteria): number {
+  return (
+    (mandate.categories.length > 0 ? 1 : 0) +
+    (mandate.countries.length > 0 ? 1 : 0) +
+    (mandate.licenceTypes.length > 0 ? 1 : 0) +
+    (mandate.businessStatuses.length > 0 ? 1 : 0) +
+    (mandate.ticketMinCents !== null || mandate.ticketMaxCents !== null ? 1 : 0)
+  )
+}
+
 /**
  * Scores how well a listing fits a buyer's mandate.
  * Pure: the same inputs always produce the same score, so buyer-side and
@@ -82,5 +93,5 @@ export function scoreMatch(
   const band =
     score >= STRONG_THRESHOLD ? 'STRONG' : score >= GOOD_THRESHOLD ? 'GOOD' : 'NONE'
 
-  return { score, band, reasons }
+  return { score, band, specificity: countSpecificity(mandate), reasons }
 }
