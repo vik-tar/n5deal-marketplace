@@ -17,6 +17,8 @@
 - **Everything under `src/lib/` is pure**: no Prisma import at runtime, no `fetch`, no environment reads. Type-only imports from the generated Prisma client are allowed.
 - **Every Server Action re-checks authorization server-side** through `src/lib/authz`. UI gating is convenience, never the control.
 - **Confidential asset fields** are exactly: `legalName`, `revenueCents`, `ebitdaCents`, `clientCount`, `dataRoomUrl`, `confidentialNotes`. They may only reach a component through `toFullAsset`.
+- **Prisma import path is `@/generated/prisma/client`.** The `prisma-client` generator emits no index file; `src/generated/prisma/` contains `client.ts`, `enums.ts` and `models.ts`, and `client.ts` re-exports `PrismaClient`, all nine enums and all ten model types.
+- **The five money columns are `BigInt` in the database and `number` above the DTO layer.** `Asset.askingPriceCents`, `Asset.revenueCents`, `Asset.ebitdaCents`, `Mandate.ticketMinCents` and `Mandate.ticketMaxCents` are Postgres `bigint`, because `Int` caps at €21.47M and the seed spans up to €25M. Prisma therefore hands them back as JavaScript `bigint`. Convert to `number` in the DTO layer (`src/lib/dto/`) and in the query layer — `bigint` must never reach a React component, because Next.js cannot serialise it across the server/client boundary. `Number.MAX_SAFE_INTEGER` is €90 trillion in cents, so the narrowing is lossless. Conversely, Prisma `where` clauses filtering these columns need `BigInt(...)` around the `number` bounds coming from the URL filters.
 - **No user-facing English or Russian string literals in components.** All copy goes through `next-intl` message keys in `messages/en.json` and `messages/ru.json`.
 - **Every AI feature must degrade.** With `ANTHROPIC_API_KEY` unset the app runs fully; AI entry points hide or fall back to deterministic behaviour.
 - **Anthropic model id:** `claude-opus-5` (exact string, never with a date suffix).
@@ -249,7 +251,7 @@ git commit -m "chore: scaffold Next.js app with Vitest and money formatting"
 
 **Interfaces:**
 - Consumes: `DATABASE_URL` from Task 1's `.env.example`.
-- Produces: generated client at `@/generated/prisma` exporting `PrismaClient` and every enum (`Role`, `UserStatus`, `AssetCategory`, `BusinessStatus`, `AssetStatus`, `AccessStatus`, `BuyerType`, `ModAction`, `ModTargetType`); `prisma` singleton exported from `@/server/db`.
+- Produces: generated client at `@/generated/prisma/client` exporting `PrismaClient` and every enum (`Role`, `UserStatus`, `AssetCategory`, `BusinessStatus`, `AssetStatus`, `AccessStatus`, `BuyerType`, `ModAction`, `ModTargetType`); `prisma` singleton exported from `@/server/db`.
 
 - [ ] **Step 1: Install Prisma**
 
@@ -327,8 +329,8 @@ model Mandate {
   countries        String[]
   licenceTypes     String[]
   businessStatuses BusinessStatus[]
-  ticketMinCents   Int?
-  ticketMaxCents   Int?
+  ticketMinCents   BigInt?
+  ticketMaxCents   BigInt?
   timelineMonths   Int?
   notes            String           @default("")
   updatedAt        DateTime         @updatedAt
@@ -363,7 +365,7 @@ model Asset {
   country           String
   regulator         String
   businessStatus    BusinessStatus
-  askingPriceCents  Int
+  askingPriceCents  BigInt
   employees         Int
   yearOfIssue       Int
   included          String[]
@@ -372,8 +374,8 @@ model Asset {
 
   // Confidential (gated behind an approved AccessRequest)
   legalName          String
-  revenueCents       Int
-  ebitdaCents        Int
+  revenueCents       BigInt
+  ebitdaCents        BigInt
   clientCount        Int
   dataRoomUrl        String?
   confidentialNotes  String  @default("")
@@ -510,7 +512,7 @@ Expected: migration applied, client generated into `src/generated/prisma`.
 Create `src/server/db.ts`:
 
 ```ts
-import { PrismaClient } from '@/generated/prisma'
+import { PrismaClient } from '@/generated/prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -893,7 +895,7 @@ git commit -m "feat: add dark design system and application shell"
 - Test: `tests/unit/matching/score.test.ts`
 
 **Interfaces:**
-- Consumes: enum types from `@/generated/prisma` (type-only import).
+- Consumes: enum types from `@/generated/prisma/client` (type-only import).
 - Produces:
   - `scoreMatch(mandate: MandateCriteria, asset: AssetCriteria): MatchResult`
   - `MATCH_WEIGHTS: Record<MatchReasonCode, number>`
@@ -906,7 +908,7 @@ This function is used in both directions: a buyer's recommended assets (Task 18)
 Create `src/lib/matching/types.ts`:
 
 ```ts
-import type { AssetCategory, BusinessStatus } from '@/generated/prisma'
+import type { AssetCategory, BusinessStatus } from '@/generated/prisma/client'
 
 /** The buyer's stated interests. Empty arrays and null bounds mean "no preference". */
 export interface MandateCriteria {
@@ -1188,7 +1190,7 @@ git commit -m "feat: add deterministic mandate-to-asset match scoring"
 - Test: `tests/unit/authz/rules.test.ts`
 
 **Interfaces:**
-- Consumes: enum types from `@/generated/prisma`.
+- Consumes: enum types from `@/generated/prisma/client`.
 - Produces: types `Viewer`, `MaybeViewer`, `AssetRef`, `GrantState`; predicates `isActive`, `canAccessApp`, `isOwner`, `canModerate`, `canViewAsset`, `canViewFullAsset`, `canEditAsset`, `canRequestAccess`, `canDecideAccess`, `canRevokeAccess`, `canMessage`, `canPublishListing`; constant `PUBLIC_ASSET_STATUSES`.
 
 Every Server Action in Tasks 14–20 calls these. They are the single source of truth for both rendering decisions and mutation guards.
@@ -1198,7 +1200,7 @@ Every Server Action in Tasks 14–20 calls these. They are the single source of 
 Create `src/lib/authz/types.ts`:
 
 ```ts
-import type { AssetStatus, Role, UserStatus } from '@/generated/prisma'
+import type { AssetStatus, Role, UserStatus } from '@/generated/prisma/client'
 
 /** The authenticated actor, flattened from the session. */
 export interface Viewer {
@@ -1418,7 +1420,7 @@ Expected: FAIL — `Failed to resolve import "@/lib/authz"`.
 Create `src/lib/authz/rules.ts`:
 
 ```ts
-import type { AssetStatus } from '@/generated/prisma'
+import type { AssetStatus } from '@/generated/prisma/client'
 import type { AssetRef, GrantState, MaybeViewer, Viewer } from './types'
 
 /** Statuses whose listings are reachable by a public URL. */
@@ -1708,7 +1710,7 @@ export function toCountryCodes(value: string | string[] | undefined): string[] {
 Create `src/lib/filters/asset-filters.ts`:
 
 ```ts
-import type { AssetCategory, BusinessStatus } from '@/generated/prisma'
+import type { AssetCategory, BusinessStatus } from '@/generated/prisma/client'
 import {
   keepKnown,
   toCents,
@@ -1829,7 +1831,7 @@ git commit -m "feat: parse and serialise catalog filters through the URL"
 - Test: `tests/unit/dto/asset.test.ts`
 
 **Interfaces:**
-- Consumes: `Asset` type and `Prisma` runtime metadata from `@/generated/prisma`.
+- Consumes: `Asset` type and `Prisma` runtime metadata from `@/generated/prisma/client`.
 - Produces: `CONFIDENTIAL_ASSET_FIELDS`, `PUBLIC_ASSET_FIELDS`, types `TeaserAsset`, `FullAsset`, `AssetDto`; functions `toTeaserAsset`, `toFullAsset`, `toAssetDto`, and the type guard `isFullAsset`.
 
 This is the enforcement point for design decision D3. `toAssetDto` takes a boolean rather than a viewer so it stays pure — the decision itself belongs to `@/lib/authz`.
@@ -1842,8 +1844,8 @@ Create `tests/unit/dto/asset.test.ts`:
 
 ```ts
 import { describe, expect, it } from 'vitest'
-import { Prisma } from '@/generated/prisma'
-import type { Asset } from '@/generated/prisma'
+import { Prisma } from '@/generated/prisma/client'
+import type { Asset } from '@/generated/prisma/client'
 import {
   CONFIDENTIAL_ASSET_FIELDS,
   PUBLIC_ASSET_FIELDS,
@@ -1863,15 +1865,15 @@ const sample: Asset = {
   country: 'MT',
   regulator: 'MFSA',
   businessStatus: 'ACTIVE',
-  askingPriceCents: 1_000_000_00,
+  askingPriceCents: 1_000_000_00n,
   employees: 14,
   yearOfIssue: 2019,
   included: ['Staff', 'Software'],
   teaserTitle: 'Maltese EMI with live portfolio',
   teaserDescription: 'Operating EMI, EEA passporting, active client base.',
   legalName: 'Valletta Payments Ltd',
-  revenueCents: 2_100_000_00,
-  ebitdaCents: 400_000_00,
+  revenueCents: 2_100_000_00n,
+  ebitdaCents: 400_000_00n,
   clientCount: 3_200,
   dataRoomUrl: 'https://dataroom.example.com/750',
   confidentialNotes: 'Founder retiring; sale is time-sensitive.',
@@ -1893,7 +1895,15 @@ describe('toTeaserAsset', () => {
   it('keeps the teaser fields intact', () => {
     const teaser = toTeaserAsset(sample)
     expect(teaser.teaserTitle).toBe(sample.teaserTitle)
-    expect(teaser.askingPriceCents).toBe(sample.askingPriceCents)
+    expect(teaser.askingPriceCents).toBe(Number(sample.askingPriceCents))
+  })
+
+  it('narrows bigint money to a JSON-serialisable number', () => {
+    const teaser = toTeaserAsset(sample)
+    expect(typeof teaser.askingPriceCents).toBe('number')
+    // bigint would throw here — this is exactly what Next.js does at the
+    // server/client boundary, so the assertion is the real failure mode.
+    expect(() => JSON.stringify(teaser)).not.toThrow()
   })
 
   it('does not leak confidential values through JSON serialisation', () => {
@@ -1941,7 +1951,7 @@ Expected: FAIL — module not found.
 Create `src/lib/dto/asset.ts`:
 
 ```ts
-import type { Asset } from '@/generated/prisma'
+import type { Asset } from '@/generated/prisma/client'
 
 /**
  * Fields released only to a buyer holding an approved access request,
@@ -1987,22 +1997,43 @@ export const PUBLIC_ASSET_FIELDS = [
 
 export type ConfidentialAssetField = (typeof CONFIDENTIAL_ASSET_FIELDS)[number]
 
-export type TeaserAsset = Omit<Asset, ConfidentialAssetField> & { redacted: true }
-export type FullAsset = Asset & { redacted: false }
+/**
+ * Money columns are `bigint` on the Prisma row and `number` from here upward.
+ * Next.js cannot serialise a bigint across the server/client boundary, so this
+ * layer — which already exists to strip confidential fields — is also where the
+ * narrowing happens. Lossless: MAX_SAFE_INTEGER is €90 trillion in cents.
+ */
+const MONEY_FIELDS = ['askingPriceCents', 'revenueCents', 'ebitdaCents'] as const
+type MoneyField = (typeof MONEY_FIELDS)[number]
+
+export type TeaserAsset = Omit<Asset, ConfidentialAssetField | 'askingPriceCents'> & {
+  askingPriceCents: number
+  redacted: true
+}
+export type FullAsset = Omit<Asset, MoneyField> & Record<MoneyField, number> & {
+  redacted: false
+}
 export type AssetDto = TeaserAsset | FullAsset
 
 /** Builds a teaser by construction, not by deletion — a new column is absent by default. */
 export function toTeaserAsset(asset: Asset): TeaserAsset {
   const teaser = {} as Record<string, unknown>
   for (const field of PUBLIC_ASSET_FIELDS) {
-    teaser[field] = asset[field]
+    const value = asset[field]
+    teaser[field] = typeof value === 'bigint' ? Number(value) : value
   }
   teaser.redacted = true
   return teaser as TeaserAsset
 }
 
 export function toFullAsset(asset: Asset): FullAsset {
-  return { ...asset, redacted: false }
+  return {
+    ...asset,
+    askingPriceCents: Number(asset.askingPriceCents),
+    revenueCents: Number(asset.revenueCents),
+    ebitdaCents: Number(asset.ebitdaCents),
+    redacted: false,
+  }
 }
 
 export function toAssetDto(asset: Asset, canSeeConfidential: boolean): AssetDto {
@@ -2613,7 +2644,7 @@ import { handlers } from '@/auth'
 export const { GET, POST } = handlers
 ```
 
-Create `src/types/next-auth.d.ts` augmenting `Session["user"]` and `JWT` with `id`, `role`, `status`, `buyerProfileId`, `sellerProfileId`, importing `Role` and `UserStatus` from `@/generated/prisma`.
+Create `src/types/next-auth.d.ts` augmenting `Session["user"]` and `JWT` with `id`, `role`, `status`, `buyerProfileId`, `sellerProfileId`, importing `Role` and `UserStatus` from `@/generated/prisma/client`.
 
 - [ ] **Step 3: Build the viewer helpers**
 
@@ -2696,7 +2727,9 @@ git commit -m "feat: add credentials auth with one-click demo logins"
 
 **Interfaces:**
 - Consumes: `parseAssetFilters`, `PAGE_SIZE`, `toTeaserAsset`, `canViewAsset`, `getViewer`, `parseSearchQuery`.
-- Produces: `listAssets(filters: AssetFilters, viewer: MaybeViewer): Promise<{ items: TeaserAsset[]; total: number; facets: CategoryFacet[] }>` from `@/server/queries/assets`.
+- Produces: `listAssets(filters: AssetFilters, viewer: MaybeViewer): Promise<{ items: TeaserAsset[]; total: number; facets: CategoryFacet[] }>` from `@/server/queries/assets`, where `CategoryFacet` is `{ category: AssetCategory; count: number }`, declared and exported from the same file.
+- Also create: `src/server/actions/search.ts` — the `'use server'` wrapper the smart-search box calls, exposing `parseSearchQueryAction(query: string): Promise<Partial<AssetFilters> | null>`.
+- Note: the price bounds in `AssetFilters` are `number` cents, but `askingPriceCents` is a `bigint` column — wrap them as `BigInt(filters.priceMinCents)` inside the Prisma `where` clause.
 
 - [ ] **Step 1: Write the catalog query**
 
@@ -2751,7 +2784,7 @@ git commit -m "feat: add asset catalog with URL-driven filters and smart search"
 
 **Interfaces:**
 - Consumes: `canViewAsset`, `canViewFullAsset`, `toAssetDto`, `getViewer`.
-- Produces: `getAssetDetail(id: string, viewer: MaybeViewer): Promise<{ asset: AssetDto; grant: GrantState; seller: SellerSummary } | null>`.
+- Produces: `getAssetDetail(id: string, viewer: MaybeViewer): Promise<{ asset: AssetDto; grant: GrantState; seller: SellerSummary } | null>`, where `SellerSummary` is `{ id: string; companyName: string | null; country: string; verified: boolean }` declared in the same file. `companyName` is `null` whenever the gate is closed — the seller's identity is confidential until an access request is approved, so it is redacted by the same rule as the asset's own fields.
 
 - [ ] **Step 1: Write the detail query**
 
@@ -2802,6 +2835,8 @@ git commit -m "feat: add asset detail with a server-enforced NDA gate"
 **Interfaces:**
 - Consumes: `canRequestAccess`, `canDecideAccess`, `canRevokeAccess`, `requireViewer`.
 - Produces: Server Actions `requestAccess(assetId, message)`, `decideAccess(requestId, decision)`, `revokeAccess(requestId)`, each returning `{ ok: true } | { ok: false; error: ActionError }`.
+- Also create: `src/server/actions/types.ts` exporting `export type ActionError = 'FORBIDDEN' | 'NOT_FOUND' | 'ALREADY_REQUESTED' | 'INVALID'` and the shared `ActionResult` union above. Every Server Action in Tasks 14-20 returns that union.
+- Every Server Action takes `locale` as part of its input payload, supplied by the calling component, because `requireViewer(locale)` needs it to redirect in the right language.
 
 - [ ] **Step 1: Write the actions**
 
@@ -2931,6 +2966,7 @@ git commit -m "feat: add buyer profile and investment mandate editing"
 **Files:**
 - Create: `src/server/queries/buyers.ts`, `src/app/[locale]/buyers/page.tsx`, `src/app/[locale]/buyers/[id]/page.tsx`
 - Create: `src/components/domain/buyer-card.tsx`, `src/components/domain/buyer-filter-sidebar.tsx`, `src/components/domain/match-badge.tsx`
+- Create: `src/server/actions/ai.ts` — the `'use server'` wrapper the match badge calls, exposing `explainMatchAction(input: ExplainMatchInput): Promise<string | null>`
 
 **Interfaces:**
 - Consumes: `parseBuyerFilters`, `scoreMatch`, `canModerate`, `requireViewer`.
