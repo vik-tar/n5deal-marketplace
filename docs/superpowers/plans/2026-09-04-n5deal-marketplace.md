@@ -37,7 +37,7 @@ src/
     routing.ts                   locales, defaultLocale (Task 3)
     request.ts                   per-request messages (Task 3)
     navigation.ts                Link/redirect/usePathname/useRouter (Task 3)
-  middleware.ts                  next-intl locale middleware (Task 3)
+  proxy.ts                       next-intl locale middleware (Task 3)
   app/[locale]/
     layout.tsx                   shell: provider, header, theme (Task 4)
     page.tsx                     landing (Task 21)
@@ -549,7 +549,7 @@ git commit -m "feat: add Prisma schema, migrations and client singleton"
 ### Task 3: Internationalisation foundation
 
 **Files:**
-- Create: `src/i18n/routing.ts`, `src/i18n/request.ts`, `src/i18n/navigation.ts`, `src/middleware.ts`, `messages/en.json`, `messages/ru.json`
+- Create: `src/i18n/routing.ts`, `src/i18n/request.ts`, `src/i18n/navigation.ts`, `src/proxy.ts`, `messages/en.json`, `messages/ru.json`
 - Modify: `next.config.ts`
 - Move: `src/app/layout.tsx` and `src/app/page.tsx` into `src/app/[locale]/`
 
@@ -612,7 +612,7 @@ export default getRequestConfig(async ({ requestLocale }) => {
 })
 ```
 
-Create `src/middleware.ts`:
+Create `src/proxy.ts` (Next.js 16 deprecates the `middleware.ts` file convention in favour of `proxy.ts`; same contents, same matcher):
 
 ```ts
 import createMiddleware from 'next-intl/middleware'
@@ -2551,7 +2551,7 @@ git commit -m "feat: seed demo participants, listings and access requests"
 **Files:**
 - Create: `src/auth.ts`, `src/app/api/auth/[...nextauth]/route.ts`, `src/server/session.ts`, `src/types/next-auth.d.ts`
 - Create: `src/app/[locale]/login/page.tsx`, `src/app/[locale]/login/demo-login.tsx`, `src/app/[locale]/suspended/page.tsx`
-- Modify: `src/app/[locale]/layout.tsx`, `src/components/domain/site-header.tsx`, `src/middleware.ts`
+- Modify: `src/app/[locale]/layout.tsx`, `src/components/domain/site-header.tsx`, `src/proxy.ts`
 
 **Interfaces:**
 - Consumes: `prisma`, `DEMO_ACCOUNTS`/`DEMO_PASSWORD`, `Viewer` from `@/lib/authz`.
@@ -2703,7 +2703,7 @@ That extra query per request is a deliberate trade: correctness of suspension ov
 
 In `src/app/[locale]/layout.tsx`, call `getViewer()` and pass the result to `<SiteHeader viewer={viewer} />`. Tighten the `SiteHeader` prop type from Task 4 to `Viewer | null`.
 
-Extend the middleware matcher so `/api/auth` stays excluded (it already is), and confirm sign-in redirects land on a locale-prefixed path.
+Extend the matcher in `src/proxy.ts` so `/api/auth` stays excluded (it already is), and confirm sign-in redirects land on a locale-prefixed path.
 
 - [ ] **Step 6: Verify all three roles**
 
