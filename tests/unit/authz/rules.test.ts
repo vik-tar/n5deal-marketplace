@@ -49,6 +49,7 @@ const published: AssetRef = {
   ownerStatus: 'ACTIVE',
 }
 const draft: AssetRef = { ...published, status: 'DRAFT' }
+const sold: AssetRef = { ...published, status: 'SOLD' }
 const ownerSuspended: AssetRef = { ...published, ownerStatus: 'SUSPENDED' }
 
 describe('canViewAsset', () => {
@@ -76,8 +77,18 @@ describe('canViewAsset', () => {
     expect(canViewAsset(otherSeller, draft)).toBe(false)
   })
 
-  it('locks out a suspended viewer entirely', () => {
-    expect(canViewAsset({ ...buyer, status: 'SUSPENDED' }, published)).toBe(false)
+  it('shows a suspended viewer exactly the public teaser an anonymous visitor sees, and nothing more', () => {
+    const suspendedBuyer: Viewer = { ...buyer, status: 'SUSPENDED' }
+    // Suspension bars transacting, not looking: the teaser is visible on both
+    // public statuses, matching what an anonymous visitor sees (and matching
+    // the catalog's own viewer-status-blind visibility floor — see
+    // `tests/unit/queries/asset-where.test.ts`).
+    expect(canViewAsset(suspendedBuyer, published)).toBe(true)
+    expect(canViewAsset(suspendedBuyer, sold)).toBe(true)
+    // But nothing beyond the teaser opens up: no confidential data, and no
+    // ability to request it.
+    expect(canViewFullAsset(suspendedBuyer, published, 'NONE')).toBe(false)
+    expect(canRequestAccess(suspendedBuyer, published, 'NONE')).toBe(false)
   })
 })
 

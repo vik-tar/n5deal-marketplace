@@ -53,7 +53,10 @@ export function canPublishListing(viewer: MaybeViewer): boolean {
 export function canViewAsset(viewer: MaybeViewer, asset: AssetRef): boolean {
   if (canModerate(viewer)) return true
   if (isOwner(viewer, asset)) return true
-  if (viewer !== null && viewer.status !== 'ACTIVE') return false
+  // A suspended or removed viewer sees exactly what an anonymous visitor sees:
+  // a public teaser and nothing more. Suspension bars transacting, not looking,
+  // and the catalog's visibility floor is already viewer-status-blind — denying
+  // here produced a card in the list that 404s when clicked.
   return PUBLIC_ASSET_STATUSES.includes(asset.status) && asset.ownerStatus === 'ACTIVE'
 }
 

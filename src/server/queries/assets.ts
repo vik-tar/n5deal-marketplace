@@ -149,7 +149,19 @@ export async function getAssetDetail(
 ): Promise<AssetDetail | null> {
   const row = await prisma.asset.findUnique({
     where: { id },
-    include: { sellerProfile: { include: { user: { select: { status: true } } } } },
+    // `select`, not `include`, on the nested `sellerProfile` — `SellerSummary`
+    // names exactly four fields (`id`, `companyName`, `country`, `verified`);
+    // pulling the whole relation (`contactName`, `websiteUrl`, `userId`,
+    // `createdAt`) would still be built field-by-field into `seller` below
+    // today, but it drops the structural guarantee that a future edit which
+    // spreads `...sellerProfile` cannot silently leak an extra field — the
+    // same reasoning `getViewer` (`@/server/session`) documents for its own
+    // `select`.
+    include: {
+      sellerProfile: {
+        select: { id: true, companyName: true, country: true, verified: true, user: { select: { status: true } } },
+      },
+    },
   })
   if (!row) return null
 
