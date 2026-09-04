@@ -9,30 +9,49 @@ Written 2026-09-04, mid-execution, so work can resume after a shutdown.
 - **Spec:** `docs/superpowers/specs/2026-09-04-n5deal-marketplace-design.md`.
 - **Full execution ledger:** `docs/superpowers/EXECUTION-LEDGER.md` — every ruling, every deferred minor, every interface fact, in order. This is the file to read first on resume. A live copy also sits at `.superpowers/sdd/2026-09-04-n5deal-marketplace/progress.md`, which is git-ignored scratch and will be destroyed by `git clean -fdx`; the committed copy is the durable one.
 
-## Status: 17 of 23 implemented, 16 reviewed
+## Status: 17 of 23 complete and reviewed
 
 Complete and reviewed: 1 scaffold, 2 Prisma schema, 3 i18n, 4 design system, 5 match scoring,
 6 authorization, 7 URL filters, 8 redaction, 9 AI layer, 10 seed data, 11 auth, 12 asset catalog,
 13 asset detail + NDA gate, 14 access requests, 15 listing creation, 16 buyer profile + mandate.
-Implemented but NOT yet reviewed: 17 buyer catalog for sellers.
+17 buyer catalog for sellers.
 
-**233 tests pass, and the whole suite passes with `DATABASE_URL` unset** — no unit test depends on
+**240 tests pass, and the whole suite passes with `DATABASE_URL` unset** — no unit test depends on
 infrastructure. Keep that property.
 
-## Task 17 finished after the snapshot was taken
+## Task 17 is complete and reviewed
 
-The implementer completed and committed Task 17 as `86489c9`, on top of the `4b26a4e` WIP
-snapshot. It reconciled the delta itself and re-verified. **233 tests pass**, typecheck, lint and
-build are clean, and the suite still passes with `DATABASE_URL` unset.
+Finished as `86489c9`, reviewed, and fixed as `28eb71c` (a buyer search input that had been built
+end-to-end in the query layer but had no UI control, and a missing final total-order key on the
+sort). **240 tests pass**, with and without `DATABASE_URL`.
 
-Task 17 has NOT yet been through its task review — that is the first thing to do on resume.
+The `4b26a4e` WIP commit earlier in the history was a controller-made snapshot taken during a
+shutdown scare while that task was still running. It is superseded and harmless — do not act on
+its warning message.
+
+## Resume here: Task 18
+
+Task 18 (role dashboards) was dispatched and produced nothing before the session ended — the
+working tree was clean at shutdown. Start it fresh from
+`.superpowers/sdd/2026-09-04-n5deal-marketplace/task-18-brief.md`, on the accelerated cycle.
+
+Three things that task must carry, recorded during earlier work:
+
+- **Reuse, do not reimplement.** Task 14 already built `getAssetRequestQueue` and
+  `access-request-queue.tsx` for the seller's approve/decline surface. `getSellerOverview` should
+  compose or consciously supersede them, not write a parallel second version.
+- **Never render a ranking at `specificity === 0`** — a mandate constraining nothing scores 100
+  against everything, so show the "complete your mandate" prompt instead. Between 1 and 4, render
+  the ranking but label what it is based on.
+- **Add the missing navigation entry points.** `/profile` (Task 16) and `/listings/new`
+  (Task 15) are finished but unreachable from the UI.
 
 ## Restarting the environment
 
 ```bash
 docker start n5deal-pg          # Postgres 16, port 55432; data persists in the container
 pnpm install                    # if node_modules is stale
-pnpm test                       # expect 233 passing
+pnpm test                       # expect 240 passing
 pnpm dev
 ```
 
@@ -49,8 +68,7 @@ Demo logins: `buyer@n5deal.demo`, `seller@n5deal.demo`, `manager@n5deal.demo`, p
 
 | Task | | Cycle |
 |---|---|---|
-| 17 | Buyer catalog for sellers | accelerated (implemented, review pending) |
-| 18 | Role dashboards | accelerated |
+| 18 | Role dashboards | accelerated — **resume here** |
 | 19 | Messaging and inbox | **full cycle** |
 | 20 | Manager console and moderation | **full cycle** |
 | 21 | Landing page | accelerated |

@@ -849,3 +849,30 @@ Task 16: minor (deferred): any zod issue on ticketMaxCents maps to the range-spe
   differently-invalid value shows a slightly wrong message; mandate-form inputs do not wire
   aria-describedby/aria-invalid that Field's own doc recommends.
 Task 16: complete (commits 8900cb4..f06df66).
+
+Task 17: implementer DONE (commit 86489c9, on top of my 4b26a4e WIP snapshot which it
+  reconciled itself). 233 passing with and without DATABASE_URL. Tie-break proven live: scored
+  against N5-701, Baltic Pay Ventures (80, specificity 5) ranks above Central Europe Growth Fund
+  (80, specificity 4). Ownership check proven out of band: forAssetId pointing at another
+  seller's asset returns scoredAssetId null and the unscored order.
+Task 17: Ruling: accept `isOwner || canModerate` for scoring, which widens my ruling 3's literal
+  "owns it". A manager already sees every listing and every buyer, so scoring reveals nothing new
+  to them, and oversight of who a listing attracts is a legitimate moderation view. It is also
+  consistent with how canModerate behaves everywhere else in this codebase. Cost if wrong: one
+  line to revert.
+Task 17: AI-enabled path NOT RUN — no ANTHROPIC_API_KEY. MatchBadge's interactive AI branch
+  verified by inspection plus absence of server-log errors; there is no component-render test
+  harness in this repo.
+Task 17: controller note — I created the 4b26a4e WIP commit while this agent was still working,
+  which it then had to reconcile. That was my doing, not a defect on its part; snapshotting a
+  live agent's tree is something to avoid unless a shutdown forces it, as it did here.
+Task 17: review = spec ❌ on the missing search control, quality NEEDS FIXES, 2 Important +
+  2 Minor. Authz change confirmed purely additive (one new canBrowseBuyers, no existing
+  assertion touched). Buyer enumeration closed at both entry points with no hidden-vs-nonexistent
+  signal. Mandate filters confirmed to target the mandate arrays, not the buyer's own country.
+Task 17: fix round 1/5 (commit 28eb71c), verified by the controller from the diff.
+  BuyerSearch added and wired, both catalogues real; BUYER_SORT_ORDER plus pure
+  compareBuyersByRecency/compareBuyersByScore comparators, every one ending in id ascending, used
+  by both findMany's orderBy and the in-memory sort; 7 new DB-free comparator tests.
+  240 passing with and without DATABASE_URL.
+Task 17: complete (commits f06df66..28eb71c).
