@@ -1,0 +1,16 @@
+{
+  "common": {
+    "appName": "N5Deal",
+    "signIn": "Sign in",
+    "signOut": "Sign out",
+    "cancel": "Cancel",
+    "save": "Save"
+  },
+  "nav": {
+    "listings": "All listings",
+    "buyers": "Buyers",
+    "dashboard": "Dashboard",
+    "inbox": "Inbox",
+    "admin": "Admin"
+  }
+}

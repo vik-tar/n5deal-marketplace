@@ -1,0 +1,16 @@
+{
+  "common": {
+    "appName": "N5Deal",
+    "signIn": "Войти",
+    "signOut": "Выйти",
+    "cancel": "Отмена",
+    "save": "Сохранить"
+  },
+  "nav": {
+    "listings": "Все объекты",
+    "buyers": "Покупатели",
+    "dashboard": "Кабинет",
+    "inbox": "Сообщения",
+    "admin": "Админка"
+  }
+}
