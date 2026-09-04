@@ -2109,6 +2109,7 @@ git commit -m "feat: redact confidential asset fields server-side"
   - `parseSearchQuery(query: string): Promise<Partial<AssetFilters> | null>` and the pure helpers `buildSearchPrompt`, `toFilterPatch`
   - `explainMatch(input: ExplainMatchInput): Promise<string | null>`
   - `reviewTeaser(input: TeaserReviewInput): Promise<TeaserReview | null>`
+  - `keepQuotedLeaks(leaks, teaserTitle, teaserDescription)` — pure; drops any leak whose excerpt does not actually occur in the teaser after whitespace and case normalisation. `reviewTeaser` applies it before returning, so a caller can trust that every `excerpt` it receives is a real quote from the text the seller wrote.
 
 Model choice: `claude-opus-5`. It is one exported constant — if the search box feels slow in practice, changing `AI_MODEL` to `claude-haiku-4-5` is a one-line change, but do not downgrade pre-emptively.
 
@@ -2940,6 +2941,8 @@ Fields map one-to-one onto `assetInputSchema`. Money inputs accept euros and con
 - [ ] **Step 4: Build the review panel**
 
 `teaser-review-panel.tsx` renders when the seller presses "Check teaser". Loading state, then either the leaks (each quoting `excerpt` with its explanation) and suggestions, or "No confidentiality issues found". When AI is disabled the button is not rendered at all — no dead control, no error toast.
+
+Every `excerpt` reaching this panel has already been verified by `keepQuotedLeaks` to occur in the teaser, so the panel may highlight it in the text without re-checking. A prompt is not an enforcement mechanism; that filter is, and it is why the panel can present an excerpt as evidence rather than as a claim.
 
 The findings are advisory. The seller may submit anyway; the panel says so plainly.
 
