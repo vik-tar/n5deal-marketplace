@@ -897,7 +897,7 @@ git commit -m "feat: add dark design system and application shell"
 **Interfaces:**
 - Consumes: enum types from `@/generated/prisma/client` (type-only import).
 - Produces:
-  - `scoreMatch(mandate: MandateCriteria, asset: AssetCriteria): MatchResult`
+  - `scoreMatch(mandate: MandateCriteria, asset: AssetCriteria): MatchResult` — the result carries `specificity` (0-5), the count of criteria the mandate constrains
   - `MATCH_WEIGHTS: Record<MatchReasonCode, number>`
   - types `MandateCriteria`, `AssetCriteria`, `MatchReason`, `MatchReasonCode`, `MatchReasonKind`, `MatchBand`, `MatchResult`
 
@@ -951,6 +951,12 @@ export type MatchBand = 'STRONG' | 'GOOD' | 'NONE'
 export interface MatchResult {
   score: number
   band: MatchBand
+  /**
+   * How many of the five criteria the mandate actually constrains, 0-5.
+   * A score of 100 at specificity 0 means "this mandate excludes nothing",
+   * not "this is a strong fit" — consumers must not rank on score alone.
+   */
+  specificity: number
   reasons: MatchReason[]
 }
 ```
@@ -2982,6 +2988,8 @@ Filters map onto the mandate: `categories` and `countries` use `hasSome` against
 
 When `forAssetId` is supplied, load that asset (after checking the caller owns it), score every returned buyer with `scoreMatch`, and sort by score descending. Without it, sort by `createdAt` descending.
 
+Sort ties by `specificity` descending before falling back to `createdAt`: a buyer who scored 100 because their mandate constrains all five criteria is a genuinely better lead than one who scored 100 because their mandate constrains nothing, and the seller must not have to guess which is which.
+
 - [ ] **Step 2: Build the match badge**
 
 `match-badge.tsx` renders the band as a coloured pill with the score, and a popover listing the reasons — each translated from its `MatchReasonCode` and `MatchReasonKind`, so it works with no AI at all. When AI is enabled, the popover additionally fetches `explainMatch` through a Server Action and shows the sentence beneath the list.
@@ -3027,7 +3035,9 @@ git commit -m "feat: add buyer catalog with mandate filtering and match scoring"
 
 `/dashboard` reads the viewer's role and renders the matching component; a manager is redirected to `/admin`.
 
-**Buyer:** mandate summary with an edit link (or a prominent "complete your mandate" prompt when it is empty), recommended assets with match badges, access requests grouped by status, unread messages.
+**Buyer:** mandate summary with an edit link, recommended assets with match badges, access requests grouped by status, unread messages.
+
+When `scoreMatch` reports `specificity === 0` the mandate constrains nothing, every listing ties at 100, and a ranked list would be a lie. In that case do not render recommendations at all — render the "complete your mandate" prompt in their place. At `specificity` between 1 and 4, render the ranking but label it with what it is based on, so a 100 from two criteria is not mistaken for a 100 from five.
 
 **Seller:** listings grouped by status with the `PENDING_REVIEW` and `REJECTED` ones surfaced first (a rejected listing shows its `rejectionReason`), the incoming access request queue with approve/decline inline, and top matched buyers for the most recently published listing.
 
