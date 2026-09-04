@@ -35,9 +35,14 @@ new:        src/server/queries/buyers.ts
 new:        tests/unit/queries/buyer-where.test.ts
 ```
 
-On resume, either finish and review that work, or `git checkout -- . && git clean -fd src tests`
-and re-dispatch Task 17 from its brief. **Do not assume it is correct** — nothing about it has
-been verified.
+These files are now committed as `4b26a4e`, labelled WIP, purely so a stray clean cannot lose
+them. `pnpm typecheck` passes on that commit and the unit suite still runs — but the task was
+never finished, never reviewed, and its live verification (the tie-break evidence and the
+out-of-band ownership check the brief demands) was never performed. **Do not assume it is
+correct.**
+
+On resume, either finish and review it, or drop it with `git reset --hard 9ab4242` and
+re-dispatch Task 17 from its brief.
 
 ## Restarting the environment
 
