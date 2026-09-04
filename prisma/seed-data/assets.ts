@@ -79,9 +79,21 @@ const CATEGORY_PATTERN: AssetCategory[] = ['PAYMENT', 'FINTECH', 'PAYMENT', 'EMI
 interface CategoryInfo {
   label: string
   businessTypes: string[]
-  /** Drawn from the fixed licence-type universe: EMI, SEMI, MSO, PI, API, CASP, Banking. */
+  /**
+   * Drawn from the fixed licence-type universe: EMI, SEMI, MSO, PI, API,
+   * CASP, Banking. Deliberately NOT padded for variety's sake: BANK and
+   * CRYPTO each have exactly one domain-plausible option (a bank sold with
+   * an MSO licence, or a crypto venue with a Banking licence, would read as
+   * generated nonsense to anyone who knows the industry). PAYMENT gets a
+   * fourth option, EMI, because that overlap is real: most e-wallet and
+   * prepaid-card payment institutions are in fact licensed as EMIs.
+   */
   licenceOptions: string[]
-  included: string[]
+  /** Always included; describes the core regulatory asset. */
+  includedCore: string
+  /** Extra items rotated 3-at-a-time (see rotatedIncluded) so two listings
+   * of the same category don't read as byte-identical. */
+  includedExtras: string[]
 }
 
 const CATEGORY_INFO: Record<AssetCategory, CategoryInfo> = {
@@ -89,7 +101,14 @@ const CATEGORY_INFO: Record<AssetCategory, CategoryInfo> = {
     label: 'bank',
     businessTypes: ['Digital-first challenger bank', 'Retail banking franchise', 'Correspondent banking platform'],
     licenceOptions: ['Banking'],
-    included: ['Full banking licence', 'Core banking platform', 'Correspondent banking relationships', 'Compliance & AML function'],
+    includedCore: 'Full banking licence',
+    includedExtras: [
+      'Core banking platform',
+      'Correspondent banking relationships',
+      'Compliance & AML function',
+      'Retail deposit book (anonymised)',
+      'Core banking staff transfer',
+    ],
   },
   FINTECH: {
     label: 'fintech platform',
@@ -100,7 +119,14 @@ const CATEGORY_INFO: Record<AssetCategory, CategoryInfo> = {
       'SME finance platform',
     ],
     licenceOptions: ['API', 'PI', 'MSO'],
-    included: ['Regulatory permissions', 'Proprietary platform codebase', 'Core banking API integrations', 'Compliance framework'],
+    includedCore: 'Regulatory permissions',
+    includedExtras: [
+      'Proprietary platform codebase',
+      'Core banking API integrations',
+      'Compliance framework',
+      'Open banking consent infrastructure',
+      'Existing partner-bank agreements',
+    ],
   },
   PAYMENT: {
     label: 'payment institution',
@@ -110,21 +136,58 @@ const CATEGORY_INFO: Record<AssetCategory, CategoryInfo> = {
       'Cross-border payout platform',
       'PSP with card scheme membership',
     ],
-    licenceOptions: ['PI', 'API', 'MSO'],
-    included: ['Payment institution licence', 'Card scheme membership', 'Processing infrastructure', 'Merchant portfolio (anonymised)'],
+    licenceOptions: ['PI', 'API', 'MSO', 'EMI'],
+    includedCore: 'Payment institution licence',
+    includedExtras: [
+      'Card scheme membership',
+      'Processing infrastructure',
+      'Merchant portfolio (anonymised)',
+      'Acquiring bank relationships',
+      'Fraud & chargeback tooling',
+      'PCI-DSS certified infrastructure',
+    ],
   },
   EMI: {
     label: 'e-money institution',
     businessTypes: ['E-money issuing platform', 'Prepaid card programme manager', 'Digital wallet provider'],
     licenceOptions: ['EMI', 'SEMI'],
-    included: ['E-money licence', 'IBAN issuance capability', 'Card programme agreements', 'Safeguarding infrastructure'],
+    includedCore: 'E-money licence',
+    includedExtras: [
+      'IBAN issuance capability',
+      'Card programme agreements',
+      'Safeguarding infrastructure',
+      'Prepaid card BIN sponsorship',
+      'Digital wallet app & backend',
+    ],
   },
   CRYPTO: {
     label: 'crypto-asset business',
     businessTypes: ['Crypto exchange', 'Custody & wallet provider', 'Crypto-to-fiat on/off-ramp'],
     licenceOptions: ['CASP'],
-    included: ['CASP registration', 'Custody infrastructure', 'Exchange matching engine', 'AML / travel-rule tooling'],
+    includedCore: 'CASP registration',
+    includedExtras: [
+      'Custody infrastructure',
+      'Exchange matching engine',
+      'AML / travel-rule tooling',
+      'Cold-storage key management',
+      'Liquidity provider relationships',
+    ],
   },
+}
+
+/**
+ * Picks a rotating window of 3 extras (plus the always-present core item),
+ * keyed by the listing's occurrence within its own category, so consecutive
+ * listings of the same category don't share an identical included list.
+ */
+function rotatedIncluded(info: CategoryInfo, occurrence: number): string[] {
+  const windowSize = 3
+  const start = occurrence % info.includedExtras.length
+  const extras = Array.from(
+    { length: windowSize },
+    (_, k) => info.includedExtras[(start + k) % info.includedExtras.length],
+  )
+  return [info.includedCore, ...extras]
 }
 
 // 20 and 11 items respectively: gcd(20, 11) = 1, so (i % 20, i % 11) is a
@@ -193,6 +256,24 @@ function sellerEmailFor(i: number): string {
   }
 }
 
+/**
+ * How many listings of this same category came before index i — the n-th
+ * PAYMENT listing, the n-th CRYPTO listing, etc. This must be a per-category
+ * count, not the shared block index: CATEGORY_PATTERN has period 8 and
+ * PAYMENT appears 4 times per block (it is the brief's most-common
+ * category), so a block-index would hand all 4 of a block's PAYMENT
+ * listings the same licence type, business type and included list.
+ */
+const CATEGORY_OCCURRENCE: number[] = (() => {
+  const seenSoFar = new Map<AssetCategory, number>()
+  return Array.from({ length: 40 }, (_, i) => {
+    const category = CATEGORY_PATTERN[i % CATEGORY_PATTERN.length]
+    const occurrence = seenSoFar.get(category) ?? 0
+    seenSoFar.set(category, occurrence + 1)
+    return occurrence
+  })
+})()
+
 function statusFor(i: number): AssetStatus {
   switch (i) {
     case 35:
@@ -216,14 +297,10 @@ function buildAsset(i: number): AssetFixture {
   const info = CATEGORY_INFO[category]
   const jurisdiction = JURISDICTIONS[i % JURISDICTIONS.length]
   const businessStatus: BusinessStatus = i % 3 === 2 ? 'LICENSE_ONLY' : 'ACTIVE'
-  // CATEGORY_PATTERN has period 8, so this category's n-th occurrence (0..4)
-  // is what should drive licence/business-type variety — using the raw
-  // global index here would alias: every EMI occurrence sits at i % 8 === 3,
-  // which is always odd, so `i % 2` would always pick the same licence type
-  // and 'EMI' would never appear despite being in the fixed licence universe.
-  const occurrence = Math.floor(i / CATEGORY_PATTERN.length)
+  const occurrence = CATEGORY_OCCURRENCE[i]
   const licenceType = info.licenceOptions[occurrence % info.licenceOptions.length]
   const businessType = info.businessTypes[occurrence % info.businessTypes.length]
+  const included = rotatedIncluded(info, occurrence)
   // Permutation of 0..39 (gcd(7, 40) = 1) so price is decorrelated from status/seller assignment.
   const priceEur = PRICE_LADDER_EUR[(i * 7 + 11) % PRICE_LADDER_EUR.length]
   const yearOfIssue = 2011 + (i % 13)
@@ -257,7 +334,7 @@ function buildAsset(i: number): AssetFixture {
   let teaserDescription =
     `${statusPhrase}, holding a ${jurisdiction.regulator}-issued ${licenceType} licence since ${yearOfIssue}. ` +
     `Team of ${employees} across compliance, operations and technology. ` +
-    `Included in the sale: ${info.included.join(', ')}. ` +
+    `Included in the sale: ${included.join(', ')}. ` +
     `Positioned to serve clients across ${jurisdiction.region}.`
 
   const status = statusFor(i)
@@ -291,7 +368,7 @@ function buildAsset(i: number): AssetFixture {
     askingPriceCents: cents(priceEur),
     employees,
     yearOfIssue,
-    included: info.included,
+    included,
     teaserTitle,
     teaserDescription,
     legalName,
