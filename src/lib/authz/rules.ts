@@ -68,20 +68,39 @@ export function canRequestAccess(
   return grant === 'NONE'
 }
 
-export function canDecideAccess(viewer: MaybeViewer, asset: AssetRef): boolean {
-  return isOwner(viewer, asset)
+/** Only the owning seller decides, and only on a request that is actually pending. */
+export function canDecideAccess(
+  viewer: MaybeViewer,
+  asset: AssetRef,
+  grant: GrantState,
+): boolean {
+  return isOwner(viewer, asset) && grant === 'REQUESTED'
 }
 
-export function canRevokeAccess(viewer: MaybeViewer, asset: AssetRef): boolean {
-  return isOwner(viewer, asset) || canModerate(viewer)
+/** You cannot revoke what was never granted. */
+export function canRevokeAccess(
+  viewer: MaybeViewer,
+  asset: AssetRef,
+  grant: GrantState,
+): boolean {
+  return (isOwner(viewer, asset) || canModerate(viewer)) && grant === 'APPROVED'
 }
 
-/** Managers moderate the marketplace; they do not transact in it. */
+/**
+ * Managers moderate the marketplace; they do not transact in it.
+ *
+ * Relationship scoping is deliberately NOT this predicate's job: cold contact
+ * is a required capability of the product — a seller browses buyers and
+ * contacts one, a buyer contacts a seller from a teaser — so no approved grant
+ * or shared listing is required. What is required is that both parties are
+ * active accounts and that they are two different people.
+ */
 export function canMessage(
   viewer: MaybeViewer,
-  counterpartyStatus: 'ACTIVE' | 'SUSPENDED' | 'REMOVED',
+  counterparty: { userId: string; status: 'ACTIVE' | 'SUSPENDED' | 'REMOVED' },
 ): boolean {
   if (!isActive(viewer)) return false
   if (viewer.role === 'MANAGER') return false
-  return counterpartyStatus === 'ACTIVE'
+  if (viewer.userId === counterparty.userId) return false
+  return counterparty.status === 'ACTIVE'
 }

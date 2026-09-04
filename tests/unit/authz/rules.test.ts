@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
+  canAccessApp,
   canDecideAccess,
   canEditAsset,
   canMessage,
   canModerate,
+  canPublishListing,
   canRequestAccess,
+  canRevokeAccess,
   canViewAsset,
   canViewFullAsset,
 } from '@/lib/authz'
@@ -152,10 +155,65 @@ describe('canRequestAccess', () => {
 })
 
 describe('canDecideAccess', () => {
-  it('allows only the owning seller', () => {
-    expect(canDecideAccess(seller, published)).toBe(true)
-    expect(canDecideAccess(otherSeller, published)).toBe(false)
-    expect(canDecideAccess(manager, published)).toBe(false)
+  it('allows only the owning seller, and only on a pending request', () => {
+    expect(canDecideAccess(seller, published, 'REQUESTED')).toBe(true)
+    expect(canDecideAccess(otherSeller, published, 'REQUESTED')).toBe(false)
+    expect(canDecideAccess(manager, published, 'REQUESTED')).toBe(false)
+  })
+
+  it('refuses to decide a request that was never made', () => {
+    expect(canDecideAccess(seller, published, 'NONE')).toBe(false)
+  })
+
+  it('refuses to re-decide a settled request', () => {
+    expect(canDecideAccess(seller, published, 'APPROVED')).toBe(false)
+    expect(canDecideAccess(seller, published, 'DECLINED')).toBe(false)
+    expect(canDecideAccess(seller, published, 'REVOKED')).toBe(false)
+  })
+})
+
+describe('canRevokeAccess', () => {
+  it('allows the owning seller and the manager to revoke a live grant', () => {
+    expect(canRevokeAccess(seller, published, 'APPROVED')).toBe(true)
+    expect(canRevokeAccess(manager, published, 'APPROVED')).toBe(true)
+  })
+
+  it('denies an unrelated seller', () => {
+    expect(canRevokeAccess(otherSeller, published, 'APPROVED')).toBe(false)
+  })
+
+  it('cannot revoke what was never granted', () => {
+    expect(canRevokeAccess(seller, published, 'NONE')).toBe(false)
+    expect(canRevokeAccess(seller, published, 'REQUESTED')).toBe(false)
+    expect(canRevokeAccess(seller, published, 'REVOKED')).toBe(false)
+  })
+})
+
+describe('canAccessApp', () => {
+  it('lets anonymous visitors browse', () => {
+    expect(canAccessApp(null)).toBe(true)
+  })
+
+  it('lets active accounts in', () => {
+    expect(canAccessApp(buyer)).toBe(true)
+  })
+
+  it('locks out suspended and removed accounts', () => {
+    expect(canAccessApp({ ...buyer, status: 'SUSPENDED' })).toBe(false)
+    expect(canAccessApp({ ...buyer, status: 'REMOVED' })).toBe(false)
+  })
+})
+
+describe('canPublishListing', () => {
+  it('allows an active seller with a profile', () => {
+    expect(canPublishListing(seller)).toBe(true)
+  })
+
+  it('denies buyers, managers, anonymous visitors and suspended sellers', () => {
+    expect(canPublishListing(buyer)).toBe(false)
+    expect(canPublishListing(manager)).toBe(false)
+    expect(canPublishListing(null)).toBe(false)
+    expect(canPublishListing({ ...seller, status: 'SUSPENDED' })).toBe(false)
   })
 })
 
@@ -168,9 +226,13 @@ describe('canModerate and canMessage', () => {
   })
 
   it('blocks messaging a suspended counterparty', () => {
-    expect(canMessage(buyer, 'ACTIVE')).toBe(true)
-    expect(canMessage(buyer, 'SUSPENDED')).toBe(false)
-    expect(canMessage({ ...buyer, status: 'REMOVED' }, 'ACTIVE')).toBe(false)
-    expect(canMessage(manager, 'ACTIVE')).toBe(false)
+    expect(canMessage(buyer, { userId: 'u-seller', status: 'ACTIVE' })).toBe(true)
+    expect(canMessage(buyer, { userId: 'u-seller', status: 'SUSPENDED' })).toBe(false)
+    expect(canMessage({ ...buyer, status: 'REMOVED' }, { userId: 'u-seller', status: 'ACTIVE' })).toBe(false)
+    expect(canMessage(manager, { userId: 'u-seller', status: 'ACTIVE' })).toBe(false)
+  })
+
+  it('refuses to let anyone message themselves', () => {
+    expect(canMessage(buyer, { userId: buyer.userId, status: 'ACTIVE' })).toBe(false)
   })
 })
