@@ -1,0 +1,250 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  BUYER
+  SELLER
+  MANAGER
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  REMOVED
+}
+
+enum AssetCategory {
+  BANK
+  FINTECH
+  PAYMENT
+  EMI
+  CRYPTO
+}
+
+enum BusinessStatus {
+  ACTIVE
+  LICENSE_ONLY
+}
+
+enum AssetStatus {
+  DRAFT
+  PENDING_REVIEW
+  PUBLISHED
+  REJECTED
+  SUSPENDED
+  SOLD
+}
+
+enum AccessStatus {
+  REQUESTED
+  APPROVED
+  DECLINED
+  REVOKED
+}
+
+enum BuyerType {
+  PE_FUND
+  STRATEGIC
+  FAMILY_OFFICE
+  INDIVIDUAL
+}
+
+enum ModAction {
+  SUSPEND
+  REINSTATE
+  REMOVE
+  APPROVE_LISTING
+  REJECT_LISTING
+}
+
+enum ModTargetType {
+  USER
+  ASSET
+}
+
+model User {
+  id            String        @id @default(cuid())
+  email         String        @unique
+  passwordHash  String
+  role          Role
+  status        UserStatus    @default(ACTIVE)
+  locale        String        @default("en")
+  createdAt     DateTime      @default(now())
+
+  buyerProfile   BuyerProfile?
+  sellerProfile  SellerProfile?
+  sentMessages   Message[]        @relation("MessageSender")
+  moderationActs ModerationLog[]  @relation("ModerationActor")
+  accessDecided  AccessRequest[]  @relation("AccessDecider")
+
+  @@index([role, status])
+}
+
+model BuyerProfile {
+  id          String    @id @default(cuid())
+  userId      String    @unique
+  user        User      @relation(fields: [userId], references: [id])
+  displayName String
+  buyerType   BuyerType
+  country     String
+  bio         String    @default("")
+  websiteUrl  String?
+  verified    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  mandate        Mandate?
+  accessRequests AccessRequest[]
+  conversations  Conversation[]
+  favorites      Favorite[]
+}
+
+model Mandate {
+  id               String           @id @default(cuid())
+  buyerProfileId   String           @unique
+  buyerProfile     BuyerProfile     @relation(fields: [buyerProfileId], references: [id])
+  categories       AssetCategory[]
+  countries        String[]
+  licenceTypes     String[]
+  businessStatuses BusinessStatus[]
+  ticketMinCents   Int?
+  ticketMaxCents   Int?
+  timelineMonths   Int?
+  notes            String           @default("")
+  updatedAt        DateTime         @updatedAt
+}
+
+model SellerProfile {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id])
+  companyName String
+  contactName String
+  country     String
+  websiteUrl  String?
+  verified    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  assets        Asset[]
+  conversations Conversation[]
+}
+
+model Asset {
+  id              String         @id @default(cuid())
+  publicRef       String         @unique
+  sellerProfileId String
+  sellerProfile   SellerProfile  @relation(fields: [sellerProfileId], references: [id])
+  status          AssetStatus    @default(DRAFT)
+
+  // Teaser (public)
+  category          AssetCategory
+  licenceType       String
+  businessType      String
+  country           String
+  regulator         String
+  businessStatus    BusinessStatus
+  askingPriceCents  Int
+  employees         Int
+  yearOfIssue       Int
+  included          String[]
+  teaserTitle       String
+  teaserDescription String
+
+  // Confidential (gated behind an approved AccessRequest)
+  legalName          String
+  revenueCents       Int
+  ebitdaCents        Int
+  clientCount        Int
+  dataRoomUrl        String?
+  confidentialNotes  String  @default("")
+
+  publishedAt     DateTime?
+  rejectionReason String?
+  viewCount       Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  accessRequests AccessRequest[]
+  conversations  Conversation[]
+  favorites      Favorite[]
+
+  @@index([status, category, country])
+  @@index([status, publishedAt])
+}
+
+model AccessRequest {
+  id             String       @id @default(cuid())
+  assetId        String
+  asset          Asset        @relation(fields: [assetId], references: [id])
+  buyerProfileId String
+  buyerProfile   BuyerProfile @relation(fields: [buyerProfileId], references: [id])
+  status         AccessStatus @default(REQUESTED)
+  message        String       @default("")
+  requestedAt    DateTime     @default(now())
+  decidedAt      DateTime?
+  decidedByUserId String?
+  decidedBy      User?        @relation("AccessDecider", fields: [decidedByUserId], references: [id])
+
+  @@unique([assetId, buyerProfileId])
+  @@index([buyerProfileId, status])
+}
+
+model Conversation {
+  id              String        @id @default(cuid())
+  threadKey       String        @unique
+  assetId         String?
+  asset           Asset?        @relation(fields: [assetId], references: [id])
+  buyerProfileId  String
+  buyerProfile    BuyerProfile  @relation(fields: [buyerProfileId], references: [id])
+  sellerProfileId String
+  sellerProfile   SellerProfile @relation(fields: [sellerProfileId], references: [id])
+  createdAt       DateTime      @default(now())
+  lastMessageAt   DateTime      @default(now())
+
+  messages Message[]
+
+  @@index([buyerProfileId, lastMessageAt])
+  @@index([sellerProfileId, lastMessageAt])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  senderUserId   String
+  sender         User         @relation("MessageSender", fields: [senderUserId], references: [id])
+  body           String
+  createdAt      DateTime     @default(now())
+  readAt         DateTime?
+
+  @@index([conversationId, createdAt])
+}
+
+model Favorite {
+  id             String       @id @default(cuid())
+  buyerProfileId String
+  buyerProfile   BuyerProfile @relation(fields: [buyerProfileId], references: [id])
+  assetId        String
+  asset          Asset        @relation(fields: [assetId], references: [id])
+  createdAt      DateTime     @default(now())
+
+  @@unique([buyerProfileId, assetId])
+}
+
+model ModerationLog {
+  id           String        @id @default(cuid())
+  actorUserId  String
+  actor        User          @relation("ModerationActor", fields: [actorUserId], references: [id])
+  action       ModAction
+  targetType   ModTargetType
+  targetId     String
+  reason       String
+  createdAt    DateTime      @default(now())
+
+  @@index([targetType, targetId, createdAt])
+}
