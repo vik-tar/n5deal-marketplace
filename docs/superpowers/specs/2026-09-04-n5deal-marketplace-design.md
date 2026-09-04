@@ -316,8 +316,10 @@ The same function powers both directions: a buyer's "recommended assets" and a s
 
 ## 8. AI layer
 
-Model: `claude-haiku-4-5-20251001` — the cheapest and fastest model that comfortably
-handles these three tasks, all of which are short and structured.
+Model: `claude-opus-5`, held in a single exported constant. All three tasks are short
+and structured, so if the search box proves latency-sensitive in practice, dropping to
+`claude-haiku-4-5` is a one-line change — but that is a measured decision, not a
+pre-emptive downgrade.
 
 **Every AI feature degrades gracefully.** With no `ANTHROPIC_API_KEY`, the app runs
 fully; AI entry points either hide or fall back, and the README says so. A reviewer
