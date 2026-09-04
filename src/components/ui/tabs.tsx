@@ -1,6 +1,6 @@
 import type { ComponentProps } from 'react'
 import { Link } from '@/i18n/navigation'
-import { cn } from '@/lib/cn'
+import { FOCUS_RING, cn } from '@/lib/cn'
 
 type LinkHref = ComponentProps<typeof Link>['href']
 
@@ -43,7 +43,7 @@ export function Tabs({
             aria-current={isActive ? 'page' : undefined}
             className={cn(
               '-mb-px border-b-2 px-3 py-2 text-sm font-medium transition',
-              'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+              FOCUS_RING,
               isActive
                 ? 'border-accent text-ink'
                 : 'border-transparent text-ink-muted hover:text-ink',

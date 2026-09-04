@@ -15,44 +15,58 @@
   --radius-card: 0.75rem;
 }
 
-html, body {
-  /* `color-scheme` is not in the brief's block; it is added so native controls
-     (inputs, selects, scrollbars) render dark instead of light-on-dark. */
-  color-scheme: dark;
-  background: var(--color-ground);
-  color: var(--color-ink);
+/* Everything hand-written below goes into a cascade layer that `@import
+   "tailwindcss"` already declared (`theme, base, components, utilities`).
+   Unlayered rules beat *every* layered rule regardless of source order, so an
+   unlayered `.field-control` would silently swallow `text-lg`, `text-ink` and
+   friends with nothing in the computed styles to explain it. Never add a bare
+   top-level rule to this file. */
+
+@layer base {
+  html, body {
+    /* `color-scheme` is not in the brief's block; it is added so native
+       controls (inputs, selects, scrollbars) render dark, not light-on-dark. */
+    color-scheme: dark;
+    background: var(--color-ground);
+    color: var(--color-ink);
+  }
 }
 
-.meta-label {
-  font-size: 0.6875rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--color-ink-muted);
-}
+@layer components {
+  .meta-label {
+    font-size: 0.6875rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-ink-muted);
+  }
 
-/* Shared form-control skin. `Field` lays out the label and error; the control
-   itself is supplied by the caller, so this class keeps every form in the app
-   looking like one product. Apply to `input`, `select` and `textarea`. */
-.field-control {
-  width: 100%;
-  border-radius: 0.375rem;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface-2);
-  color: var(--color-ink);
-  padding: 0.5rem 0.75rem;
-  font-size: 0.875rem;
-  line-height: 1.25rem;
-}
+  /* Shared form-control skin. `Field` lays out the label and error; the control
+     itself is supplied by the caller, so this class keeps every form in the app
+     looking like one product. Apply to `input`, `select` and `textarea`. */
+  .field-control {
+    width: 100%;
+    border-radius: 0.375rem;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface-2);
+    color: var(--color-ink);
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+  }
 
-.field-control::placeholder {
-  color: var(--color-ink-muted);
-}
+  .field-control::placeholder {
+    color: var(--color-ink-muted);
+  }
 
-.field-control:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-}
+  /* Must stay visually identical to `FOCUS_RING` in `src/lib/cn.ts`, which is
+     what every TypeScript component uses. CSS cannot import the constant, so
+     change both together. */
+  .field-control:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
 
-.field-control:disabled {
-  opacity: 0.5;
+  .field-control:disabled {
+    opacity: 0.5;
+  }
 }

@@ -4,7 +4,7 @@ import { Link } from '@/i18n/navigation'
 import { Button } from '@/components/ui/button'
 import { LocaleSwitcher } from '@/components/domain/locale-switcher'
 import { NAV_HREF, SIGN_IN_HREF, navKeysFor } from '@/lib/nav'
-import { cn } from '@/lib/cn'
+import { FOCUS_RING, cn } from '@/lib/cn'
 
 /**
  * Temporary stand-in for `Viewer` (Task 6), which Task 11 substitutes here
@@ -14,9 +14,6 @@ export type HeaderViewer = {
   role: string
   email: string
 }
-
-const focusRing =
-  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
 
 export function SiteHeader({ viewer }: { viewer: HeaderViewer | null }) {
   const t = useTranslations()
@@ -29,7 +26,7 @@ export function SiteHeader({ viewer }: { viewer: HeaderViewer | null }) {
           href="/"
           className={cn(
             'shrink-0 rounded-sm text-base font-semibold tracking-tight text-ink',
-            focusRing,
+            FOCUS_RING,
           )}
         >
           {t('common.appName')}
@@ -47,7 +44,7 @@ export function SiteHeader({ viewer }: { viewer: HeaderViewer | null }) {
               href={NAV_HREF[key]}
               className={cn(
                 'rounded-sm px-2 py-1 text-sm whitespace-nowrap text-ink-muted transition hover:text-ink',
-                focusRing,
+                FOCUS_RING,
               )}
             >
               {t(`nav.${key}`)}
@@ -76,7 +73,7 @@ export function SiteHeader({ viewer }: { viewer: HeaderViewer | null }) {
               href={SIGN_IN_HREF}
               className={cn(
                 'rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-ink transition hover:opacity-90',
-                focusRing,
+                FOCUS_RING,
               )}
             >
               {t('common.signIn')}

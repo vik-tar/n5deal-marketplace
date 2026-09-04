@@ -4,7 +4,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { useSearchParams } from 'next/navigation'
 import { Link, usePathname } from '@/i18n/navigation'
 import { routing } from '@/i18n/routing'
-import { cn } from '@/lib/cn'
+import { FOCUS_RING, cn } from '@/lib/cn'
 
 /**
  * Switches locale while staying on the current screen.
@@ -39,7 +39,7 @@ export function LocaleSwitcher() {
             aria-current={isActive ? 'true' : undefined}
             className={cn(
               'rounded px-2 py-1 text-xs font-medium transition',
-              'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+              FOCUS_RING,
               isActive
                 ? 'bg-accent text-accent-ink'
                 : 'text-ink-muted hover:text-ink',

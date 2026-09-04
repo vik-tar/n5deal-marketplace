@@ -1,4 +1,4 @@
-import { cn } from '@/lib/cn'
+import { FOCUS_RING, cn } from '@/lib/cn'
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger'
 type Size = 'sm' | 'md'
@@ -29,7 +29,7 @@ export function Button({
       className={cn(
         'inline-flex items-center justify-center rounded-md font-medium transition',
         'disabled:opacity-50 disabled:pointer-events-none',
-        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+        FOCUS_RING,
         variants[variant],
         sizes[size],
         className,
