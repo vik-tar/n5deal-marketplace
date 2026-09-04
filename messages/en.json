@@ -125,6 +125,8 @@
   "buyers": {
     "title": "Buyers",
     "subtitle": "{count, plural, one {# investor mandate you can approach directly} other {# investor mandates you can approach directly}}",
+    "searchPlaceholder": "Search by name or bio",
+    "searchSubmit": "Search",
     "filters": {
       "title": "Filters",
       "buyerTypeLabel": "Buyer type",

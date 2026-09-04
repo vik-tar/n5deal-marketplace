@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { buildBuyerWhere } from '@/server/queries/buyer-where'
+import {
+  buildBuyerWhere,
+  compareBuyersByRecency,
+  compareBuyersByScore,
+  type BuyerRecencyKey,
+  type BuyerScoreKey,
+} from '@/server/queries/buyer-where'
 import { parseBuyerFilters, type BuyerFilters } from '@/lib/filters/buyer-filters'
 
 /** `parseBuyerFilters({})` gives the exact default shape; overrides layer on top. */
@@ -92,5 +98,78 @@ describe('buildBuyerWhere', () => {
       { ticketMaxCents: null },
       { ticketMaxCents: { gte: BigInt(100_00) } },
     ])
+  })
+})
+
+function recencyKey(id: string, createdAt: string): BuyerRecencyKey {
+  return { id, createdAt: new Date(createdAt) }
+}
+
+function scoreKey(id: string, createdAt: string, score: number, specificity: number): BuyerScoreKey {
+  return { id, createdAt: new Date(createdAt), score, specificity }
+}
+
+describe('compareBuyersByRecency', () => {
+  it('sorts newest first', () => {
+    const a = recencyKey('b-1', '2026-01-01T00:00:00Z')
+    const b = recencyKey('b-2', '2026-01-02T00:00:00Z')
+    expect([a, b].sort(compareBuyersByRecency)).toEqual([b, a])
+  })
+
+  it('breaks a createdAt tie by id ascending, so no two distinct rows ever compare equal', () => {
+    const a = recencyKey('b-2', '2026-01-01T00:00:00Z')
+    const b = recencyKey('b-1', '2026-01-01T00:00:00Z')
+    // `a` sorts after `b` despite being listed first, because 'b-2' > 'b-1'.
+    expect([a, b].sort(compareBuyersByRecency)).toEqual([b, a])
+    expect(compareBuyersByRecency(a, b)).toBeGreaterThan(0)
+    expect(compareBuyersByRecency(b, a)).toBeLessThan(0)
+  })
+
+  it('is reflexive: a row never compares unequal to itself', () => {
+    const a = recencyKey('b-1', '2026-01-01T00:00:00Z')
+    expect(compareBuyersByRecency(a, a)).toBe(0)
+  })
+})
+
+describe('compareBuyersByScore', () => {
+  it('sorts by score descending first', () => {
+    const low = scoreKey('b-1', '2026-01-01T00:00:00Z', 40, 5)
+    const high = scoreKey('b-2', '2026-01-01T00:00:00Z', 90, 0)
+    expect([low, high].sort(compareBuyersByScore)).toEqual([high, low])
+  })
+
+  it("breaks a score tie by specificity descending — ruling 3's whole point", () => {
+    // Same score, same createdAt: the buyer whose mandate constrains more
+    // criteria (a genuinely better lead) must rank first, never the other
+    // way around and never left to whatever order the input happened to be in.
+    const unconstrained = scoreKey('b-broad', '2026-01-01T00:00:00Z', 100, 0)
+    const constrained = scoreKey('b-narrow', '2026-01-01T00:00:00Z', 100, 5)
+    expect([unconstrained, constrained].sort(compareBuyersByScore)).toEqual([
+      constrained,
+      unconstrained,
+    ])
+    expect([constrained, unconstrained].sort(compareBuyersByScore)).toEqual([
+      constrained,
+      unconstrained,
+    ])
+  })
+
+  it('falls through to createdAt descending, then id ascending, when score and specificity both tie', () => {
+    const older = scoreKey('b-2', '2026-01-01T00:00:00Z', 70, 3)
+    const newer = scoreKey('b-1', '2026-01-02T00:00:00Z', 70, 3)
+    expect([older, newer].sort(compareBuyersByScore)).toEqual([newer, older])
+
+    const sameInstant1 = scoreKey('b-2', '2026-01-01T00:00:00Z', 70, 3)
+    const sameInstant2 = scoreKey('b-1', '2026-01-01T00:00:00Z', 70, 3)
+    expect([sameInstant1, sameInstant2].sort(compareBuyersByScore)).toEqual([
+      sameInstant2,
+      sameInstant1,
+    ])
+  })
+
+  it('never returns 0 for two distinct ids, however many keys tie — a total order', () => {
+    const a = scoreKey('b-2', '2026-01-01T00:00:00Z', 70, 3)
+    const b = scoreKey('b-1', '2026-01-01T00:00:00Z', 70, 3)
+    expect(compareBuyersByScore(a, b)).not.toBe(0)
   })
 })

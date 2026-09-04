@@ -2,6 +2,7 @@ import { getTranslations } from 'next-intl/server'
 import { Link } from '@/i18n/navigation'
 import { BuyerFilterSidebar } from '@/components/domain/buyer-filter-sidebar'
 import { BuyerAssetSelector, type ScorableAsset } from '@/components/domain/buyer-asset-selector'
+import { BuyerSearch } from '@/components/domain/buyer-search'
 import { BuyerCard } from '@/components/domain/buyer-card'
 import { Pagination } from '@/components/domain/pagination'
 import { listBuyers } from '@/server/queries/buyers'
@@ -98,12 +99,16 @@ export default async function BuyersPage({
           <BuyerFilterSidebar filters={filters} forAssetId={scoredAssetId} />
 
           <div className="min-w-0">
+            <BuyerSearch filters={filters} forAssetId={scoredAssetId} />
+
             {viewer?.sellerProfileId ? (
-              <BuyerAssetSelector
-                assets={scorableAssets}
-                filters={filters}
-                forAssetId={scoredAssetId}
-              />
+              <div className="mt-4">
+                <BuyerAssetSelector
+                  assets={scorableAssets}
+                  filters={filters}
+                  forAssetId={scoredAssetId}
+                />
+              </div>
             ) : null}
 
             <FilterChips

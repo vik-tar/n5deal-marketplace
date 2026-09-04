@@ -17,7 +17,7 @@ import {
   type MandateCriteria,
   type MatchResult,
 } from '@/lib/matching'
-import { buildBuyerWhere } from './buyer-where'
+import { BUYER_SORT_ORDER, buildBuyerWhere, compareBuyersByRecency, compareBuyersByScore } from './buyer-where'
 
 /**
  * A buyer's mandate, plus how many of the five criteria it actually
@@ -177,7 +177,12 @@ async function loadOwnedAssetCriteria(
  * descending (ruling 3) — a buyer who scored 100 because their mandate
  * constrains all five criteria is a genuinely better lead than one who
  * scored 100 because it constrains nothing, and this ordering is what makes
- * that visible without the seller having to guess.
+ * that visible without the seller having to guess. `id` ascending is the
+ * final tie-break in both orderings (`compareBuyersByRecency`/
+ * `compareBuyersByScore`, `@/server/queries/buyer-where`) so the sort is a
+ * total order — without it, two buyers tied on every earlier key would have
+ * no defined relative order, and a paginated read across such a boundary
+ * could duplicate or drop a row.
  *
  * Like `countMandateMatches` (`@/server/actions/profile`, Task 16) and
  * `listAssets`'s facet counts, this scores every matching row in memory
@@ -200,6 +205,9 @@ export async function listBuyers(
   const [rows, asset] = await Promise.all([
     prisma.buyerProfile.findMany({
       where,
+      // Deterministic so the pre-sort read itself is stable — see the doc
+      // comment on `BUYER_SORT_ORDER` (`@/server/queries/buyer-where`).
+      orderBy: BUYER_SORT_ORDER,
       select: {
         id: true,
         displayName: true,
@@ -217,21 +225,27 @@ export async function listBuyers(
 
   const entries = rows.map((row) => {
     const criteria = toMandateCriteria(row.mandate)
-    return { row, criteria, specificity: mandateSpecificity(criteria) }
+    return {
+      id: row.id,
+      createdAt: row.createdAt,
+      row,
+      criteria,
+      specificity: mandateSpecificity(criteria),
+    }
   })
 
+  // Both branches sort with a total order — `compareBuyersByScore` falls
+  // through to `compareBuyersByRecency`'s own `id`-ascending tail, so no two
+  // distinct buyers can ever compare equal (`@/server/queries/buyer-where`).
   const ordered =
     asset !== null
       ? entries
-          .map((entry) => ({ ...entry, match: scoreMatch(entry.criteria, asset) }))
-          .sort((a, b) => {
-            if (b.match.score !== a.match.score) return b.match.score - a.match.score
-            if (b.specificity !== a.specificity) return b.specificity - a.specificity
-            return b.row.createdAt.getTime() - a.row.createdAt.getTime()
+          .map((entry) => {
+            const match = scoreMatch(entry.criteria, asset)
+            return { ...entry, match, score: match.score }
           })
-      : entries
-          .map((entry) => ({ ...entry, match: null }))
-          .sort((a, b) => b.row.createdAt.getTime() - a.row.createdAt.getTime())
+          .sort(compareBuyersByScore)
+      : entries.map((entry) => ({ ...entry, match: null })).sort(compareBuyersByRecency)
 
   const start = (filters.page - 1) * PAGE_SIZE
   const page = ordered.slice(start, start + PAGE_SIZE)
