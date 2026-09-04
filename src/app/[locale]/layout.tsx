@@ -1,6 +1,7 @@
 import { NextIntlClientProvider, hasLocale } from 'next-intl'
 import { notFound } from 'next/navigation'
 import { routing } from '@/i18n/routing'
+import { SiteHeader } from '@/components/domain/site-header'
 import '../globals.css'
 
 export function generateStaticParams() {
@@ -19,8 +20,14 @@ export default async function LocaleLayout({
 
   return (
     <html lang={locale} className="dark">
-      <body>
-        <NextIntlClientProvider>{children}</NextIntlClientProvider>
+      <body className="antialiased">
+        <NextIntlClientProvider>
+          <div className="min-h-screen">
+            {/* Task 11 replaces `null` with the real session viewer. */}
+            <SiteHeader viewer={null} />
+            {children}
+          </div>
+        </NextIntlClientProvider>
       </body>
     </html>
   )

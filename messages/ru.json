@@ -12,5 +12,25 @@
     "dashboard": "Кабинет",
     "inbox": "Сообщения",
     "admin": "Админка"
+  },
+  "header": {
+    "primaryNav": "Основная навигация"
+  },
+  "localeSwitcher": {
+    "label": "Язык",
+    "locale": {
+      "en": "English",
+      "ru": "Русский"
+    }
+  },
+  "status": {
+    "DRAFT": "Черновик",
+    "PENDING_REVIEW": "На проверке",
+    "PUBLISHED": "Опубликовано",
+    "REJECTED": "Отклонено",
+    "SUSPENDED": "Заблокировано",
+    "SOLD": "Продано",
+    "ACTIVE": "Активен",
+    "REMOVED": "Удалён"
   }
 }

@@ -12,5 +12,25 @@
     "dashboard": "Dashboard",
     "inbox": "Inbox",
     "admin": "Admin"
+  },
+  "header": {
+    "primaryNav": "Main navigation"
+  },
+  "localeSwitcher": {
+    "label": "Language",
+    "locale": {
+      "en": "English",
+      "ru": "Русский"
+    }
+  },
+  "status": {
+    "DRAFT": "Draft",
+    "PENDING_REVIEW": "Pending review",
+    "PUBLISHED": "Published",
+    "REJECTED": "Rejected",
+    "SUSPENDED": "Suspended",
+    "SOLD": "Sold",
+    "ACTIVE": "Active",
+    "REMOVED": "Removed"
   }
 }
