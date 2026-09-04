@@ -38,7 +38,7 @@ describe('toFilterPatch', () => {
     expect(patch.countries).toEqual(['MT', 'GB'])
   })
 
-  it('omits empty facets so they do not overwrite existing filters', () => {
+  it('omits empty structured facets, but always sets q explicitly', () => {
     const patch = toFilterPatch({
       categories: [],
       countries: [],
@@ -48,5 +48,26 @@ describe('toFilterPatch', () => {
       freeText: 'crypto',
     })
     expect(patch).toEqual({ q: 'crypto' })
+  })
+
+  it('sets q to the empty string — not omitted — when the result is fully structured', () => {
+    // A stale `q` from an earlier plain search must not survive a merge with
+    // a patch the AI expressed entirely as structured filters: `handleAskAi`
+    // spreads `{ ...filters, ...patch }`, so an *omitted* `q` here would
+    // silently inherit whatever `q` the URL already had, showing the user a
+    // filter chip the AI never proposed. `q` must be a key of the patch
+    // (explicitly cleared), not merely absent.
+    const patch = toFilterPatch({
+      categories: ['EMI'],
+      countries: ['MT'],
+      businessStatuses: [],
+      priceMinEur: null,
+      priceMaxEur: null,
+      freeText: '   ',
+    })
+    expect(patch.q).toBe('')
+    expect('q' in patch).toBe(true)
+    expect(patch.categories).toEqual(['EMI'])
+    expect(patch.countries).toEqual(['MT'])
   })
 })

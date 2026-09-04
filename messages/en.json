@@ -91,7 +91,7 @@
     },
     "card": {
       "employees": "{count, plural, one {# employee} other {# employees}}",
-      "yearOfIssue": "Est. {year}",
+      "yearOfIssue": "Licence issued {year}",
       "includedLabel": "Included in the sale",
       "views": "{count, plural, one {# view} other {# views}}",
       "askingPrice": "Asking price"

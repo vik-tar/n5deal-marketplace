@@ -3,7 +3,7 @@ import { prisma } from '@/server/db'
 import type { AssetFilters, AssetSort } from '@/lib/filters/asset-filters'
 import { PAGE_SIZE } from '@/lib/filters/shared'
 import { toTeaserAsset, type TeaserAsset } from '@/lib/dto/asset'
-import { canViewAsset, type MaybeViewer } from '@/lib/authz'
+import type { MaybeViewer } from '@/lib/authz'
 
 /** One category's result count under the current filters, for the sidebar checkboxes. */
 export interface CategoryFacet {
@@ -44,8 +44,13 @@ const SORT_ORDER: Record<AssetSort, Prisma.AssetOrderByWithRelationInput[]> = {
  * for a category the user has *not* yet selected still shows how many
  * listings it would add, instead of freezing at whatever was true before the
  * first category was picked.
+ *
+ * Exported so `tests/unit/queries/asset-where.test.ts` can assert the
+ * visibility floor directly on the returned object — the highest-stakes
+ * invariant in this module (Task 20's moderation cascade depends on it)
+ * should not be defended only by today's code being correct.
  */
-function buildWhere(filters: AssetFilters, omitCategory: boolean): Prisma.AssetWhereInput {
+export function buildWhere(filters: AssetFilters, omitCategory: boolean): Prisma.AssetWhereInput {
   const where: Prisma.AssetWhereInput = { ...VISIBILITY_FLOOR }
 
   if (!omitCategory && filters.categories.length > 0) {
@@ -77,15 +82,29 @@ function buildWhere(filters: AssetFilters, omitCategory: boolean): Prisma.AssetW
 
 /**
  * The public catalog: one page of teasers, the total matching count for
- * pagination, and per-category counts for the sidebar. `viewer` is accepted
- * for parity with every other visibility decision in the app — `canViewAsset`
- * is applied to each row below — but it cannot widen what this query returns;
- * see `VISIBILITY_FLOOR`.
+ * pagination, and per-category counts for the sidebar.
+ *
+ * `viewer` is part of the signature for parity with every other query that
+ * makes a visibility decision, and because Tasks 18/21 call this function
+ * expecting it — but this query does not branch on it: the visibility floor
+ * in `buildWhere` is unconditional (see `VISIBILITY_FLOOR`), and there is no
+ * per-row re-check here standing in for that guarantee. An earlier version
+ * of this function had one (`canViewAsset` applied per row), but it
+ * hardcoded `ownerStatus: 'ACTIVE'` for every row instead of the row's real
+ * seller status, so it evaluated true unconditionally and could not have
+ * caught a regression in `buildWhere` — a check that cannot fail is not a
+ * check, so it was removed rather than kept as false reassurance. The floor
+ * is instead verified directly, and independently of any live query, by
+ * `tests/unit/queries/asset-where.test.ts`.
  */
 export async function listAssets(
   filters: AssetFilters,
   viewer: MaybeViewer,
 ): Promise<ListAssetsResult> {
+  // See the doc comment above: accepted for interface parity with Tasks
+  // 18/21, not used — this query's visibility floor does not depend on who
+  // is asking.
+  void viewer
   const where = buildWhere(filters, false)
   const facetWhere = buildWhere(filters, true)
   const skip = (filters.page - 1) * PAGE_SIZE
@@ -118,20 +137,10 @@ export async function listAssets(
     count: row._count,
   }))
 
-  // Redundant with `VISIBILITY_FLOOR` above by construction — every row here
-  // is already PUBLISHED and owned by an ACTIVE seller — but it routes
-  // through the same predicate every other visibility check in the app uses,
-  // so the floor and `canViewAsset` cannot silently drift apart later.
-  const items = rows
-    .filter((asset) =>
-      canViewAsset(viewer, {
-        id: asset.id,
-        sellerProfileId: asset.sellerProfileId,
-        status: asset.status,
-        ownerStatus: 'ACTIVE',
-      }),
-    )
-    .map(toTeaserAsset)
+  // Every row here already satisfies `VISIBILITY_FLOOR` by construction —
+  // enforced in `buildWhere`, not re-checked per row (see the doc comment
+  // above and `tests/unit/queries/asset-where.test.ts`).
+  const items = rows.map(toTeaserAsset)
 
   return { items, total, facets }
 }

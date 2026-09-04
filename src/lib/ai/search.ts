@@ -29,7 +29,20 @@ export function buildSearchPrompt(query: string): string {
   return `Search phrase: ${query.trim().slice(0, 200)}`
 }
 
-/** Pure: converts a model result into a filter patch, dropping empty facets. */
+/**
+ * Pure: converts a model result into a filter patch, dropping empty
+ * structured facets so they do not overwrite filters the caller already had
+ * (e.g. an empty `categories` here must not clear a category the user picked
+ * manually before asking the AI).
+ *
+ * `q` is the one field set unconditionally, never dropped: the caller
+ * (`handleAskAi` in `smart-search.tsx`) merges this patch into the current
+ * filters with `{ ...filters, ...patch }`, so an *omitted* `q` would
+ * silently inherit whatever `q` was already in the URL from an earlier plain
+ * search. When the model expresses the whole query as structured filters,
+ * `freeText` is empty and `q` must be explicitly cleared (`''`) rather than
+ * left out, or the user would see a filter chip the AI never proposed.
+ */
 export function toFilterPatch(result: SearchResult): Partial<AssetFilters> {
   const patch: Partial<AssetFilters> = {}
 
@@ -41,7 +54,7 @@ export function toFilterPatch(result: SearchResult): Partial<AssetFilters> {
   if (result.businessStatuses.length > 0) patch.businessStatuses = result.businessStatuses
   if (result.priceMinEur !== null) patch.priceMinCents = Math.round(result.priceMinEur * 100)
   if (result.priceMaxEur !== null) patch.priceMaxCents = Math.round(result.priceMaxEur * 100)
-  if (result.freeText.trim() !== '') patch.q = result.freeText.trim()
+  patch.q = result.freeText.trim()
 
   return patch
 }
