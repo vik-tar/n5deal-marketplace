@@ -1197,7 +1197,9 @@ git commit -m "feat: add deterministic mandate-to-asset match scoring"
 
 **Interfaces:**
 - Consumes: enum types from `@/generated/prisma/client`.
-- Produces: types `Viewer`, `MaybeViewer`, `AssetRef`, `GrantState`; predicates `isActive`, `canAccessApp`, `isOwner`, `canModerate`, `canViewAsset`, `canViewFullAsset`, `canEditAsset`, `canRequestAccess`, `canDecideAccess`, `canRevokeAccess`, `canMessage`, `canPublishListing`; constant `PUBLIC_ASSET_STATUSES`.
+- Produces: types `Viewer`, `MaybeViewer`, `AssetRef`, `GrantState`; predicates `isActive`, `canAccessApp`, `isOwner`, `canModerate`, `canViewAsset`, `canViewFullAsset`, `canEditAsset`, `canRequestAccess`, `canDecideAccess(viewer, asset, grant)`, `canRevokeAccess(viewer, asset, grant)`, `canMessage(viewer, counterparty: { userId, status })`, `canPublishListing`; constant `PUBLIC_ASSET_STATUSES`.
+
+Three signatures differ from the code block below, which was written before review. `canDecideAccess` and `canRevokeAccess` each take the current `GrantState` and enforce the transition — decide only from `REQUESTED`, revoke only from `APPROVED` — so the state machine is guarded in the authorization layer rather than remembered by each mutation. `canMessage` takes a counterparty object rather than a bare status, refuses self-messaging, and carries a comment recording that relationship scoping is deliberately absent because cold contact is a required capability.
 
 Every Server Action in Tasks 14–20 calls these. They are the single source of truth for both rendering decisions and mutation guards.
 
@@ -1525,7 +1527,7 @@ export * from './rules'
 - [ ] **Step 5: Run the tests**
 
 Run: `pnpm test tests/unit/authz/rules.test.ts`
-Expected: PASS, 24 tests.
+Expected: PASS, 26 tests.
 
 - [ ] **Step 6: Commit**
 
@@ -2850,7 +2852,7 @@ Create `src/server/actions/access-requests.ts` beginning with `'use server'`. Ea
 
 1. Calls `requireViewer(locale)`.
 2. Loads the target and builds the `AssetRef`.
-3. Calls the matching predicate from `@/lib/authz` and returns `{ ok: false, error: 'FORBIDDEN' }` when it is false. **Never** trust that the UI already checked.
+3. Calls the matching predicate from `@/lib/authz` and returns `{ ok: false, error: 'FORBIDDEN' }` when it is false. **Never** trust that the UI already checked. `canDecideAccess` and `canRevokeAccess` each take the loaded `GrantState` as their third argument — pass the state you just read, and do not re-derive the transition rule here. Deciding is legal only from `REQUESTED`, revoking only from `APPROVED`.
 4. Validates the payload with zod (`message` trimmed, at most 1000 characters).
 5. Performs the write.
 6. Calls `revalidatePath` for the affected routes.
@@ -3140,7 +3142,7 @@ Expected: PASS, 4 tests.
 
 `getConversation` returns `null` unless the viewer is one of the two participants — a manager is not a participant and cannot read private threads. That restraint is deliberate: a manager who can read every conversation is a privacy problem, and moderation does not need it. State it in the README.
 
-`startConversation` checks `canMessage`, builds the key, and upserts on `threadKey` so a double click cannot create two threads. `sendMessage` checks participation and `canMessage` against the counterparty's live status, appends the message and bumps `lastMessageAt`. `markRead` stamps `readAt` on the counterparty's unread messages.
+`startConversation` checks `canMessage(viewer, { userId, status })` against the counterparty it just loaded — the predicate refuses a suspended counterparty and refuses self-messaging, but deliberately does not require any prior relationship, because cold contact is a required capability. It then builds the key and upserts on `threadKey` so a double click cannot create two threads. `sendMessage` checks participation and `canMessage` against the counterparty's live status, appends the message and bumps `lastMessageAt`. `markRead` stamps `readAt` on the counterparty's unread messages.
 
 - [ ] **Step 6: Build the screens**
 
