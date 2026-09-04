@@ -1856,7 +1856,8 @@ git commit -m "feat: parse and serialise catalog filters through the URL"
 
 **Interfaces:**
 - Consumes: `Asset` type and `Prisma` runtime metadata from `@/generated/prisma/client`.
-- Produces: `CONFIDENTIAL_ASSET_FIELDS`, `PUBLIC_ASSET_FIELDS`, types `TeaserAsset`, `FullAsset`, `AssetDto`; functions `toTeaserAsset`, `toFullAsset`, `toAssetDto`, and the type guard `isFullAsset`.
+- Produces: `CONFIDENTIAL_ASSET_FIELDS`, `PUBLIC_ASSET_FIELDS`, types `PublicAssetField`, `ConfidentialAssetField`, `TeaserAsset`, `FullAsset`, `AssetDto`; functions `toTeaserAsset`, `toFullAsset`, `toAssetDto`, and the type guard `isFullAsset`.
+- Note: `Prisma.dmmf` does NOT exist in this Prisma 7 generated client. The classification test uses `Prisma.AssetScalarFieldEnum`, which holds exactly the 27 scalar column names and no relation field. Also, `tsconfig` targets ES2017, so bigint literals (`1_00n`) do not compile — build fixture values with `BigInt(...)` instead.
 
 This is the enforcement point for design decision D3. `toAssetDto` takes a boolean rather than a viewer so it stays pure — the decision itself belongs to `@/lib/authz`.
 
@@ -2030,7 +2031,14 @@ export type ConfidentialAssetField = (typeof CONFIDENTIAL_ASSET_FIELDS)[number]
 const MONEY_FIELDS = ['askingPriceCents', 'revenueCents', 'ebitdaCents'] as const
 type MoneyField = (typeof MONEY_FIELDS)[number]
 
-export type TeaserAsset = Omit<Asset, ConfidentialAssetField | 'askingPriceCents'> & {
+export type PublicAssetField = (typeof PUBLIC_ASSET_FIELDS)[number]
+
+/**
+ * Derived from the allowlist, not from `Omit<Asset, ...>`, so the type and the
+ * runtime copy loop read the same array. Dropping a field from the allowlist
+ * then becomes a compile error at every call site, not a silent `undefined`.
+ */
+export type TeaserAsset = Omit<Pick<Asset, PublicAssetField>, 'askingPriceCents'> & {
   askingPriceCents: number
   redacted: true
 }
