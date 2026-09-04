@@ -112,8 +112,8 @@ model Mandate {
   countries        String[]
   licenceTypes     String[]
   businessStatuses BusinessStatus[]
-  ticketMinCents   Int?
-  ticketMaxCents   Int?
+  ticketMinCents   BigInt?
+  ticketMaxCents   BigInt?
   timelineMonths   Int?
   notes            String           @default("")
   updatedAt        DateTime         @updatedAt
@@ -148,7 +148,7 @@ model Asset {
   country           String
   regulator         String
   businessStatus    BusinessStatus
-  askingPriceCents  Int
+  askingPriceCents  BigInt
   employees         Int
   yearOfIssue       Int
   included          String[]
@@ -157,8 +157,8 @@ model Asset {
 
   // Confidential (gated behind an approved AccessRequest)
   legalName          String
-  revenueCents       Int
-  ebitdaCents        Int
+  revenueCents       BigInt
+  ebitdaCents        BigInt
   clientCount        Int
   dataRoomUrl        String?
   confidentialNotes  String  @default("")
