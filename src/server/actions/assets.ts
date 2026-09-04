@@ -1,7 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { Prisma } from '@/generated/prisma/client'
+import { Prisma, type AssetStatus } from '@/generated/prisma/client'
 import { prisma } from '@/server/db'
 import { requireViewer } from '@/server/session'
 import { canEditAsset, canPublishListing, type AssetRef } from '@/lib/authz'
@@ -50,12 +50,19 @@ export interface SaveDraftInput extends AssetInput {
 }
 
 /**
- * `saveDraft`'s own result carries the id a create allocated — the shared
- * `ActionResult` (`@/server/actions/types`) has no room for that, and widening
- * it would ripple into every other Task 14-20 action, so this is a sibling
- * type with the identical `{ ok: true } | { ok: false; error }` shape instead.
+ * `saveDraft`'s own result carries the id a create allocated and the status
+ * the row ended up at — the shared `ActionResult` (`@/server/actions/types`)
+ * has no room for either, and widening it would ripple into every other Task
+ * 14-20 action, so this is a sibling type with the identical
+ * `{ ok: true } | { ok: false; error }` shape instead. `status` is not
+ * cosmetic: an edit to a `'PUBLISHED'` listing can silently pull it back to
+ * `'PENDING_REVIEW'` (see the doc comment below), and `listing-form.tsx`
+ * compares this against the status it started from to decide whether to
+ * tell the seller their listing just came off the public catalog.
  */
-export type SaveDraftResult = { ok: true; assetId: string } | { ok: false; error: ActionError }
+export type SaveDraftResult =
+  | { ok: true; assetId: string; status: AssetStatus }
+  | { ok: false; error: ActionError }
 
 /** Bounds the retry described in the doc comment on `saveDraft` below. */
 const MAX_CREATE_ATTEMPTS = 5
@@ -84,11 +91,34 @@ function toAssetWrite(data: AssetInput) {
 }
 
 /**
- * Creates or updates a listing as `'DRAFT'`. `canPublishListing` gates a
- * create (any active seller with a profile may start one); `canEditAsset`
- * gates an update of an existing asset (its owner, and only while it is not
- * `'SOLD'`) — the same pair of predicates `runTeaserReview` and
- * `submitForReview` below use, never re-derived here.
+ * Creates a listing as `'DRAFT'`, or updates an existing one in place.
+ * `canPublishListing` gates a create (any active seller with a profile may
+ * start one); `canEditAsset` gates an update of an existing asset (its
+ * owner, and only while it is not `'SOLD'`) — the same pair of predicates
+ * `runTeaserReview` and `submitForReview` below use, never re-derived here.
+ *
+ * **An edit to a `'PUBLISHED'` listing pulls it back to `'PENDING_REVIEW'`**
+ * (fix round 1 finding): `canEditAsset` allows editing any non-`'SOLD'`
+ * asset, and nothing before this fix stopped a seller from rewriting a live
+ * listing's public teaser — including pasting back in the exact confidential
+ * detail `runTeaserReview` exists to catch — with neither the AI check nor a
+ * manager ever seeing the new text, since only the *first* publish went
+ * through the moderation queue. Deliberately not clever about which fields
+ * changed: a teaser-only edit to an otherwise-identical row still demotes
+ * the listing, because a gate that only inspects the first version of a
+ * document is not a gate. `'DRAFT'` and `'REJECTED'` are left untouched by
+ * an edit (they are not live to begin with). `'PENDING_REVIEW'` is also left
+ * untouched — it is already in the queue an edit would otherwise be trying
+ * to re-enter, so re-writing the same status is a no-op, not a distinct
+ * choice. `'SUSPENDED'` is likewise left untouched, for a different reason:
+ * that status is a manager's call (`ModAction`), not the seller's — letting
+ * a routine edit silently reinstate a suspended listing (by moving it to
+ * `'PENDING_REVIEW'`, one step from public again) would let the seller
+ * route around a moderation decision through the ordinary edit form.
+ * `'SOLD'` never reaches this function at all (`canEditAsset` refuses it
+ * above). This is why `write` composes an explicit conditional `status`
+ * rather than always carrying one: only the `'PUBLISHED'` source status
+ * produces a `status` key at all.
  *
  * `publicRef` allocation (ruling 2, Task 15): the next free `N5-<n>` is read
  * (via `nextPublicRef`) and the row inserted inside one `$transaction`, so the
@@ -125,18 +155,31 @@ export async function saveDraft(input: SaveDraftInput): Promise<SaveDraftResult>
   const write = toAssetWrite(parsed.data)
 
   if (ref !== null) {
-    // Conditioned on the exact state `canEditAsset` validated above (not just
-    // `id`), so an asset a concurrent action moves to `'SOLD'` between that
-    // check and this write is left alone rather than silently edited.
+    // Only a `'PUBLISHED'` source status demotes; every other reachable
+    // status (`'DRAFT'`, `'REJECTED'`, `'PENDING_REVIEW'`, `'SUSPENDED'`) is
+    // left exactly where it was — see the doc comment above for why each of
+    // those four is a deliberate no-op, not an oversight.
+    const nextStatus: AssetStatus = ref.status === 'PUBLISHED' ? 'PENDING_REVIEW' : ref.status
+
+    // Conditioned on the *exact* status `canEditAsset` validated above (not
+    // "not SOLD"), via `updateMany` rather than a read-then-write: an asset a
+    // concurrent action already moved to any different status between that
+    // check and this write — suspended by a manager, or raced by another
+    // save — matches zero rows here instead of this write silently applying
+    // (and, worse, silently computing `nextStatus` from a status that is no
+    // longer true).
     const updated = await prisma.asset.updateMany({
-      where: { id: ref.id, status: { not: 'SOLD' } },
-      data: write,
+      where: { id: ref.id, status: ref.status },
+      data: ref.status === 'PUBLISHED' ? { ...write, status: nextStatus } : write,
     })
     if (updated.count === 0) return { ok: false, error: 'FORBIDDEN' }
 
     revalidatePath(`/${input.locale}/listings/${ref.id}`)
     revalidatePath(`/${input.locale}/listings/${ref.id}/edit`)
-    return { ok: true, assetId: ref.id }
+    // A demotion out of `'PUBLISHED'` must take the listing off the catalog
+    // immediately, not just once its own cache entry next expires.
+    if (nextStatus !== ref.status) revalidatePath(`/${input.locale}/listings`)
+    return { ok: true, assetId: ref.id, status: nextStatus }
   }
 
   // `canPublishListing` requires a non-null `sellerProfileId` to return true,
@@ -154,7 +197,7 @@ export async function saveDraft(input: SaveDraftInput): Promise<SaveDraftResult>
         })
       })
       revalidatePath(`/${input.locale}/listings/${created.id}/edit`)
-      return { ok: true, assetId: created.id }
+      return { ok: true, assetId: created.id, status: 'DRAFT' }
     } catch (error) {
       // `error.meta.target` — the usual way to name *which* unique column a
       // `P2002` violated — is not populated by Prisma 7's driver-adapter

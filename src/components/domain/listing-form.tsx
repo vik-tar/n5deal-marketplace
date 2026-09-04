@@ -12,7 +12,7 @@ import { TeaserReviewPanel } from '@/components/domain/teaser-review-panel'
 import { ASSET_CATEGORIES, BUSINESS_STATUSES } from '@/lib/filters/asset-filters'
 import { parseEuros } from '@/lib/money'
 import { assetInputSchema, MAX_INCLUDED_ITEMS, type AssetInput } from '@/lib/validation/asset'
-import { saveDraft, submitForReview } from '@/server/actions/assets'
+import { saveDraft, submitForReview, type SaveDraftResult } from '@/server/actions/assets'
 import type { ActionError } from '@/server/actions/types'
 
 /** Everything the edit page (`@/app/[locale]/listings/[id]/edit/page.tsx`) already
@@ -127,7 +127,7 @@ export function ListingForm({
   const [included, setIncluded] = useState<string[]>(initial?.included ?? [])
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [formError, setFormError] = useState<ActionError | 'CLIENT_INVALID' | null>(null)
-  const [notice, setNotice] = useState<'saved' | 'submitted' | null>(null)
+  const [notice, setNotice] = useState<'saved' | 'submitted' | 'unpublishedForReview' | null>(null)
   const [isPending, startTransition] = useTransition()
 
   function addIncluded() {
@@ -166,9 +166,22 @@ export function ListingForm({
     return result.data
   }
 
+  /**
+   * `saveDraft`'s own doc comment (`@/server/actions/assets`) explains why:
+   * an edit to a `'PUBLISHED'` listing pulls it back to `'PENDING_REVIEW'`,
+   * silently, from this component's point of view, unless it says otherwise
+   * — a demotion the seller did not explicitly ask for (they pressed "Save
+   * draft", not "unpublish") but must still see plainly, per the ruling that
+   * a silent unpublish would be worse than the gap it fixes.
+   */
+  function wasUnpublishedForReview(previousStatus: AssetStatus | undefined, result: SaveDraftResult): boolean {
+    return previousStatus === 'PUBLISHED' && result.ok && result.status === 'PENDING_REVIEW'
+  }
+
   function handleSave() {
     const data = validate()
     if (!data) return
+    const previousStatus = initial?.status
     startTransition(async () => {
       const result = await saveDraft({ ...data, assetId: initial?.assetId, locale })
       if (!result.ok) {
@@ -181,7 +194,8 @@ export function ListingForm({
         router.replace(`/listings/${result.assetId}/edit`)
         return
       }
-      setNotice('saved')
+      setNotice(wasUnpublishedForReview(previousStatus, result) ? 'unpublishedForReview' : 'saved')
+      router.refresh()
     })
   }
 
@@ -190,11 +204,25 @@ export function ListingForm({
     const data = validate()
     if (!data) return
     const assetId = initial.assetId
+    const previousStatus = initial.status
     startTransition(async () => {
       const saved = await saveDraft({ ...data, assetId, locale })
       if (!saved.ok) {
         setFormError(saved.error)
         setNotice(null)
+        return
+      }
+      if (wasUnpublishedForReview(previousStatus, saved)) {
+        // The save this button just performed already pulled the listing
+        // back to `'PENDING_REVIEW'` — exactly the state "submit for
+        // review" exists to reach. Calling `submitForReview` now would only
+        // return `FORBIDDEN` (it accepts a `'DRAFT'`/`'REJECTED'` source
+        // status, not `'PENDING_REVIEW'`) and that generic error would
+        // obscure the far more important fact that the listing just came
+        // off the public catalog.
+        setFormError(null)
+        setNotice('unpublishedForReview')
+        router.refresh()
         return
       }
       const submitted = await submitForReview({ assetId, locale })
@@ -516,6 +544,11 @@ export function ListingForm({
       ) : null}
       {notice === 'saved' ? <p className="text-sm text-success">{t('savedNotice')}</p> : null}
       {notice === 'submitted' ? <p className="text-sm text-success">{t('submittedNotice')}</p> : null}
+      {notice === 'unpublishedForReview' ? (
+        <p role="alert" className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm text-ink">
+          {t('unpublishedForReviewNotice')}
+        </p>
+      ) : null}
     </form>
   )
 }

@@ -212,6 +212,7 @@
     },
     "savedNotice": "Draft saved.",
     "submittedNotice": "Submitted for review. A platform manager will decide whether to publish it.",
+    "unpublishedForReviewNotice": "Your changes were saved, but this listing is no longer publicly visible: editing a published listing sends it back for review. A platform manager will decide whether to publish it again.",
     "errors": {
       "required": "This field cannot be empty.",
       "positiveMoney": "Enter an asking price greater than 0.",
