@@ -160,6 +160,91 @@
       "signInAction": "Sign in"
     }
   },
+  "listingForm": {
+    "newTitle": "New listing",
+    "newSubtitle": "The public teaser below is visible to every visitor. The confidential section only reaches a buyer once you approve their access request.",
+    "editTitle": "Edit listing {ref}",
+    "editSubtitle": "Update the public teaser and the confidential details behind it.",
+    "rejectionNotice": "A platform manager rejected this listing: {reason}",
+    "sections": {
+      "teaserTitle": "Public teaser",
+      "teaserBody": "Visible to every visitor, signed in or not.",
+      "confidentialTitle": "Confidential",
+      "confidentialBody": "Released only to a buyer once you approve their access request for this listing."
+    },
+    "fields": {
+      "categoryLabel": "Category",
+      "businessStatusLabel": "Business status",
+      "licenceTypeLabel": "Licence type",
+      "licenceTypePlaceholder": "e.g. EMI, PI, Banking",
+      "businessTypeLabel": "Business type",
+      "businessTypePlaceholder": "e.g. Card issuing and processing",
+      "countryLabel": "Jurisdiction (ISO code)",
+      "countryPlaceholder": "e.g. MT",
+      "regulatorLabel": "Regulator",
+      "regulatorPlaceholder": "e.g. MFSA",
+      "askingPriceLabel": "Asking price (EUR)",
+      "employeesLabel": "Employees",
+      "yearOfIssueLabel": "Year the licence was issued",
+      "teaserTitleLabel": "Teaser title",
+      "teaserTitleHint": "10-120 characters.",
+      "teaserDescriptionLabel": "Teaser description",
+      "teaserDescriptionHint": "40-2000 characters. Do not name the company or give exact figures — the confidentiality check below can help.",
+      "includedLabel": "Included in the sale",
+      "includedPlaceholder": "e.g. Licence, client book, core team",
+      "includedItemLabel": "Highlight {index}",
+      "includedAdd": "Add item",
+      "includedRemove": "Remove",
+      "includedHint": "Up to 8 short highlights shown on the teaser card.",
+      "legalNameLabel": "Legal entity name",
+      "revenueLabel": "Annual revenue (EUR)",
+      "ebitdaLabel": "EBITDA (EUR)",
+      "clientCountLabel": "Number of clients",
+      "dataRoomUrlLabel": "Data room URL (optional)",
+      "dataRoomUrlPlaceholder": "https://...",
+      "confidentialNotesLabel": "Notes for approved buyers (optional)"
+    },
+    "actions": {
+      "saveDraft": "Save draft",
+      "saving": "Saving...",
+      "submitForReview": "Submit for review",
+      "submitting": "Submitting..."
+    },
+    "savedNotice": "Draft saved.",
+    "submittedNotice": "Submitted for review. A platform manager will decide whether to publish it.",
+    "errors": {
+      "required": "This field cannot be empty.",
+      "positiveMoney": "Enter an asking price greater than 0.",
+      "money": "Enter a valid, non-negative amount in EUR.",
+      "nonNegativeInt": "Enter a whole number, 0 or more.",
+      "country": "Enter a 2-letter country code, e.g. MT.",
+      "teaserTitle": "Enter 10 to 120 characters.",
+      "teaserDescription": "Enter 40 to 2000 characters.",
+      "yearOfIssue": "Enter a year from 1900 to the current year.",
+      "included": "Up to 8 items, each 1 to 80 characters.",
+      "url": "Enter a valid URL starting with http:// or https://, or leave it blank.",
+      "tooLong": "Shorten this text.",
+      "form": "Fix the highlighted fields and try again."
+    },
+    "error": {
+      "FORBIDDEN": "You are not able to edit this listing.",
+      "NOT_FOUND": "This listing could not be found.",
+      "ALREADY_REQUESTED": "That action is not valid here.",
+      "INVALID": "Some fields need attention before this can be saved."
+    },
+    "review": {
+      "title": "Confidentiality check",
+      "intro": "Checks whether your saved teaser accidentally reveals the confidential details below it.",
+      "trigger": "Check teaser",
+      "checking": "Checking...",
+      "loading": "Checking the saved teaser for confidential details...",
+      "unavailable": "The check could not run right now. You can still submit the listing.",
+      "clean": "No confidentiality issues found.",
+      "leaksTitle": "Possible leaks",
+      "suggestionsTitle": "Suggestions",
+      "advisory": "This check is advisory: you may submit the listing regardless of what it finds."
+    }
+  },
   "requestQueue": {
     "title": "Access requests",
     "pendingTitle": "Pending requests",

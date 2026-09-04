@@ -52,6 +52,8 @@ describe('message catalogues', () => {
       'localeSwitcher.locale.en',
       'localeSwitcher.locale.ru',
       'gate.open.ebitda',
+      'listingForm.fields.ebitdaLabel',
+      'listingForm.fields.dataRoomUrlPlaceholder',
     ])
     const identical = keyPaths(en).filter((path) => {
       if (sharedByDesign.has(path)) return false
