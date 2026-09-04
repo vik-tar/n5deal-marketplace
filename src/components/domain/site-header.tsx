@@ -10,7 +10,14 @@ import { signOutAction } from '@/server/actions/auth'
 
 export function SiteHeader({ viewer, locale }: { viewer: Viewer | null; locale: string }) {
   const t = useTranslations()
-  const navKeys = navKeysFor(viewer?.role ?? null)
+  // A suspended viewer keeps a session — they can still see their email and
+  // sign out below — but `canAccessApp` (`@/lib/authz/rules.ts`) already says
+  // a non-ACTIVE viewer may not use the app, so the nav should show exactly
+  // what an anonymous visitor sees. Passing `null` here (rather than
+  // widening `navKeysFor`'s pure, separately-unit-tested signature to know
+  // about `status`) keeps that function's contract — and `tests/unit/nav.test.ts`
+  // — unchanged.
+  const navKeys = navKeysFor(viewer?.status === 'ACTIVE' ? viewer.role : null)
   const boundSignOut = signOutAction.bind(null, locale)
 
   return (

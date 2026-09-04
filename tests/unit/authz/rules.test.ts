@@ -10,6 +10,7 @@ import {
   canRevokeAccess,
   canViewAsset,
   canViewFullAsset,
+  viewerGate,
 } from '@/lib/authz'
 import type { AssetRef, Viewer } from '@/lib/authz'
 
@@ -234,5 +235,30 @@ describe('canModerate and canMessage', () => {
 
   it('refuses to let anyone message themselves', () => {
     expect(canMessage(buyer, { userId: buyer.userId, status: 'ACTIVE' })).toBe(false)
+  })
+})
+
+describe('viewerGate', () => {
+  it('sends an anonymous visitor to log in', () => {
+    expect(viewerGate(null)).toBe('REQUIRE_LOGIN')
+  })
+
+  it('allows an active buyer, seller and manager through', () => {
+    expect(viewerGate(buyer)).toBe('ALLOW')
+    expect(viewerGate(seller)).toBe('ALLOW')
+    expect(viewerGate(manager)).toBe('ALLOW')
+  })
+
+  it('routes a suspended viewer to the suspended screen', () => {
+    expect(viewerGate({ ...buyer, status: 'SUSPENDED' })).toBe('SUSPENDED')
+  })
+
+  it('routes a removed viewer to the suspended screen too', () => {
+    // Defensive rather than reachable: `getViewer` (`@/server/session`)
+    // already collapses a REMOVED user to `null` before `viewerGate` ever
+    // sees them, so this branch cannot currently be hit through the real
+    // `getViewer` → `requireViewer` path. This documents the predicate's own
+    // intended behaviour in isolation.
+    expect(viewerGate({ ...buyer, status: 'REMOVED' })).toBe('SUSPENDED')
   })
 })

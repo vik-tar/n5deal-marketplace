@@ -1,6 +1,6 @@
 import { redirect } from '@/i18n/navigation'
 import { auth } from '@/auth'
-import type { Viewer } from '@/lib/authz'
+import { viewerGate, type Viewer } from '@/lib/authz'
 
 /**
  * The session is a JWT, so `status` is a snapshot from sign-in time.
@@ -12,9 +12,19 @@ export async function getViewer(): Promise<Viewer | null> {
   if (!session?.user?.id) return null
 
   const { prisma } = await import('@/server/db')
+  // `select` rather than `include`: this runs on every render across the
+  // whole app, so it names only the fields `Viewer` actually needs — no
+  // reason to pull `passwordHash` off the wire on every page load.
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    include: { buyerProfile: { select: { id: true } }, sellerProfile: { select: { id: true } } },
+    select: {
+      id: true,
+      email: true,
+      role: true,
+      status: true,
+      buyerProfile: { select: { id: true } },
+      sellerProfile: { select: { id: true } },
+    },
   })
   if (!user || user.status === 'REMOVED') return null
 
@@ -42,7 +52,14 @@ function redirectNow(href: '/login' | '/suspended', locale: string): never {
 
 export async function requireViewer(locale: string): Promise<Viewer> {
   const viewer = await getViewer()
-  if (viewer === null) redirectNow('/login', locale)
-  if (viewer.status !== 'ACTIVE') redirectNow('/suspended', locale)
-  return viewer
+  switch (viewerGate(viewer)) {
+    case 'REQUIRE_LOGIN':
+      return redirectNow('/login', locale)
+    case 'SUSPENDED':
+      return redirectNow('/suspended', locale)
+  }
+  // Only reachable when `viewerGate` returned `'ALLOW'`, which by definition
+  // means `viewer` is non-null and `ACTIVE` — both other branches above
+  // return through `redirectNow`, which never returns.
+  return viewer as Viewer
 }

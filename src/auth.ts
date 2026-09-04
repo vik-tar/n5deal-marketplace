@@ -5,6 +5,18 @@ import Credentials from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/server/db'
 
+/**
+ * A real bcrypt hash of a value nobody can supply, computed once at module
+ * load. `authorize` below always runs exactly one `bcrypt.compare` — against
+ * either the looked-up user's real hash, or this one when there is no
+ * usable account — so "no such account" / "removed account" and "wrong
+ * password for a real account" cost the same amount of work, and therefore
+ * the same amount of time. The uniform `login.error` message is backed by
+ * uniform timing: a caller cannot enumerate which addresses have accounts by
+ * measuring how long a failed attempt takes.
+ */
+const DUMMY_HASH = bcrypt.hashSync('no account will ever use this password', 10)
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: 'jwt' },
   pages: { signIn: '/login' },
@@ -23,11 +35,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           where: { email },
           include: { buyerProfile: true, sellerProfile: true },
         })
-        if (!user) return null
-        if (user.status === 'REMOVED') return null
 
-        const ok = await bcrypt.compare(password, user.passwordHash)
-        if (!ok) return null
+        // Always compare against *something* — the real hash when there is a
+        // usable account, `DUMMY_HASH` otherwise — so this line runs the same
+        // work regardless of which failure (if any) is about to be returned.
+        const ok = await bcrypt.compare(
+          password,
+          user && user.status !== 'REMOVED' ? user.passwordHash : DUMMY_HASH,
+        )
+        if (!user || user.status === 'REMOVED' || !ok) return null
 
         return {
           id: user.id,
@@ -41,14 +57,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    // Explicitly typed rather than left to inference: `NextAuth`'s config
-    // parameter is a union (a plain object or a function returning one), and
-    // through that union TypeScript's contextual typing collapses these two
-    // callbacks' destructured `token`/`session` down to their un-augmented
-    // base shape (`token.role` etc. read back as `unknown`) even though the
-    // module augmentation in `src/types/next-auth.d.ts` is in effect and
-    // `JWT`/`Session` resolve correctly everywhere else. Annotating the
-    // parameters directly sidesteps that inference gap.
+    // Explicitly typed rather than left to inference: re-verified on 2026-09-04
+    // (fix round 1) by stripping these annotations and running a clean
+    // `pnpm typecheck` (tsconfig.tsbuildinfo removed first, so nothing was
+    // cached) — the exact `TS2322: Type 'unknown' is not assignable to type
+    // '...'` errors returned on these five lines, unchanged from the original
+    // finding. Keeping the annotations; see task-11-report.md for the full
+    // repro output.
     jwt({ token, user }: { token: JWT; user?: User }) {
       if (user) {
         token.id = user.id

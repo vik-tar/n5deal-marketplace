@@ -13,6 +13,26 @@ export function canAccessApp(viewer: MaybeViewer): boolean {
   return viewer === null || viewer.status === 'ACTIVE'
 }
 
+export type ViewerGate = 'ALLOW' | 'REQUIRE_LOGIN' | 'SUSPENDED'
+
+/**
+ * What a page should do with a viewer, separated from how it does it so the
+ * decision can be tested without a database or a session. `requireViewer`
+ * (`@/server/session`) switches on this instead of re-deriving the branches
+ * itself.
+ *
+ * A `REMOVED` viewer maps to `'SUSPENDED'` here too — defensively: in
+ * practice `getViewer` already collapses a `REMOVED` user to `null` before
+ * this ever sees them, so that branch is unreachable through the real
+ * `getViewer` → `requireViewer` path today. The test below documents the
+ * intended behaviour of this predicate on its own, not current reachability.
+ */
+export function viewerGate(viewer: MaybeViewer): ViewerGate {
+  if (viewer === null) return 'REQUIRE_LOGIN'
+  if (viewer.status !== 'ACTIVE') return 'SUSPENDED'
+  return 'ALLOW'
+}
+
 export function isOwner(viewer: MaybeViewer, asset: AssetRef): boolean {
   return (
     isActive(viewer) &&
