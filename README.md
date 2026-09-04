@@ -20,6 +20,14 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Authentication
+
+Sessions are Auth.js (`next-auth@beta`, v5) JWTs, but `getViewer()` (`src/server/session.ts`)
+does not trust the token's `status` snapshot — it re-reads the `User` row from Postgres on
+every call. That costs one extra round trip per request, in exchange for a correctness
+guarantee: when a manager suspends an account, the suspension takes effect on that user's
+very next request, rather than waiting until they next sign in and get a fresh JWT.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

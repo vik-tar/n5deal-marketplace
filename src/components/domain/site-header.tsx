@@ -5,19 +5,13 @@ import { Button } from '@/components/ui/button'
 import { LocaleSwitcher } from '@/components/domain/locale-switcher'
 import { NAV_HREF, SIGN_IN_HREF, navKeysFor } from '@/lib/nav'
 import { FOCUS_RING, cn } from '@/lib/cn'
+import type { Viewer } from '@/lib/authz'
+import { signOutAction } from '@/server/actions/auth'
 
-/**
- * Temporary stand-in for `Viewer` (Task 6), which Task 11 substitutes here
- * along with the real session and the sign-out action.
- */
-export type HeaderViewer = {
-  role: string
-  email: string
-}
-
-export function SiteHeader({ viewer }: { viewer: HeaderViewer | null }) {
+export function SiteHeader({ viewer, locale }: { viewer: Viewer | null; locale: string }) {
   const t = useTranslations()
   const navKeys = navKeysFor(viewer?.role ?? null)
+  const boundSignOut = signOutAction.bind(null, locale)
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-ground/90 backdrop-blur">
@@ -63,10 +57,11 @@ export function SiteHeader({ viewer }: { viewer: HeaderViewer | null }) {
               <span className="hidden text-sm text-ink-muted sm:inline">
                 {viewer.email}
               </span>
-              {/* Task 11 wraps this in the sign-out Server Action form. */}
-              <Button type="button" variant="ghost" size="sm">
-                {t('common.signOut')}
-              </Button>
+              <form action={boundSignOut}>
+                <Button type="submit" variant="ghost" size="sm">
+                  {t('common.signOut')}
+                </Button>
+              </form>
             </>
           ) : (
             <Link

@@ -32,5 +32,24 @@
     "SOLD": "Sold",
     "ACTIVE": "Active",
     "REMOVED": "Removed"
+  },
+  "login": {
+    "title": "Sign in",
+    "subtitle": "Sign in to your N5Deal account.",
+    "emailLabel": "Email",
+    "passwordLabel": "Password",
+    "submit": "Sign in",
+    "error": "Invalid email or password.",
+    "demoHeading": "Demo accounts",
+    "demoHint": "One click signs you in as that role. The credentials are shown below each button so you can also sign in manually.",
+    "demoBuyer": "Continue as buyer",
+    "demoSeller": "Continue as seller",
+    "demoManager": "Continue as manager"
+  },
+  "suspended": {
+    "title": "Account suspended",
+    "body": "A marketplace manager has suspended this account. You cannot access listings, messages or your dashboard until it is reinstated.",
+    "reasonLabel": "Reason",
+    "noReason": "No reason was recorded for this suspension."
   }
 }
