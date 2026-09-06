@@ -221,7 +221,8 @@
       "title": "Conversation",
       "back": "Back to inbox",
       "you": "You",
-      "identityWithheld": "This seller's company name is shown once they approve your access request for the listing."
+      "identityWithheld": "This seller's company name is shown once they approve your access request for the listing.",
+      "identityWithheldNoListing": "This conversation is not about a listing, so there is no access request that could disclose this seller's company name. It stays private unless they give it to you themselves."
     },
     "composer": {
       "label": "Your message",

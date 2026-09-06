@@ -227,6 +227,17 @@ export async function startConversation(input: StartConversationInput): Promise<
     // it is. Opening a conversation a second time is not an event — bumping
     // `lastMessageAt` here would float a thread nobody wrote in to the top
     // of both parties' inboxes.
+    //
+    // The `create` above floats one anyway, and no value written here could
+    // stop it: `lastMessageAt` carries `@default(now())`, so a brand-new
+    // thread is stamped with the present instant whatever this action does,
+    // and a click on "Contact seller" followed by silence used to put an
+    // empty row above every live negotiation. That is fixed in the *ordering*
+    // instead — `compareConversationsByActivity`
+    // (`@/server/queries/conversation-where`) sinks threads with no messages
+    // below threads with them — because the alternative, writing a backdated
+    // timestamp the thread never earned, puts a lie in a column `/inbox`
+    // renders as the row's date.
     const conversation = await prisma.conversation.upsert({
       where: { threadKey },
       create: {
@@ -240,12 +251,19 @@ export async function startConversation(input: StartConversationInput): Promise<
     })
     conversationId = conversation.id
   } catch (error) {
-    // Not decorative: Prisma compiles this upsert to a native INSERT ... ON
-    // CONFLICT only when it can, and falls back to a non-atomic
-    // read-then-write otherwise. On the fallback path a genuine race raises
-    // P2002 on `threadKey`, and the right answer is the row the winner just
-    // committed — the same thread, which is the whole point of the
-    // constraint. Anything else is rethrown.
+    // This branch is the primary mechanism, not a backstop. Measured on
+    // 2026-09-06 with `log_statement='all'` on the local Postgres: on Prisma 7
+    // with the `PrismaPg` driver adapter, `upsert` does *not* compile to a
+    // native `INSERT ... ON CONFLICT` here — it emits a plain `INSERT ...
+    // RETURNING`, and a 12-way concurrent burst logged `duplicate key value
+    // violates unique constraint "Conversation_threadKey_key"` on the losers.
+    // All 12 calls still returned the same conversationId and exactly one row
+    // existed afterwards, because every loser lands here.
+    //
+    // So the guarantee is: the unique constraint on `threadKey` decides the
+    // winner, and P2002 plus a re-read by that same key is how everyone else
+    // finds the row the winner committed — which is the thread they wanted.
+    // Anything that is not a P2002 is a real failure and is rethrown.
     if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') throw error
     const existing = await prisma.conversation.findUnique({ where: { threadKey }, select: { id: true } })
     if (!existing) throw error

@@ -69,3 +69,64 @@ export function participantConversationsWhere(viewer: Viewer): Prisma.Conversati
   if (sides.length === 0) return null
   return { OR: sides }
 }
+
+/**
+ * The deterministic order `listConversations` reads threads in before it
+ * sorts them, and the reason it can sort them at all: `{ id: 'asc' }` is the
+ * total-order tail every read in this codebase carries (see
+ * `BUYER_SORT_ORDER`, `@/server/queries/buyer-where`, and `SORT_ORDER`,
+ * `@/server/queries/asset-where`), because Postgres guarantees no stable
+ * order for rows that tie on every earlier key.
+ */
+export const CONVERSATION_SORT_ORDER = [
+  { lastMessageAt: 'desc' },
+  { id: 'asc' },
+] as const satisfies Prisma.ConversationOrderByWithRelationInput[]
+
+/** The minimum shape `compareConversationsByActivity` needs to place a thread. */
+export interface ConversationSortKey {
+  id: string
+  lastMessageAt: Date
+  /** Whether anybody has written in this thread yet. */
+  hasMessages: boolean
+}
+
+/**
+ * The inbox order: threads somebody has actually written in first, then
+ * `lastMessageAt` descending inside each group, then `id` ascending.
+ *
+ * The leading `hasMessages` key is the fix for a real defect. `Conversation.
+ * lastMessageAt` carries `@default(now())`, so a thread is born stamped with
+ * the present instant and outranks every real conversation on the marketplace
+ * from the moment it is created — and `startConversation`
+ * (`@/server/actions/messages`) creates one on a bare click of "Contact
+ * seller", before a single word is written. The observed symptom was a
+ * content-free "No messages yet." row sitting at the top of both parties'
+ * inboxes, above threads with live negotiations in them.
+ *
+ * Fixing it in the ordering rather than by refusing to create the thread is
+ * deliberate. The contact buttons navigate to `/inbox/[id]` and need a row to
+ * navigate *to*; an empty thread renders correctly on both sides already; and
+ * `startConversation` is idempotent on `threadKey` precisely so that clicking
+ * twice lands in the same place. Deferring creation until the first message
+ * would mean inventing a second creation path and a draft state for a thread
+ * that does not exist yet.
+ *
+ * The other rejected fix was backdating `lastMessageAt` to the epoch on
+ * create. It sorts identically, but it puts a lie in the column — a timestamp
+ * no event ever produced — and `/inbox` renders that column as the row's date.
+ *
+ * `hasMessages` is compared before recency rather than folded into it because
+ * the two are answering different questions: "is there anything here" ranks
+ * above "how recent is it". Within the empty group `lastMessageAt` still
+ * orders by creation time, which is the only signal such a thread has, and
+ * `id` ascending closes the sort as a total order so no two distinct threads
+ * can ever compare equal — the same requirement `compareBuyersByRecency` and
+ * `compareBuyersByScore` document.
+ */
+export function compareConversationsByActivity(a: ConversationSortKey, b: ConversationSortKey): number {
+  if (a.hasMessages !== b.hasMessages) return a.hasMessages ? -1 : 1
+  const byRecency = b.lastMessageAt.getTime() - a.lastMessageAt.getTime()
+  if (byRecency !== 0) return byRecency
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0
+}

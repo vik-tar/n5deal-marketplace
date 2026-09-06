@@ -35,8 +35,23 @@ export default async function ThreadPage({
   if (!conversation) notFound()
 
   const name = conversation.counterparty.name ?? t(`counterparty.${conversation.counterparty.side}`)
-  const identityWithheld =
+  // Two different reasons produce an unnamed seller, and only one of them is
+  // something the reader can act on. `discloseSellerName`
+  // (`@/server/queries/conversations`) withholds the name when the NDA gate on
+  // *this thread's* listing is closed — a state the buyer changes by requesting
+  // access and the seller approving it — and also when the thread has no
+  // listing at all (`buildThreadKey`'s `noasset` sentinel: the seller
+  // cold-contacted the buyer from the directory). Pointing the second case at
+  // "approve your access request for the listing" names a listing that does not
+  // exist and promises a reveal that no event on this thread can ever deliver,
+  // so the two get different copy.
+  const sellerUnnamed =
     conversation.counterparty.name === null && conversation.counterparty.side === 'SELLER'
+  const identityHint = sellerUnnamed
+    ? conversation.asset !== null
+      ? t('thread.identityWithheld')
+      : t('thread.identityWithheldNoListing')
+    : null
 
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6">
@@ -54,8 +69,8 @@ export default async function ThreadPage({
           {t('thread.back')}
         </Link>
         <h1 className="text-2xl font-semibold text-ink">{name}</h1>
-        {identityWithheld ? (
-          <p className="text-xs text-ink-muted">{t('thread.identityWithheld')}</p>
+        {identityHint !== null ? (
+          <p className="text-xs text-ink-muted">{identityHint}</p>
         ) : null}
         {conversation.asset !== null ? (
           <p className="meta-label">

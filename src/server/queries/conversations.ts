@@ -10,6 +10,8 @@ import {
 } from '@/lib/authz'
 import { mapGrantState } from '@/lib/gate'
 import {
+  CONVERSATION_SORT_ORDER,
+  compareConversationsByActivity,
   isUnreadForViewer,
   participantConversationsWhere,
   unreadForViewerWhere,
@@ -156,10 +158,21 @@ function toAssetRef(
 /**
  * Every thread the viewer is a party to, newest activity first.
  *
- * Ordered by `lastMessageAt` descending with `id` ascending as the
- * total-order tail, the same reason `BUYER_SORT_ORDER` and `SORT_ORDER`
- * carry one: two threads bumped in the same millisecond must not swap places
- * between two renders of the same page.
+ * Ordered in two stages, exactly as `listBuyers` (`@/server/queries/buyers`)
+ * is. Postgres does the read in `CONVERSATION_SORT_ORDER` — `lastMessageAt`
+ * descending, `id` ascending — so the rows arrive in a defined order at all;
+ * then `compareConversationsByActivity` re-sorts them in memory to sink the
+ * threads nobody has written in yet below the ones somebody has.
+ *
+ * That second stage cannot be pushed into SQL. Prisma can order by a relation
+ * *count* (`messages: { _count: 'desc' }`), which is not the question being
+ * asked — a thread with nine messages is not more current than one with one —
+ * and there is no way to express "has at least one" as an `orderBy` key. The
+ * in-memory sort is over one page of one viewer's own threads, the same scale
+ * `listBuyers` sorts at, and both comparators are total orders so the result
+ * is stable across renders. `compareConversationsByActivity`
+ * (`@/server/queries/conversation-where`) documents the defect it fixes and
+ * the two alternatives that were rejected.
  *
  * Three queries, not N+1: the threads, one `groupBy` for every per-thread
  * unread count, and — only when the viewer has a buyer profile — one read of
@@ -175,7 +188,7 @@ export async function listConversations(viewer: MaybeViewer): Promise<Conversati
 
   const rows = await prisma.conversation.findMany({
     where,
-    orderBy: [{ lastMessageAt: 'desc' }, { id: 'asc' }],
+    orderBy: CONVERSATION_SORT_ORDER,
     select: {
       id: true,
       buyerProfileId: true,
@@ -218,7 +231,16 @@ export async function listConversations(viewer: MaybeViewer): Promise<Conversati
   const unreadByConversationId = new Map(unreadRows.map((row) => [row.conversationId, row._count._all]))
   const grantByAssetId = new Map(grantRows.map((row) => [row.assetId, row.status]))
 
-  return rows.map((row) => {
+  // `hasMessages` is derived from the snippet read above — one row per thread,
+  // taken only to show a preview — so ranking empty threads costs no extra
+  // query. The comparator declares only the three keys it reads
+  // (`ConversationSortKey`); passing these wider rows to it is the same
+  // structural fit `listBuyers` relies on with `compareBuyersByRecency`.
+  const ordered = rows
+    .map((row) => ({ ...row, hasMessages: row.messages.length > 0 }))
+    .sort(compareConversationsByActivity)
+
+  return ordered.map((row) => {
     // `viewer.buyerProfileId` is `string | null` and `row.buyerProfileId` is
     // always a string, so a viewer with no buyer profile can never match
     // this — no null-vs-null false positive is possible.

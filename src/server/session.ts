@@ -1,5 +1,6 @@
 import { redirect } from '@/i18n/navigation'
 import { auth } from '@/auth'
+import { toAppLocale } from '@/i18n/locale'
 import { viewerGate, type Viewer } from '@/lib/authz'
 
 /**
@@ -54,9 +55,20 @@ export type RedirectHref = '/login' | '/suspended' | '/admin'
  * thing keeping them out would be the runtime `NEXT_REDIRECT` throw. A guard
  * that the type system cannot see is one stray `try`/`catch` away from
  * silently failing, and this file already owns the fix.
+ *
+ * It is also the *only* funnel through which a caller-supplied locale reaches
+ * `redirect()`, which is why the locale is validated here rather than at each
+ * call site. `requireViewer` below is called by every Server Action in the app
+ * with the `locale` field of that action's own client-supplied input, and an
+ * unauthenticated call redirects — so before this check, `locale:
+ * "/evil.example.com"` produced the protocol-relative `//evil.example.com/login`.
+ * `toAppLocale` (`@/i18n/locale`) substitutes `routing.defaultLocale` for
+ * anything that is not a configured locale; the reasoning, and why it
+ * substitutes rather than throws, is written up there. Validating in the six
+ * actions instead would have been six chances to forget the seventh.
  */
 export function redirectNow(href: RedirectHref, locale: string): never {
-  redirect({ href, locale })
+  redirect({ href, locale: toAppLocale(locale) })
   throw new Error('unreachable: redirect() always throws')
 }
 
