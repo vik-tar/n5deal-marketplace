@@ -56,16 +56,23 @@ export type RedirectHref = '/login' | '/suspended' | '/admin'
  * that the type system cannot see is one stray `try`/`catch` away from
  * silently failing, and this file already owns the fix.
  *
- * It is also the *only* funnel through which a caller-supplied locale reaches
- * `redirect()`, which is why the locale is validated here rather than at each
+ * It is also where a caller-supplied locale is validated, rather than at each
  * call site. `requireViewer` below is called by every Server Action in the app
  * with the `locale` field of that action's own client-supplied input, and an
  * unauthenticated call redirects — so before this check, `locale:
  * "/evil.example.com"` produced the protocol-relative `//evil.example.com/login`.
  * `toAppLocale` (`@/i18n/locale`) substitutes `routing.defaultLocale` for
  * anything that is not a configured locale; the reasoning, and why it
- * substitutes rather than throws, is written up there. Validating in the six
- * actions instead would have been six chances to forget the seventh.
+ * substitutes rather than throws, is written up there.
+ *
+ * This is NOT the only funnel, and an earlier version of this comment claimed
+ * it was. `signInAction`/`signOutAction` (`@/server/actions/auth`) call
+ * next-intl's `redirect()` and `getPathname()` directly, never reaching this
+ * wrapper, and were missed by exactly the reasoning that sentence encouraged —
+ * they had to be fixed separately, one commit later. They now call
+ * `toAppLocale` themselves. Anything added that builds a locale-prefixed URL
+ * without coming through here must do the same; centralising the rule here
+ * removes six chances to forget it, not the seventh.
  */
 export function redirectNow(href: RedirectHref, locale: string): never {
   redirect({ href, locale: toAppLocale(locale) })

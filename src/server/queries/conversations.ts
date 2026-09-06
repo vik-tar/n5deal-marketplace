@@ -164,7 +164,8 @@ function toAssetRef(
  * then `compareConversationsByActivity` re-sorts them in memory to sink the
  * threads nobody has written in yet below the ones somebody has.
  *
- * That second stage cannot be pushed into SQL. Prisma can order by a relation
+ * That second stage cannot be expressed as a Prisma `orderBy`. Prisma can
+ * order by a relation
  * *count* (`messages: { _count: 'desc' }`), which is not the question being
  * asked — a thread with nine messages is not more current than one with one —
  * and there is no way to express "has at least one" as an `orderBy` key. The

@@ -54,7 +54,7 @@ export interface StructuredCallOptions<T> {
  * ever run against the real API (see the ledger, Tasks 9/17/18), so the
  * truncation had never had the chance to show up.
  */
-export const DEFAULT_MAX_TOKENS = 4096
+const DEFAULT_MAX_TOKENS = 4096
 
 /**
  * One structured request. Returns null for every failure mode — no key, a

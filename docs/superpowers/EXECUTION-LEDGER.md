@@ -995,3 +995,39 @@ Task 19: NOT fixed, deliberately — revalidatePath() in the messaging, access-r
   not navigation: a forged value revalidates a path that does not exist and changes nothing an
   attacker can observe. Left alone rather than touching six more call sites for no risk
   reduction. Recorded so the whole-branch review sees it was a choice.
+Task 19: scoped re-review of the fix round (606af73..b089bcf) = all five fixes HOLD, no Critical,
+  no authorization change, no regression. It also CORRECTED the controller. My auth.ts fix was
+  right and necessary, but the reasoning written above it was wrong, and the re-reviewer measured
+  both halves rather than taking either on trust:
+  - Bound arguments ARE tamperable, as claimed. `/en/login` ships the bound locale in plaintext
+    HTML (`$ACTION_0:1` = `["en"]`); Next encrypts closed-over variables of inline actions, not
+    explicit `.bind()` args on a module-level 'use server' export. Replaying with `["ru"]` moved
+    the destination. Confirmed.
+  - But `redirectTo` — the path I claimed mattered most — was ALREADY SAFE. Auth.js's default
+    `redirect` callback re-bases anything off-origin, and `@/auth` overrides only jwt/session, so
+    a forged `//evil.example.com` came back on our own origin. Defence in depth there, not a fix.
+  - The real hole was the sibling branch: the `AuthError` path calls next-intl's `redirect()`
+    directly, so Auth.js never sees the value. Wrong password + forged bound locale answered
+    `Location: //evil.example.com/login?error=1` pre-fix, `/en/login?error=1` after. Genuine
+    protocol-relative open redirect, low severity (Next's server-action origin check refuses the
+    same request cross-origin, so same-origin only).
+  Lesson recorded because it generalises: a fix can be correct while its stated reason is not,
+  and only the measurement tells them apart.
+Task 19: fix round 2/2 (controller, commit see below) — five items from the re-review.
+  (1) session.ts claimed redirectNow was the *only* funnel a caller-supplied locale reaches
+  redirect() through. False, and falsified by the very commit before it: auth.ts is a second.
+  Comment now says so and names what it missed. (2) auth.ts's threat model was inverted; rewritten
+  to the measured truth above. (3) `identityWithheld` still over-promised whenever the gate is
+  closed for a reason the buyer cannot change — a DECLINED or REVOKED grant is final (one shot per
+  listing), and an asset off PUBLISHED or a suspended seller never reveals the name either. The
+  string now states the *condition* ("shown only while you hold approved access") instead of
+  promising a future approval, which is true in every sub-case and needed no new plumbing.
+  (4) DEFAULT_MAX_TOKENS un-exported — read only in its own module. (5) conversations.ts said the
+  second sort stage "cannot be pushed into SQL"; it cannot be expressed as a Prisma `orderBy`,
+  which is what the rest of the paragraph actually argues. Raw SQL could.
+Task 19: re-review confirmed the two-stage sort has no `take`/`skip` interaction — listConversations
+  reads unpaginated and its one caller does not slice, so no thread can be dropped before the
+  in-memory sort. It also re-measured the upsert (SELECT then INSERT, no ON CONFLICT) and
+  enumerated every locale-prefixed URL builder in the app; the two page-level ones are unreachable
+  with a bad locale because the router validates `[locale]` first (proven live).
+Task 19: complete (commits 606af73..HEAD).

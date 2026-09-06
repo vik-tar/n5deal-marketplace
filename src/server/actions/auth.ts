@@ -23,13 +23,25 @@ import { prisma } from '@/server/db'
  * allowlist `redirectNow` (`@/server/session`) applies to every other
  * action's locale.
  *
- * This file is the one that most needed it. Elsewhere a forged locale can only
- * change which translation of a login page a visitor lands on; here it reaches
- * `redirectTo`, which is handed to Auth.js's own `signIn` and decides where a
- * *successfully authenticated* session is sent. That is the difference between
- * a cosmetic mismatch and pointing a freshly signed-in user off-site, so the
- * check belongs on the value before `getPathname` ever builds a path from it,
- * not after.
+ * The branch that needed it is the failure one, not the success one — measured
+ * on a real pre-fix build, against the opposite of what was first assumed.
+ *
+ * `redirectTo` below, despite feeding Auth.js's `signIn` and deciding where a
+ * *successfully authenticated* session lands, was already safe: Auth.js's
+ * default `redirect` callback (`@auth/core`, `defaultCallbacks.redirect`)
+ * re-bases anything not on its own origin, and `@/auth` overrides only `jwt`
+ * and `session`, so that default stands. A forged `//evil.example.com` came
+ * back as `http://localhost///evil.example.com` — ugly, and on our own origin.
+ * The check is defence in depth there.
+ *
+ * The `AuthError` branch is where the real hole was. It calls next-intl's
+ * `redirect()` directly, so Auth.js never sees the value: a wrong password
+ * submitted with a forged bound locale answered
+ * `Location: //evil.example.com/login?error=1` — a genuine protocol-relative
+ * open redirect. Low severity (Next's server-action origin check refuses the
+ * same request with a cross-origin `Origin` header, so it is same-origin only),
+ * but real, and closed by validating the value once at the top rather than at
+ * each of the two exits.
  */
 export async function signInAction(rawLocale: string, formData: FormData): Promise<void> {
   const locale = toAppLocale(rawLocale)
