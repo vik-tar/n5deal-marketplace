@@ -5,6 +5,7 @@ import { Card, CardBody, CardHeader } from '@/components/ui/card'
 import { StatusPill } from '@/components/domain/status-pill'
 import { GatedSection } from '@/components/domain/gated-section'
 import { AccessRequestQueue } from '@/components/domain/access-request-queue'
+import { ContactButton } from '@/components/domain/contact-button'
 import { getAssetDetail, type SellerSummary } from '@/server/queries/assets'
 import { getViewer } from '@/server/session'
 import { codeToFlag } from '@/lib/geo/flag'
@@ -17,6 +18,21 @@ import { formatCents } from '@/lib/money'
  */
 type Translator = (key: string, values?: Record<string, string | number>) => string
 
+/**
+ * "Contact seller" sits with the seller strip, in the listing's own card,
+ * rather than inside `GatedSection`. That is deliberate: the gate is about
+ * the *confidential half of the listing*, and messaging is explicitly not
+ * gated on it — `canMessage` (`@/lib/authz`) requires no approved grant,
+ * because cold contact is a product requirement. Putting the button in the
+ * gate card would have meant repeating it across all four of that
+ * component's states, and would have implied a dependency between the two
+ * that does not exist. It belongs next to "who you would be talking to".
+ *
+ * `canContactSeller` is decided by `getAssetDetail`, not here, and answers
+ * "would `startConversation` accept this click" rather than the looser "may
+ * this viewer message anybody" — see its doc comment for why a seller
+ * browsing another seller's listing is not offered the control.
+ */
 export default async function AssetDetailPage({
   params,
 }: {
@@ -31,7 +47,7 @@ export default async function AssetDetailPage({
   const detail = await getAssetDetail(id, viewer)
   if (!detail) notFound()
 
-  const { asset, grant, seller, gateStatus, requestedAt, requestQueue } = detail
+  const { asset, grant, seller, gateStatus, requestedAt, canContactSeller, requestQueue } = detail
   const flag = codeToFlag(asset.country)
 
   return (
@@ -93,6 +109,13 @@ export default async function AssetDetailPage({
           ) : null}
 
           <SellerStrip seller={seller} t={t} />
+
+          <ContactButton
+            target={{ kind: 'asset', assetId: id }}
+            canContact={canContactSeller}
+            isAnonymous={viewer === null}
+            locale={locale}
+          />
         </CardBody>
       </Card>
 

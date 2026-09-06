@@ -68,6 +68,18 @@ const NO_PROFILES: NavProfiles = { buyer: false, seller: false }
  *   nav that hides a page the viewer can still open is the same class of
  *   inconsistency Task 13 removed between the catalog and the detail page.
  *
+ * `inbox` is withheld from a `MANAGER` for the same reason (Task 19). A
+ * manager holds neither a `BuyerProfile` nor a `SellerProfile`, so they are a
+ * party to no conversation: `listConversations` returns them an empty list
+ * and `getConversation` refuses them every thread — deliberately, because a
+ * manager who can read every private negotiation is a privacy problem that
+ * moderation does not need (see `@/server/queries/conversations` and the
+ * README). Offering a nav item that can only ever lead to an empty page is
+ * the inverse of the inconsistency the two keys below avoid, and an
+ * always-empty inbox reads as a bug rather than as a decision. `/inbox`
+ * itself still explains the situation to a manager who types the URL — the
+ * nav is not the only place the rule is stated, just the first.
+ *
  * A non-`ACTIVE` viewer is the caller's problem, not this function's: the
  * header passes `null` for a suspended viewer's role *and* drops their
  * profile flags. `role === null` still short-circuits both keys here anyway,
@@ -78,7 +90,8 @@ export function navKeysFor(role: string | null, profiles: NavProfiles = NO_PROFI
   const keys: NavKey[] = ['listings']
   if (role === 'SELLER' || role === 'MANAGER') keys.push('buyers')
   if (role === null) return keys
-  keys.push('dashboard', 'inbox')
+  keys.push('dashboard')
+  if (role !== 'MANAGER') keys.push('inbox')
   if (role === 'SELLER' && profiles.seller) keys.push('newListing')
   if (profiles.buyer) keys.push('profile')
   if (role === 'MANAGER') keys.push('admin')

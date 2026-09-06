@@ -188,8 +188,54 @@
     "ticketLabel": "Ticket size",
     "specificity": "This mandate constrains {count} of 5 criteria",
     "specificityUnconstrained": "This mandate constrains nothing — every listing would score the same",
-    "notScored": "Select one of your published listings on the buyer directory to see how this buyer scores against it.",
-    "contactAction": "Contact buyer"
+    "notScored": "Select one of your published listings on the buyer directory to see how this buyer scores against it."
+  },
+  "contact": {
+    "seller": "Contact seller",
+    "buyer": "Contact buyer",
+    "opening": "Opening thread...",
+    "signInFirst": "Sign in to contact the seller.",
+    "unavailable": "This account cannot be messaged.",
+    "error": {
+      "FORBIDDEN": "You cannot start a conversation with this account.",
+      "NOT_FOUND": "This account could not be found.",
+      "ALREADY_REQUESTED": "A conversation with this account already exists.",
+      "INVALID": "That action is not valid."
+    }
+  },
+  "inbox": {
+    "title": "Inbox",
+    "subtitle": "Your conversations with the other side of each deal.",
+    "empty": "No conversations yet. Contact a seller from a listing, or a buyer from the directory, to start one.",
+    "noMessages": "No messages yet.",
+    "unread": "{count, plural, one {# unread} other {# unread}}",
+    "counterparty": {
+      "BUYER": "Buyer",
+      "SELLER": "Seller"
+    },
+    "manager": {
+      "title": "Managers do not have an inbox",
+      "body": "Conversations are private between one buyer and one seller. Moderation acts on accounts and listings, not on what two parties say to each other, so a manager account is never a party to a thread and cannot read one."
+    },
+    "thread": {
+      "title": "Conversation",
+      "back": "Back to inbox",
+      "you": "You",
+      "identityWithheld": "This seller's company name is shown once they approve your access request for the listing."
+    },
+    "composer": {
+      "label": "Your message",
+      "placeholder": "Write a message...",
+      "send": "Send",
+      "sending": "Sending...",
+      "blocked": "You cannot reply here: the other party's account is no longer active.",
+      "error": {
+        "FORBIDDEN": "This message could not be sent.",
+        "NOT_FOUND": "This conversation could not be found.",
+        "ALREADY_REQUESTED": "This message has already been sent.",
+        "INVALID": "Write something before sending."
+      }
+    }
   },
   "matchBadge": {
     "band": {

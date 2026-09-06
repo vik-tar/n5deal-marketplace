@@ -4,6 +4,7 @@ import type { AssetFilters } from '@/lib/filters/asset-filters'
 import { PAGE_SIZE } from '@/lib/filters/shared'
 import { isFullAsset, toAssetDto, toTeaserAsset, type AssetDto, type TeaserAsset } from '@/lib/dto/asset'
 import {
+  canMessage,
   canModerate,
   canRequestAccess,
   canViewAsset,
@@ -31,6 +32,7 @@ import {
   SORT_ORDER,
   VISIBILITY_FLOOR,
 } from './asset-where'
+import { unreadForViewerWhere } from './conversation-where'
 // `getRecommendedAssets` needs one buyer's mandate in `MandateCriteria`
 // shape. Rather than restate the six-column select and the `bigint` →
 // `number` narrowing here, it borrows Task 17's single definition of both
@@ -147,6 +149,22 @@ export interface AssetDetail {
   gateStatus: GateStatus
   /** The viewer's own request date. Only meaningful when `gateStatus` is `'PENDING'`. */
   requestedAt: Date | null
+  /**
+   * Whether "Contact seller" should be offered as a live control (Task 19).
+   * The mirror of `BuyerDetail.canContact` (`@/server/queries/buyers`) on the
+   * other side of the market, and it answers the same question that page's
+   * button asks: would `startConversation` (`@/server/actions/messages`)
+   * accept this click?
+   *
+   * That is deliberately narrower than `canMessage` alone. `canMessage` would
+   * let one seller message another, but a `Conversation` has a buyer side and
+   * a seller side, and a viewer with no `BuyerProfile` cannot occupy the
+   * former — the action refuses them with `FORBIDDEN`. Offering a control
+   * that is guaranteed to fail is the same class of inconsistency Task 13
+   * removed between the catalog and this page, so the buyer-profile
+   * requirement is part of the answer rather than a surprise behind it.
+   */
+  canContactSeller: boolean
   /**
    * The requests the owning seller (or a manager) may act on for *this*
    * listing — empty for every other viewer. Task 18's `getSellerOverview`
@@ -294,7 +312,17 @@ export async function getAssetDetail(
     // `select`.
     include: {
       sellerProfile: {
-        select: { id: true, companyName: true, country: true, verified: true, user: { select: { status: true } } },
+        // `user.id` joins the four `SellerSummary` fields for one reason:
+        // `canMessage` identifies a counterparty by user id, and "may I
+        // contact this seller" cannot be answered without it. It is not
+        // carried into `seller` below — nothing renders it.
+        select: {
+          id: true,
+          companyName: true,
+          country: true,
+          verified: true,
+          user: { select: { id: true, status: true } },
+        },
       },
     },
   })
@@ -366,6 +394,13 @@ export async function getAssetDetail(
     },
     gateStatus,
     requestedAt: viewerRequest?.requestedAt ?? null,
+    canContactSeller:
+      viewer !== null &&
+      viewer.buyerProfileId !== null &&
+      canMessage(viewer, {
+        userId: sellerProfile.user.id,
+        status: sellerProfile.user.status,
+      }),
     requestQueue,
   }
 }
@@ -583,7 +618,9 @@ function emptySellerOverview(): SellerOverview {
  * returns the empty overview rather than throwing.
  *
  * The unread count excludes the seller's own messages — see the note on
- * `getBuyerOverview`, which has the identical problem in the other direction.
+ * `getBuyerOverview`, which has the identical problem in the other
+ * direction, and `unreadForViewerWhere` (`@/server/queries/conversation-where`),
+ * which is now the one definition both of them and `/inbox` share.
  */
 export async function getSellerOverview(sellerProfileId: string): Promise<SellerOverview> {
   const profile = await prisma.sellerProfile.findUnique({
@@ -630,11 +667,7 @@ export async function getSellerOverview(sellerProfileId: string): Promise<Seller
       },
     }),
     prisma.message.count({
-      where: {
-        conversation: { sellerProfileId },
-        readAt: null,
-        senderUserId: { not: profile.userId },
-      },
+      where: { conversation: { sellerProfileId }, ...unreadForViewerWhere(profile.userId) },
     }),
   ])
 

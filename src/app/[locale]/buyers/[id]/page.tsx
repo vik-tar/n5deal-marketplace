@@ -1,8 +1,8 @@
 import { notFound } from 'next/navigation'
 import { getTranslations } from 'next-intl/server'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Card, CardBody, CardHeader } from '@/components/ui/card'
+import { ContactButton } from '@/components/domain/contact-button'
 import { MatchBadge } from '@/components/domain/match-badge'
 import { MandateGroup, ticketLabel } from '@/components/domain/buyer-card'
 import { getBuyerDetail } from '@/server/queries/buyers'
@@ -22,11 +22,15 @@ import type { RawSearchParams } from '@/lib/filters/shared'
  * own just by hand-editing this page's URL, exactly as they could not from
  * the catalog.
  *
- * "Contact buyer" (Task 19 wires it to `startConversation`) is rendered
- * disabled — never omitted — when `canContact` is false, so a manager (who
- * moderates rather than transacts, `canMessage`) or a suspended viewer sees
- * why the action is unavailable rather than a missing button they might
- * otherwise assume is a bug.
+ * "Contact buyer" opens a thread through `startConversation`
+ * (`@/server/actions/messages`) and navigates into it — see `ContactButton`,
+ * which both entry points share. It is rendered disabled — never omitted —
+ * when `canContact` is false, so a manager (who moderates rather than
+ * transacts, `canMessage`) or a viewer looking at a suspended buyer sees why
+ * the action is unavailable rather than a missing button they might
+ * otherwise assume is a bug. `isAnonymous` is hard-coded false because
+ * `getBuyerDetail` already 404s for a viewer who is not an active seller or
+ * manager, so no anonymous visitor ever renders this page.
  */
 export default async function BuyerDetailPage({
   params,
@@ -137,9 +141,12 @@ export default async function BuyerDetailPage({
           {!detail.match ? <p className="text-sm text-ink-muted">{t('notScored')}</p> : null}
 
           <div className="border-t border-border pt-4">
-            <Button type="button" variant="secondary" disabled={!detail.canContact}>
-              {t('contactAction')}
-            </Button>
+            <ContactButton
+              target={{ kind: 'buyer', buyerProfileId: detail.id }}
+              canContact={detail.canContact}
+              isAnonymous={false}
+              locale={locale}
+            />
           </div>
         </CardBody>
       </Card>

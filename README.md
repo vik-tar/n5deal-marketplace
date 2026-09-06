@@ -59,6 +59,40 @@ a mandate with `specificity === 0` constrains nothing, scores every listing at 1
 be turned into a ranking (`isMandateRankable`); and a `NONE`-banded match is never volunteered as
 a recommendation, however it was computed (`isRecommendableMatch`).
 
+## Messaging
+
+**A manager cannot read a conversation.** Every other read in this codebase pairs "the owner"
+with "a manager" — `canModerate` widens `canViewAsset`, `canViewFullAsset`, the access-request
+queue and the buyer directory alike. `getConversation` and `listConversations`
+(`src/server/queries/conversations.ts`) are the one deliberate exception: a thread is visible to
+the two parties on it and to nobody else. A manager holds neither a `BuyerProfile` nor a
+`SellerProfile`, so they are a party to no thread and are refused by the ordinary participation
+rule rather than by a special case, and `navKeysFor` (`src/lib/nav.ts`) does not offer them the
+inbox at all.
+
+That restraint is a product decision, not an oversight. Moderation acts on accounts and listings
+— suspend a seller, reject a teaser, revoke a grant — and none of those decisions need the
+contents of a private negotiation. A console that can read every conversation on the marketplace
+is a standing privacy liability that buys moderation nothing, so this one is not built. If
+abuse reporting is ever needed, the right shape is a party *referring* a specific thread to a
+manager, which is an explicit disclosure by someone who was already in it.
+
+**Who the counterparty is** is decided by the same NDA gate as the rest of a listing. A seller's
+`companyName` is exactly as confidential as the listing's revenue figures (see `getAssetDetail`),
+and messaging deliberately requires no approved grant — `canMessage` allows cold contact, because
+a buyer approaching a seller from a teaser is a required capability. Those two facts together
+would make the inbox a back door around the gate, so the inbox closes it: the seller behind a
+thread is named to the buyer only when `canViewFullAsset` says that thread's listing is genuinely
+open to them, and a thread with no listing attached never names them. The buyer's side needs no
+such rule — their `displayName` is already visible to every seller through `/buyers`.
+
+**One thread per relationship** is enforced by Postgres, not by application logic.
+`Conversation.threadKey` is unique and `buildThreadKey` (`src/lib/thread-key.ts`) derives it from
+the (asset, buyer, seller) triple with a `noasset` sentinel, because a composite unique index over
+those three columns would treat every NULL `assetId` as distinct and allow unlimited duplicate
+asset-less threads between the same two parties. Both writers — `startConversation` and the
+conversation `decideAccess` opens on approval — key on it and reuse what is already there.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

@@ -27,9 +27,25 @@ describe('navKeysFor', () => {
       'listings',
       'buyers',
       'dashboard',
-      'inbox',
       'admin',
     ])
+  })
+
+  /**
+   * Task 19: a manager is a party to no conversation — they hold neither
+   * profile row, so `listConversations` returns them nothing and
+   * `getConversation` refuses them every thread by design. A nav item that
+   * can only ever lead to an empty page is the same inconsistency the
+   * profile-gated keys below avoid, pointed the other way.
+   */
+  it('never offers the inbox to a manager', () => {
+    expect(navKeysFor('MANAGER')).not.toContain('inbox')
+    expect(navKeysFor('MANAGER', { buyer: false, seller: false })).not.toContain('inbox')
+  })
+
+  it('still offers the inbox to both trading roles', () => {
+    expect(navKeysFor('BUYER')).toContain('inbox')
+    expect(navKeysFor('SELLER')).toContain('inbox')
   })
 
   it('never exposes admin to a non-manager', () => {

@@ -25,6 +25,7 @@ import {
   compareBuyersByRecency,
   compareBuyersByScore,
 } from './buyer-where'
+import { unreadForViewerWhere } from './conversation-where'
 
 /**
  * A buyer's mandate, plus how many of the five criteria it actually
@@ -79,9 +80,18 @@ export interface BuyerDetail {
   match: MatchResult | null
   scoredAssetId: string | null
   /**
-   * Whether the viewer may message this buyer at all (`canMessage`,
-   * `@/lib/authz`) — Task 19 wires the actual "Contact buyer" button to
-   * `startConversation`; this page only needs to know whether to render it.
+   * Whether "Contact buyer" should be offered as a live control: would
+   * `startConversation` (`@/server/actions/messages`) accept the click?
+   *
+   * `canMessage` (`@/lib/authz`) is most of the answer — a manager may never
+   * message, and a suspended buyer may not be messaged. Task 19 added the
+   * `sellerProfileId` half: a `Conversation` has a seller side, and a viewer
+   * with no `SellerProfile` row cannot occupy it, so the action refuses them
+   * with `FORBIDDEN`. `canBrowseBuyers` (which gates this whole page) checks
+   * the SELLER *role* but not the profile row, so the two are genuinely
+   * different questions and a role-only check would light up a button that
+   * cannot work. Same reasoning as `AssetDetail.canContactSeller`
+   * (`@/server/queries/assets`) on the other side of the market.
    */
   canContact: boolean
 }
@@ -343,7 +353,10 @@ export async function getBuyerDetail(
     mandate: { ...criteria, specificity: mandateSpecificity(criteria) },
     match: asset !== null ? scoreMatch(criteria, asset) : null,
     scoredAssetId: asset !== null && forAssetId ? forAssetId : null,
-    canContact: canMessage(viewer, { userId: row.userId, status: row.user.status }),
+    canContact:
+      viewer !== null &&
+      viewer.sellerProfileId !== null &&
+      canMessage(viewer, { userId: row.userId, status: row.user.status }),
   }
 }
 
@@ -413,6 +426,13 @@ function emptyBuyerOverview(): BuyerOverview {
  * `Message.readAt` is null on every message from the moment it is sent,
  * including the ones this buyer just wrote, so counting the column alone
  * would tell a buyer they have unread mail every time they send some.
+ *
+ * Task 19 moved that clause into `unreadForViewerWhere`
+ * (`@/server/queries/conversation-where`) so this total, the seller's
+ * mirror of it, the per-thread dots on `/inbox` and the `where` `markRead`
+ * clears with are one definition rather than five. This number must equal
+ * the sum of the per-thread counts, or the dashboard and the inbox
+ * contradict each other on the same screen.
  */
 export async function getBuyerOverview(buyerProfileId: string): Promise<BuyerOverview> {
   const profile = await prisma.buyerProfile.findUnique({
@@ -437,11 +457,7 @@ export async function getBuyerOverview(buyerProfileId: string): Promise<BuyerOve
       },
     }),
     prisma.message.count({
-      where: {
-        conversation: { buyerProfileId },
-        readAt: null,
-        senderUserId: { not: profile.userId },
-      },
+      where: { conversation: { buyerProfileId }, ...unreadForViewerWhere(profile.userId) },
     }),
   ])
 
