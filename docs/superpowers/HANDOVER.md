@@ -9,49 +9,46 @@ Written 2026-09-04, mid-execution, so work can resume after a shutdown.
 - **Spec:** `docs/superpowers/specs/2026-09-04-n5deal-marketplace-design.md`.
 - **Full execution ledger:** `docs/superpowers/EXECUTION-LEDGER.md` — every ruling, every deferred minor, every interface fact, in order. This is the file to read first on resume. A live copy also sits at `.superpowers/sdd/2026-09-04-n5deal-marketplace/progress.md`, which is git-ignored scratch and will be destroyed by `git clean -fdx`; the committed copy is the durable one.
 
-## Status: 18 of 23 complete and reviewed
+## Status: 19 of 23 complete and reviewed
 
-Complete and reviewed: 1 scaffold, 2 Prisma schema, 3 i18n, 4 design system, 5 match scoring,
-6 authorization, 7 URL filters, 8 redaction, 9 AI layer, 10 seed data, 11 auth, 12 asset catalog,
-13 asset detail + NDA gate, 14 access requests, 15 listing creation, 16 buyer profile + mandate,
-17 buyer catalog for sellers, 18 role dashboards.
+Complete and reviewed: 1-18 as before, plus 19 messaging and inbox.
 
-**276 tests pass, and the whole suite passes with `DATABASE_URL` unset** — no unit test depends on
+**297 tests pass, and the whole suite passes with `DATABASE_URL` unset** — no unit test depends on
 infrastructure. Keep that property.
 
-## Task 18 is complete and reviewed
+## Task 19 is complete and reviewed
 
-Finished as `20dc438` (dashboards, `getRecommendedAssets`/`getSellerOverview`/`getBuyerOverview`,
-the `/listings/new` and `/profile` nav entry points, 36 new tests), then `970621a` — a controller
-fix for a Task 17 defect Task 18 inherited: `BuyerCard` nested `MatchBadge`'s `<button>` inside
-the card's `<a>`, so the match-reasons disclosure could not be opened anywhere it was rendered.
-Both verified against the running production build with a real seller session, not by inspection.
+`606af73` implementer, `94e6196` fix round 1 (four review findings), `b089bcf` a controller
+follow-up the root fix had missed, `f9f1349` fix round 2 (five re-review findings). Full cycle:
+implementer, review, fix, scoped re-review, fix. Review verdict was spec MET / no Critical / no
+authorization hole, and it independently probed every thread with three real sessions.
 
-## Resume here: Task 19
+Two things the reviews established that outlive the task:
 
-Task 19 (messaging and inbox) is a **full cycle**: implementer, task review, and a dispatched
-scoped re-review after every fix round. Its brief is
-`.superpowers/sdd/2026-09-04-n5deal-marketplace/task-19-brief.md`.
+- **`startConversation` is a check-then-write with a real race window**, not the native upsert its
+  comment claimed. Prisma 7 + `PrismaPg` emits `SELECT` then plain `INSERT`; the reviewer captured
+  the unique-constraint violation in the Postgres log during a 12-way burst. The
+  `catch (P2002) → re-read` branch is the primary mechanism. It works — 12 concurrent calls, one
+  row, one id.
+- **A fix can be correct while its stated reason is wrong.** The controller's `auth.ts` locale fix
+  was necessary, but justified by the wrong branch: `redirectTo` was already safe (Auth.js
+  re-bases off-origin targets), while the `AuthError` path — which calls next-intl's `redirect()`
+  directly — was the genuine protocol-relative open redirect. Only the measurement separated them.
 
-Two things it inherits:
+## Resume here: Task 20
 
-- **`canMessage` (`@/lib/authz`) is already settled and tested** — cold contact is allowed, no
-  grant or shared listing required; both parties must be active and distinct; a manager may never
-  message. Task 19 wires it, it does not redefine it.
-- **`thread-key.ts` and the `Conversation`/`Message` schema already exist** with a unique
-  `threadKey` — Task 14's `decideAccess` already opens a conversation on approval and reuses an
-  existing thread rather than creating a second one. The inbox reads what is already being
-  written; do not invent a parallel conversation-creation path.
-- **`/inbox` and `/admin` are linked from the header and, since Task 18, from a dashboard CTA,
-  but neither page exists yet** — both currently 404. Task 19 lands `/inbox`, Task 20 `/admin`.
+Task 20 (manager console and moderation) is a **full cycle**. Brief:
+`.superpowers/sdd/2026-09-04-n5deal-marketplace/task-20-brief.md`, which carries four standing
+rulings and the traps earlier tasks already paid for.
+
+It closes three things that are currently visible holes: `/admin` 404s while the dashboard
+redirects managers to it, a user can only be suspended by a hand-written SQL `UPDATE`, and
+`rejectionReason` is written by nothing but the seed.
 
 ## One open ruling for the user
 
-On the seller dashboard's top-3 matched buyers, a buyer whose mandate constrains nothing is
-badged "Strong match · 100/100". Nothing is hidden — `BuyerCard` prints "This mandate constrains
-nothing" underneath and Task 17's tie-break ranks specific buyers first — but the collapsed badge
-is what a seller actually reads. See the Task 18 entry in the ledger for the two options. Does not
-block Task 19.
+On the seller dashboard's top-3 matched buyers, a buyer whose mandate constrains nothing is badged
+"Strong match · 100/100". See the Task 18 ledger entry for the two options. Does not block anything.
 
 ## Restarting the environment
 
@@ -59,7 +56,7 @@ block Task 19.
 open -a Docker                  # the daemon does not survive a reboot
 docker start n5deal-pg          # Postgres 16, port 55432; data persists in the container
 pnpm install                    # if node_modules is stale
-pnpm test                       # expect 276 passing
+pnpm test                       # expect 297 passing
 pnpm dev
 ```
 
@@ -79,8 +76,7 @@ Demo logins: `buyer@n5deal.demo`, `seller@n5deal.demo`, `manager@n5deal.demo`, p
 
 | Task | | Cycle |
 |---|---|---|
-| 19 | Messaging and inbox | **full cycle** — **resume here** |
-| 20 | Manager console and moderation | **full cycle** |
+| 20 | Manager console and moderation | **full cycle** — **resume here** |
 | 21 | Landing page | accelerated |
 | 22 | End-to-end tests | accelerated |
 | 23 | README and deployment | accelerated |
