@@ -919,3 +919,21 @@ Task 18: OPEN RULING for the user, not decided: on the seller dashboard's top-3 
   a neutral "mandate not specified" chip instead of a band and score at specificity 0, which
   fixes catalog, detail page and dashboard in one place. Deferred, not dropped.
 Task 18: complete (commits 28eb71c..HEAD).
+
+Cross-task: USER DECISION (2026-09-07) — this project ships with ANTHROPIC_API_KEY unset,
+  permanently. The user declined the cost. All three AI features stay on their no-key fallback
+  path, which is the designed behaviour, not a degradation: the controls are not rendered, and
+  nothing else depends on them. Task 9 Step 8 ("run once against the real API before trusting
+  them") is therefore CLOSED AS WILL-NOT-DO, not deferred. Documented in the README as the
+  shipping configuration rather than as a TODO. Task 23 must not reintroduce it as an open item.
+Cross-task: controller fix — every AI call site had max_tokens set to 400/512/1024, chosen for
+  the size of the intended JSON with nothing reserved for reasoning. AI_MODEL is Claude Opus 5,
+  where adaptive thinking is ON by default and thinking tokens count against max_tokens, so those
+  ceilings risked the model spending its whole budget reasoning and being cut off before emitting
+  the JSON the zod schema waits for — surfacing as stop_reason 'max_tokens' with no parsed_output,
+  which the never-throws contract would have collapsed into the same silent null as "no API key".
+  Raised to a shared DEFAULT_MAX_TOKENS of 4096 (8192 for the teaser review, which lists several
+  excerpts plus suggestions), and callStructured now logs a truncation instead of swallowing it.
+  Costs nothing: billing and the OTPM rate limit both count tokens actually generated, so an
+  unreached ceiling is free. Found by reading the API docs, NOT by running anything — with no key
+  this remains unverified against the real API, like the rest of the AI layer.

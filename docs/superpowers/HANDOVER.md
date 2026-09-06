@@ -89,13 +89,16 @@ Full cycle = implementer, task review, and a dispatched scoped re-review after e
 Accelerated = implementer, task review, and one fix round the controller verifies directly from
 the diff. This split was the user's decision.
 
-## Two things that still need the user
+## One thing that still needs the user
 
-1. **No `ANTHROPIC_API_KEY` in this environment.** All three AI features are verified statically
-   against the SDK's types and behaviourally on the no-key fallback path, but **none has ever run
-   against the real API.** Task 9 Step 8 must be run once with a key before trusting them.
-2. **Deployment (Task 23) needs Neon and Vercel accounts** reachable through a browser.
+1. **Deployment (Task 23) needs Neon and Vercel accounts** reachable through a browser.
    Development runs entirely on the local Docker Postgres.
+
+**Settled, do not reopen:** the user decided on 2026-09-07 that this project ships with
+`ANTHROPIC_API_KEY` unset. That is the designed configuration — the three AI features hide
+themselves and everything else is deterministic — not a gap to close. Task 9 Step 8 is closed as
+will-not-do. Do not raise it again, and do not let Task 23 list it as an open item; the README
+documents it as the shipping state.
 
 ## Handoffs recorded during execution
 

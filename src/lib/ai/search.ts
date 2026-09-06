@@ -66,7 +66,6 @@ export async function parseSearchQuery(
     system: SYSTEM,
     user: buildSearchPrompt(query),
     schema: searchResultSchema,
-    maxTokens: 512,
   })
   return result === null ? null : toFilterPatch(result)
 }

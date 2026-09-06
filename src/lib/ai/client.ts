@@ -26,9 +26,35 @@ export interface StructuredCallOptions<T> {
   system: string
   user: string
   schema: z.ZodType<T>
+  /**
+   * Defaults to `DEFAULT_MAX_TOKENS`. Raise it freely and never tune it down
+   * to save money: billing and the output-tokens-per-minute rate limit both
+   * count the tokens actually generated, so a ceiling that is never reached
+   * costs nothing. See `DEFAULT_MAX_TOKENS` for why a low ceiling is actively
+   * dangerous on a thinking model.
+   */
   maxTokens?: number
   effort?: 'low' | 'medium' | 'high'
 }
+
+/**
+ * `AI_MODEL` is Claude Opus 5, where adaptive thinking is **on by default** —
+ * omitting the `thinking` parameter does not mean "no thinking", it means
+ * "adaptive". Thinking tokens are output tokens and count against
+ * `max_tokens`, so a tight ceiling is not a cost control here: it is a way for
+ * the model to spend its whole budget reasoning and get cut off before it
+ * emits the JSON the schema is waiting for. That surfaces as
+ * `stop_reason: 'max_tokens'` with no `parsed_output` — which this module's
+ * never-throws contract would otherwise collapse into the same silent `null`
+ * as "no API key", making a truncation indistinguishable from a feature that
+ * is simply switched off.
+ *
+ * Every call site previously set 400-1024, chosen when the intended output
+ * was a short JSON object and nothing was reserved for reasoning. None had
+ * ever run against the real API (see the ledger, Tasks 9/17/18), so the
+ * truncation had never had the chance to show up.
+ */
+export const DEFAULT_MAX_TOKENS = 4096
 
 /**
  * One structured request. Returns null for every failure mode — no key, a
@@ -44,7 +70,7 @@ export async function callStructured<T>(
   try {
     const response = await anthropic.messages.parse({
       model: AI_MODEL,
-      max_tokens: opts.maxTokens ?? 1024,
+      max_tokens: opts.maxTokens ?? DEFAULT_MAX_TOKENS,
       system: opts.system,
       messages: [{ role: 'user', content: opts.user }],
       output_config: {
@@ -54,6 +80,16 @@ export async function callStructured<T>(
     })
 
     if (response.stop_reason === 'refusal') return null
+    // Still `null` to the caller — the one-branch contract above is the whole
+    // point of this function — but logged, because "the model ran out of room"
+    // is a configuration mistake we can fix, and it is otherwise
+    // indistinguishable from "no key configured" at every call site.
+    if (response.stop_reason === 'max_tokens') {
+      console.error(
+        `[ai] hit max_tokens before completing the structured output; raise maxTokens (currently ${opts.maxTokens ?? DEFAULT_MAX_TOKENS})`,
+      )
+      return null
+    }
     return response.parsed_output ?? null
   } catch (error) {
     if (error instanceof Anthropic.APIError) {

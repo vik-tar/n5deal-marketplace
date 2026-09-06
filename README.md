@@ -93,6 +93,26 @@ those three columns would treat every NULL `assetId` as distinct and allow unlim
 asset-less threads between the same two parties. Both writers — `startConversation` and the
 conversation `decideAccess` opens on approval — key on it and reuse what is already there.
 
+## AI features are optional, and this deployment ships without them
+
+Three features call the Claude API: the smart search that turns a phrase into
+catalog filters, the one-sentence explanation under a match badge, and the
+confidentiality review that checks a listing's public teaser against its own
+confidential fields before publishing.
+
+All three are **additive by design**. `isAiEnabled()` (`src/lib/ai/client.ts`)
+reads `ANTHROPIC_API_KEY`; with it empty, the controls are not rendered at all —
+no disabled placeholder, no error text — and `callStructured` returns `null`
+without opening a client. Nothing else in the product depends on them: match
+scores, match reasons and the NDA gate are all deterministic and computed
+server-side, so the marketplace is complete and correct with the key unset.
+That is the configuration this project runs in, deliberately.
+
+Consequence to be honest about: **these three code paths have never executed
+against the real API.** They are verified statically against the SDK's types and
+behaviourally on the no-key fallback path only. If you set a key, treat the
+first run of each as untested.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

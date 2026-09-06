@@ -75,7 +75,10 @@ export async function reviewTeaser(
       },
     }),
     schema: reviewSchema,
-    maxTokens: 1024,
+    // A leak report can list several excerpts and up to three suggestions,
+    // so it needs more room than the shared default before thinking is even
+    // accounted for.
+    maxTokens: 8192,
     effort: 'medium',
   })
 

@@ -29,7 +29,6 @@ export async function explainMatch(input: ExplainMatchInput): Promise<string | n
       reasons: input.reasons.map((r) => ({ criterion: r.code, kind: r.kind })),
     }),
     schema: explanationSchema,
-    maxTokens: 400,
   })
   return result?.explanation.trim() ?? null
 }
