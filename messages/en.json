@@ -11,7 +11,9 @@
     "buyers": "Buyers",
     "dashboard": "Dashboard",
     "inbox": "Inbox",
-    "admin": "Admin"
+    "admin": "Admin",
+    "newListing": "New listing",
+    "profile": "Profile"
   },
   "header": {
     "primaryNav": "Main navigation"
@@ -31,7 +33,11 @@
     "SUSPENDED": "Suspended",
     "SOLD": "Sold",
     "ACTIVE": "Active",
-    "REMOVED": "Removed"
+    "REMOVED": "Removed",
+    "REQUESTED": "Requested",
+    "APPROVED": "Approved",
+    "DECLINED": "Declined",
+    "REVOKED": "Revoked"
   },
   "login": {
     "title": "Sign in",
@@ -443,6 +449,63 @@
       "NOT_FOUND": "This profile could not be found.",
       "ALREADY_REQUESTED": "That action is not valid here.",
       "INVALID": "Some fields need attention before this can be saved."
+    }
+  },
+  "dashboard": {
+    "buyer": {
+      "title": "Buyer dashboard",
+      "subtitle": "Listings matched to your mandate, the access you have asked for, and what is waiting for you.",
+      "mandate": {
+        "title": "Your investment mandate",
+        "editAction": "Edit mandate"
+      },
+      "recommendations": {
+        "title": "Recommended listings",
+        "basedOn": "Ranked on the {criteria} of 5 criteria your mandate constrains, across {considered} published listings.",
+        "empty": "No published listing clears your mandate right now. Widening one criterion will usually bring some back.",
+        "browseAction": "Browse all listings",
+        "completeMandateTitle": "Complete your mandate to see recommendations",
+        "completeMandateBody": "Your mandate does not constrain anything yet, so every listing scores the same and any ranking here would be invented. Set one preference and real recommendations appear.",
+        "completeMandateAction": "Set your mandate",
+        "noListings": "There are no published listings yet. Recommendations appear as soon as sellers publish."
+      },
+      "requests": {
+        "title": "Your access requests",
+        "empty": "You have not asked for access to a listing yet.",
+        "count": "{count, plural, one {# request} other {# requests}}",
+        "requestedOn": "Requested {date}",
+        "decidedOn": "Decided {date}"
+      }
+    },
+    "seller": {
+      "title": "Seller dashboard",
+      "subtitle": "Your listings, the buyers waiting on an answer, and who best fits what you published last.",
+      "listings": {
+        "title": "Your listings",
+        "empty": "You have not created a listing yet.",
+        "count": "{count, plural, one {# listing} other {# listings}}",
+        "newAction": "New listing",
+        "editAction": "Edit",
+        "rejectionReason": "Why this was rejected"
+      },
+      "requests": {
+        "title": "Access requests",
+        "empty": "No buyer has asked for access to your listings yet.",
+        "pendingCount": "{count, plural, =0 {Nothing left to decide.} one {# request is waiting on you.} other {# requests are waiting on you.}}"
+      },
+      "matchedBuyers": {
+        "title": "Buyers who fit your latest listing",
+        "scoredAgainst": "Scored against {ref} · {title}.",
+        "viewAll": "See all buyers",
+        "empty": "No buyer mandate fits this listing closely enough to suggest yet.",
+        "noPublished": "Publish a listing and the buyers whose mandates fit it appear here."
+      }
+    },
+    "messages": {
+      "title": "Messages",
+      "openInbox": "Open inbox",
+      "none": "Nothing unread.",
+      "unread": "{count, plural, one {# unread message} other {# unread messages}}"
     }
   }
 }

@@ -38,14 +38,24 @@ export async function getViewer(): Promise<Viewer | null> {
   }
 }
 
+/** The locale-agnostic targets anything in this app redirects a viewer to. */
+export type RedirectHref = '/login' | '/suspended' | '/admin'
+
 /**
  * `redirect()`'s declared return type is `never` — it always throws — but
  * that type does not survive far enough through `createNavigation`'s generics
  * for `tsc` to treat a bare call to it as unreachable, so `viewer` below would
  * stay typed `Viewer | null` after the guard clauses. This wrapper's own
  * explicit `never` annotation fixes the narrowing without changing behaviour.
+ *
+ * Exported since Task 18: `/dashboard` sends a manager to `/admin` and then
+ * dispatches on the viewer's profile rows, so without this wrapper `tsc`
+ * would consider both dispatch branches reachable for a manager and the only
+ * thing keeping them out would be the runtime `NEXT_REDIRECT` throw. A guard
+ * that the type system cannot see is one stray `try`/`catch` away from
+ * silently failing, and this file already owns the fix.
  */
-function redirectNow(href: '/login' | '/suspended', locale: string): never {
+export function redirectNow(href: RedirectHref, locale: string): never {
   redirect({ href, locale })
   throw new Error('unreachable: redirect() always throws')
 }

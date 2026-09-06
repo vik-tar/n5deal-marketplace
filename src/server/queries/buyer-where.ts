@@ -1,4 +1,4 @@
-import type { Prisma } from '@/generated/prisma/client'
+import type { AccessStatus, Prisma } from '@/generated/prisma/client'
 import type { BuyerFilters } from '@/lib/filters/buyer-filters'
 
 /**
@@ -132,3 +132,29 @@ export function compareBuyersByScore(a: BuyerScoreKey, b: BuyerScoreKey): number
   if (a.specificity !== b.specificity) return b.specificity - a.specificity
   return compareBuyersByRecency(a, b)
 }
+
+/**
+ * The order the buyer dashboard renders its access-request groups in
+ * (Task 18), the buyer-side counterpart of `SELLER_STATUS_ORDER`
+ * (`@/server/queries/asset-where`) — and ordered on the same principle, "what
+ * can this person act on", which lands somewhere different on each side of
+ * the market.
+ *
+ * `APPROVED` leads because it is the only group where the buyer has something
+ * to *do*: the confidential pack is open and waiting to be read. `REQUESTED`
+ * follows — the ask is in, the seller owes the answer, nothing to do but
+ * watch. `DECLINED` and `REVOKED` are both terminal and final (the unique
+ * constraint on `(assetId, buyerProfileId)` means a buyer gets one ask per
+ * listing and cannot try again), so they close the list as history; `DECLINED`
+ * before `REVOKED` because a decline is the answer to a request the buyer
+ * made, while a revocation is a seller withdrawing something already given.
+ *
+ * Exhaustive over `AccessStatus` by construction, for the same reason
+ * `SELLER_STATUS_ORDER` is over `AssetStatus`.
+ */
+export const BUYER_ACCESS_STATUS_ORDER = [
+  'APPROVED',
+  'REQUESTED',
+  'DECLINED',
+  'REVOKED',
+] as const satisfies readonly AccessStatus[]

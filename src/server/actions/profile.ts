@@ -3,7 +3,13 @@
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/server/db'
 import { requireViewer } from '@/server/session'
-import { mandateSpecificity, scoreMatch, type AssetCriteria, type MandateCriteria } from '@/lib/matching'
+import {
+  isRecommendableMatch,
+  mandateSpecificity,
+  scoreMatch,
+  type AssetCriteria,
+  type MandateCriteria,
+} from '@/lib/matching'
 import { VISIBILITY_FLOOR } from '@/server/queries/asset-where'
 import {
   buyerProfileSchema,
@@ -133,7 +139,12 @@ export async function countMandateMatches(mandate: MandateCriteria): Promise<Man
       businessStatus: row.businessStatus,
       askingPriceCents: Number(row.askingPriceCents),
     }
-    if (scoreMatch(mandate, criteria).band !== 'NONE') matchCount += 1
+    // The same predicate `getRecommendedAssets` (`@/server/queries/assets`)
+    // filters its ranking with (`isRecommendableMatch`, `@/lib/matching`),
+    // not a second inline `band !== 'NONE'`: this counter and that list must
+    // answer the same question with the same threshold, or the profile page
+    // promises a buyer more matches than their dashboard is willing to show.
+    if (isRecommendableMatch(scoreMatch(mandate, criteria))) matchCount += 1
   }
 
   return { matchCount, totalListings: rows.length, specificity: mandateSpecificity(mandate) }

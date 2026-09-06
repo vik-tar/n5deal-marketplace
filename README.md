@@ -28,6 +28,37 @@ every call. That costs one extra round trip per request, in exchange for a corre
 guarantee: when a manager suspends an account, the suspension takes effect on that user's
 very next request, rather than waiting until they next sign in and get a fresh JWT.
 
+## Matching at scale
+
+`getRecommendedAssets` (`src/server/queries/assets.ts`) and its mirror image `listBuyers`
+(`src/server/queries/buyers.ts`) both score **in memory**: they read every row the visibility
+floor admits, run `scoreMatch` (`src/lib/matching`) over each one, drop the `NONE` band, and sort
+the result in JavaScript. At this prototype's size — 34 published listings and 12 buyers — that is
+correct, simple, and has one decisive advantage over a SQL ranking: the buyer's view of a match
+and the seller's view of the same match come from the same pure function, so the two sides can
+never disagree about a score.
+
+It does not survive growth. Every recommendation read is a full table scan plus an O(n log n) sort
+in the web process, and the work is redone from scratch on every page load. A real deployment
+would split it in two:
+
+- **Filter in the database.** The mandate's hard constraints (category, jurisdiction, licence
+  type, business status, ticket range) are ordinary `WHERE` clauses. Applying them in Postgres
+  turns "score all listings" into "score the listings that could plausibly match", which is a small
+  fraction of the catalogue for any real mandate.
+- **Precompute the score.** The remaining ranking is a function of a `(mandate, asset)` pair and
+  changes only when one of them changes. A background job — triggered by a mandate save, a listing
+  publish, or a nightly sweep — writing a `match_score` row per pair turns the read into an indexed
+  `ORDER BY score DESC LIMIT n`, and keeps `scoreMatch` as the single definition of the number.
+
+Both changes are additive: `scoreMatch` itself stays exactly as it is, and stays the one place the
+scoring rule lives.
+
+Two rules survive that refactor unchanged, and would have to be reimplemented alongside it:
+a mandate with `specificity === 0` constrains nothing, scores every listing at 100, and must never
+be turned into a ranking (`isMandateRankable`); and a `NONE`-banded match is never volunteered as
+a recommendation, however it was computed (`isRecommendableMatch`).
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

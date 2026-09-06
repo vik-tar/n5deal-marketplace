@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { buildWhere } from '@/server/queries/asset-where'
+import {
+  buildWhere,
+  compareRecommendedAssets,
+  compareRequestQueues,
+  mostRecentlyPublishedId,
+  SELLER_STATUS_ORDER,
+  type AssetRecommendationKey,
+  type PublishedRecencyKey,
+  type RequestQueueKey,
+} from '@/server/queries/asset-where'
+import { groupByOrder } from '@/lib/group'
 import { parseAssetFilters, type AssetFilters } from '@/lib/filters/asset-filters'
 
 /** `parseAssetFilters({})` gives the exact default shape; overrides layer on top. */
@@ -109,5 +119,154 @@ describe('buildWhere', () => {
       { publicRef: { contains: 'safeguard', mode: 'insensitive' } },
       { businessType: { contains: 'safeguard', mode: 'insensitive' } },
     ])
+  })
+})
+
+/** Shorthand for the three keys `compareRecommendedAssets` reads. */
+function rec(
+  id: string,
+  score: number,
+  publishedAt: Date | null = new Date('2026-01-01T00:00:00Z'),
+): AssetRecommendationKey {
+  return { id, score, publishedAt }
+}
+
+describe('compareRecommendedAssets', () => {
+  it('orders by score descending', () => {
+    const ordered = [rec('a', 60), rec('b', 100), rec('c', 80)].sort(compareRecommendedAssets)
+    expect(ordered.map((entry) => entry.id)).toEqual(['b', 'c', 'a'])
+  })
+
+  it('breaks a score tie on publishedAt descending', () => {
+    const ordered = [
+      rec('old', 80, new Date('2025-01-01T00:00:00Z')),
+      rec('new', 80, new Date('2026-06-01T00:00:00Z')),
+    ].sort(compareRecommendedAssets)
+    expect(ordered.map((entry) => entry.id)).toEqual(['new', 'old'])
+  })
+
+  it('sorts a null publishedAt last among equal scores', () => {
+    const ordered = [
+      rec('unknown', 80, null),
+      rec('dated', 80, new Date('2020-01-01T00:00:00Z')),
+    ].sort(compareRecommendedAssets)
+    expect(ordered.map((entry) => entry.id)).toEqual(['dated', 'unknown'])
+  })
+
+  /**
+   * The total-order proof: two listings equal on score and publishedAt must
+   * still have a defined relative order, or the top-`limit` slice could
+   * differ between two renders of the same data.
+   */
+  it('is a total order — no two distinct listings compare equal', () => {
+    const at = new Date('2026-01-01T00:00:00Z')
+    expect(compareRecommendedAssets(rec('a', 80, at), rec('b', 80, at))).toBeLessThan(0)
+    expect(compareRecommendedAssets(rec('b', 80, at), rec('a', 80, at))).toBeGreaterThan(0)
+    expect(compareRecommendedAssets(rec('a', 80, at), rec('a', 80, at))).toBe(0)
+  })
+})
+
+describe('SELLER_STATUS_ORDER', () => {
+  it('surfaces the two statuses needing attention before everything else', () => {
+    expect(SELLER_STATUS_ORDER.slice(0, 2)).toEqual(['REJECTED', 'PENDING_REVIEW'])
+  })
+
+  it('covers every AssetStatus exactly once', () => {
+    const every = ['DRAFT', 'PENDING_REVIEW', 'PUBLISHED', 'REJECTED', 'SUSPENDED', 'SOLD']
+    expect([...SELLER_STATUS_ORDER].sort()).toEqual([...every].sort())
+  })
+
+  /**
+   * The order constant and the grouping function are separately correct only
+   * if they agree, so this asserts the composition the seller dashboard
+   * actually renders.
+   */
+  it('puts a rejected listing above a published one when grouped', () => {
+    const listings = [
+      { id: '1', status: 'PUBLISHED' as const },
+      { id: '2', status: 'SOLD' as const },
+      { id: '3', status: 'REJECTED' as const },
+      { id: '4', status: 'PENDING_REVIEW' as const },
+    ]
+    const groups = groupByOrder(listings, (listing) => listing.status, SELLER_STATUS_ORDER)
+    expect(groups.map((group) => group.key)).toEqual([
+      'REJECTED',
+      'PENDING_REVIEW',
+      'PUBLISHED',
+      'SOLD',
+    ])
+  })
+})
+
+describe('mostRecentlyPublishedId', () => {
+  const assets: PublishedRecencyKey[] = [
+    { id: 'draft', status: 'DRAFT', publishedAt: null },
+    { id: 'older', status: 'PUBLISHED', publishedAt: new Date('2025-01-01T00:00:00Z') },
+    { id: 'newest', status: 'PUBLISHED', publishedAt: new Date('2026-05-01T00:00:00Z') },
+    { id: 'sold', status: 'SOLD', publishedAt: new Date('2026-09-01T00:00:00Z') },
+  ]
+
+  it('picks the newest PUBLISHED listing', () => {
+    expect(mostRecentlyPublishedId(assets)).toBe('newest')
+  })
+
+  /**
+   * A `SOLD` listing keeps its `publishedAt` and would win a naive max, but
+   * its matched buyers are people to stop contacting — the status filter is
+   * what this asserts, not the date arithmetic.
+   */
+  it('ignores a more recently published listing that is no longer PUBLISHED', () => {
+    expect(mostRecentlyPublishedId(assets)).not.toBe('sold')
+  })
+
+  it('returns null when the seller has published nothing', () => {
+    expect(
+      mostRecentlyPublishedId([{ id: 'draft', status: 'DRAFT', publishedAt: null }]),
+    ).toBeNull()
+  })
+
+  it('never lets a null publishedAt beat a dated one, and breaks ties on id', () => {
+    const at = new Date('2026-01-01T00:00:00Z')
+    expect(
+      mostRecentlyPublishedId([
+        { id: 'undated', status: 'PUBLISHED', publishedAt: null },
+        { id: 'dated', status: 'PUBLISHED', publishedAt: at },
+      ]),
+    ).toBe('dated')
+    expect(
+      mostRecentlyPublishedId([
+        { id: 'b', status: 'PUBLISHED', publishedAt: at },
+        { id: 'a', status: 'PUBLISHED', publishedAt: at },
+      ]),
+    ).toBe('a')
+  })
+})
+
+describe('compareRequestQueues', () => {
+  function queue(publicRef: string, oldestPendingAt: Date | null): RequestQueueKey {
+    return { publicRef, oldestPendingAt }
+  }
+
+  it('puts the longest-waiting request first', () => {
+    const ordered = [
+      queue('N5-702', new Date('2026-03-01T00:00:00Z')),
+      queue('N5-701', new Date('2026-01-01T00:00:00Z')),
+    ].sort(compareRequestQueues)
+    expect(ordered.map((entry) => entry.publicRef)).toEqual(['N5-701', 'N5-702'])
+  })
+
+  it('sorts queues with nothing left to decide after every queue that has something', () => {
+    const ordered = [
+      queue('N5-700', null),
+      queue('N5-999', new Date('2026-06-01T00:00:00Z')),
+    ].sort(compareRequestQueues)
+    expect(ordered.map((entry) => entry.publicRef)).toEqual(['N5-999', 'N5-700'])
+  })
+
+  it('is a total order — publicRef breaks every remaining tie', () => {
+    const at = new Date('2026-01-01T00:00:00Z')
+    expect(compareRequestQueues(queue('N5-701', at), queue('N5-702', at))).toBeLessThan(0)
+    expect(compareRequestQueues(queue('N5-702', null), queue('N5-701', null))).toBeGreaterThan(0)
+    expect(compareRequestQueues(queue('N5-701', at), queue('N5-701', at))).toBe(0)
   })
 })

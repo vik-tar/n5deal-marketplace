@@ -110,6 +110,14 @@ export async function requestAccess(input: RequestAccessInput): Promise<ActionRe
   }
 
   revalidatePath(`/${input.locale}/listings/${ref.id}`)
+  // Task 18: `/dashboard` reads these same rows — the seller's catalogue-wide
+  // request queue and the buyer's own list of asks — and the seller decides
+  // requests from there as well as from the listing page. `/dashboard` is
+  // dynamic (it reads the session) and so is never served from a cache, so
+  // what this call actually buys is the updated RSC payload Next sends back
+  // with the action's response: without it the decided row stays on screen
+  // until a manual reload, exactly as the listing page would.
+  revalidatePath(`/${input.locale}/dashboard`)
   return { ok: true }
 }
 
@@ -243,6 +251,14 @@ export async function decideAccess(input: DecideAccessInput): Promise<ActionResu
   if (!result.ok) return result
 
   revalidatePath(`/${input.locale}/listings/${ref.id}`)
+  // Task 18: `/dashboard` reads these same rows — the seller's catalogue-wide
+  // request queue and the buyer's own list of asks — and the seller decides
+  // requests from there as well as from the listing page. `/dashboard` is
+  // dynamic (it reads the session) and so is never served from a cache, so
+  // what this call actually buys is the updated RSC payload Next sends back
+  // with the action's response: without it the decided row stays on screen
+  // until a manual reload, exactly as the listing page would.
+  revalidatePath(`/${input.locale}/dashboard`)
   return { ok: true }
 }
 
@@ -311,5 +327,13 @@ export async function revokeAccess(input: RevokeAccessInput): Promise<ActionResu
   }
 
   revalidatePath(`/${input.locale}/listings/${ref.id}`)
+  // Task 18: `/dashboard` reads these same rows — the seller's catalogue-wide
+  // request queue and the buyer's own list of asks — and the seller decides
+  // requests from there as well as from the listing page. `/dashboard` is
+  // dynamic (it reads the session) and so is never served from a cache, so
+  // what this call actually buys is the updated RSC payload Next sends back
+  // with the action's response: without it the decided row stays on screen
+  // until a manual reload, exactly as the listing page would.
+  revalidatePath(`/${input.locale}/dashboard`)
   return { ok: true }
 }

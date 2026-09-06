@@ -1,6 +1,7 @@
 import type {
   AssetCriteria,
   MandateCriteria,
+  MatchBand,
   MatchReason,
   MatchReasonCode,
   MatchResult,
@@ -79,6 +80,48 @@ export function mandateSpecificity(mandate: MandateCriteria): number {
     (mandate.businessStatuses.length > 0 ? 1 : 0) +
     (mandate.ticketMinCents !== null || mandate.ticketMaxCents !== null ? 1 : 0)
   )
+}
+
+/**
+ * Whether a ranked list scored against this mandate means anything at all.
+ *
+ * At `specificity` 0 the mandate constrains nothing, so every criterion
+ * returns `NO_PREFERENCE` and earns its full weight: *every* listing scores
+ * exactly 100 and lands in the `STRONG` band. A list ordered by that number
+ * is not a weak ranking, it is a fabricated one — the order comes entirely
+ * from the tie-break, and the badges tell the buyer five different listings
+ * are all a strong match when nothing was ever compared.
+ *
+ * Lives here, next to `mandateSpecificity`, rather than as an inline
+ * `specificity === 0` test at each call site: Task 18's rule is enforced in
+ * two places that must not drift — `getRecommendedAssets`
+ * (`@/server/queries/assets`) declines to build the ranking at all, and
+ * `BuyerDashboard` renders the "complete your mandate" prompt in its place —
+ * and one definition of "rankable" is what keeps a future change to one from
+ * silently disagreeing with the other.
+ */
+export function isMandateRankable(specificity: number): boolean {
+  return specificity > 0
+}
+
+/**
+ * The bands worth putting in front of someone as a recommendation. `NONE` is
+ * the band `scoreMatch` assigns below 45 — the listing (or buyer) failed
+ * enough of the mandate's real constraints that surfacing it as a suggestion
+ * would be noise, so both directions of the match drop it: a buyer's
+ * recommended listings (`getRecommendedAssets`) and a seller's top matched
+ * buyers for a listing (the seller dashboard's slice of `listBuyers`).
+ *
+ * Note the asymmetry with the catalogs, which is deliberate: `/listings` and
+ * `/buyers` are browsing surfaces and still show every row a filter admits,
+ * `NONE`-banded or not, because the user asked for that list. A
+ * recommendation is the app volunteering an opinion, and an opinion of "no
+ * match" is not worth volunteering.
+ */
+export const RECOMMENDABLE_BANDS: readonly MatchBand[] = ['STRONG', 'GOOD']
+
+export function isRecommendableMatch(result: MatchResult): boolean {
+  return RECOMMENDABLE_BANDS.includes(result.band)
 }
 
 /**

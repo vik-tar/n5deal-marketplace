@@ -1,4 +1,4 @@
-import type { BuyerType } from '@/generated/prisma/client'
+import type { AccessStatus, BuyerType } from '@/generated/prisma/client'
 import { prisma } from '@/server/db'
 import type { BuyerFilters } from '@/lib/filters/buyer-filters'
 import { PAGE_SIZE } from '@/lib/filters/shared'
@@ -17,7 +17,14 @@ import {
   type MandateCriteria,
   type MatchResult,
 } from '@/lib/matching'
-import { BUYER_SORT_ORDER, buildBuyerWhere, compareBuyersByRecency, compareBuyersByScore } from './buyer-where'
+import { groupByOrder } from '@/lib/group'
+import {
+  BUYER_ACCESS_STATUS_ORDER,
+  BUYER_SORT_ORDER,
+  buildBuyerWhere,
+  compareBuyersByRecency,
+  compareBuyersByScore,
+} from './buyer-where'
 
 /**
  * A buyer's mandate, plus how many of the five criteria it actually
@@ -79,7 +86,19 @@ export interface BuyerDetail {
   canContact: boolean
 }
 
-const MANDATE_SELECT = {
+/**
+ * The six mandate columns `MandateCriteria` is built from, and nothing else —
+ * `timelineMonths` and `notes` are the buyer's own planning notes, not
+ * comparable facets, and `scoreMatch` has no opinion about them.
+ *
+ * Exported alongside `toMandateCriteria` for `getRecommendedAssets`
+ * (`@/server/queries/assets`), which needs the same buyer's mandate in the
+ * same shape to score listings against it. The two functions live in
+ * different query modules because they return different things — assets there,
+ * buyers here — but "what a mandate row means, including the `bigint` →
+ * `number` narrowing" must have exactly one definition, and this is it.
+ */
+export const MANDATE_SELECT = {
   categories: true,
   countries: true,
   licenceTypes: true,
@@ -88,7 +107,7 @@ const MANDATE_SELECT = {
   ticketMaxCents: true,
 } as const
 
-interface MandateRow {
+export interface MandateRow {
   categories: MandateCriteria['categories']
   countries: string[]
   licenceTypes: string[]
@@ -104,7 +123,7 @@ interface MandateRow {
  * converted from `bigint` to `number` right here, at the read (ruling 6) —
  * the only place in this module a mandate's ticket bounds are touched.
  */
-function toMandateCriteria(mandate: MandateRow | null): MandateCriteria {
+export function toMandateCriteria(mandate: MandateRow | null): MandateCriteria {
   return {
     categories: mandate?.categories ?? [],
     countries: mandate?.countries ?? [],
@@ -325,5 +344,127 @@ export async function getBuyerDetail(
     match: asset !== null ? scoreMatch(criteria, asset) : null,
     scoredAssetId: asset !== null && forAssetId ? forAssetId : null,
     canContact: canMessage(viewer, { userId: row.userId, status: row.user.status }),
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Task 18 — the buyer's own dashboard
+// ---------------------------------------------------------------------------
+
+/** One of the buyer's own access requests, as their dashboard shows it. */
+export interface BuyerRequestSummary {
+  id: string
+  assetId: string
+  assetPublicRef: string
+  assetTeaserTitle: string
+  status: AccessStatus
+  requestedAt: Date
+  decidedAt: Date | null
+}
+
+/** The requests in one `AccessStatus`, in the order the dashboard renders them. */
+export interface BuyerRequestGroup {
+  status: AccessStatus
+  requests: BuyerRequestSummary[]
+}
+
+export interface BuyerOverview {
+  /**
+   * The viewer's own mandate, carrying `specificity` for the same reason
+   * every other `BuyerMandateSummary` in this module does — the dashboard
+   * must not present a ranking built from a mandate that constrains nothing
+   * (`isMandateRankable`, `@/lib/matching`), and it reads that number from
+   * here rather than recomputing it.
+   */
+  mandate: BuyerMandateSummary
+  requestGroups: BuyerRequestGroup[]
+  requestCount: number
+  unreadMessageCount: number
+}
+
+/** What a buyer whose profile row cannot be found sees: a vacuous mandate and nothing else. */
+function emptyBuyerOverview(): BuyerOverview {
+  const criteria = toMandateCriteria(null)
+  return {
+    mandate: { ...criteria, specificity: mandateSpecificity(criteria) },
+    requestGroups: [],
+    requestCount: 0,
+    unreadMessageCount: 0,
+  }
+}
+
+/**
+ * Everything the buyer dashboard shows about the buyer themselves: their
+ * mandate, their access requests grouped by status, and how many messages are
+ * waiting for them. The listings half of that page comes from
+ * `getRecommendedAssets` (`@/server/queries/assets`), which is where the
+ * asset visibility floor and the asset DTO already live.
+ *
+ * Takes a `buyerProfileId` and no viewer, deliberately: every caller reaches
+ * it with `viewer.buyerProfileId` — an id derived from the session by
+ * `getViewer` (`@/server/session`), never from a URL or a form — so there is
+ * no "may this viewer see this buyer" question left for the query to ask. A
+ * `buyerProfileId` that matches no row returns the empty overview rather than
+ * throwing, the same "refuse by returning nothing" shape `listBuyers` above
+ * and `getAssetRequestQueue` (`@/server/queries/assets`) use.
+ *
+ * The unread count is "messages in my conversations that someone else sent
+ * and nobody has marked read". Excluding the buyer's own messages matters:
+ * `Message.readAt` is null on every message from the moment it is sent,
+ * including the ones this buyer just wrote, so counting the column alone
+ * would tell a buyer they have unread mail every time they send some.
+ */
+export async function getBuyerOverview(buyerProfileId: string): Promise<BuyerOverview> {
+  const profile = await prisma.buyerProfile.findUnique({
+    where: { id: buyerProfileId },
+    select: { userId: true, mandate: { select: MANDATE_SELECT } },
+  })
+  if (!profile) return emptyBuyerOverview()
+
+  const [requestRows, unreadMessageCount] = await prisma.$transaction([
+    prisma.accessRequest.findMany({
+      where: { buyerProfileId },
+      // Newest ask first within each status group, `id` ascending as the
+      // total-order tail — the same reason `BUYER_SORT_ORDER` above carries
+      // one. `groupByOrder` preserves this order inside every group.
+      orderBy: [{ requestedAt: 'desc' }, { id: 'asc' }],
+      select: {
+        id: true,
+        status: true,
+        requestedAt: true,
+        decidedAt: true,
+        asset: { select: { id: true, publicRef: true, teaserTitle: true } },
+      },
+    }),
+    prisma.message.count({
+      where: {
+        conversation: { buyerProfileId },
+        readAt: null,
+        senderUserId: { not: profile.userId },
+      },
+    }),
+  ])
+
+  const requests: BuyerRequestSummary[] = requestRows.map((row) => ({
+    id: row.id,
+    assetId: row.asset.id,
+    assetPublicRef: row.asset.publicRef,
+    assetTeaserTitle: row.asset.teaserTitle,
+    status: row.status,
+    requestedAt: row.requestedAt,
+    decidedAt: row.decidedAt,
+  }))
+
+  const criteria = toMandateCriteria(profile.mandate)
+
+  return {
+    mandate: { ...criteria, specificity: mandateSpecificity(criteria) },
+    requestGroups: groupByOrder(
+      requests,
+      (request) => request.status,
+      BUYER_ACCESS_STATUS_ORDER,
+    ).map(({ key, items }) => ({ status: key, requests: items })),
+    requestCount: requests.length,
+    unreadMessageCount,
   }
 }

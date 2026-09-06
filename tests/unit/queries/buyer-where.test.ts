@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
+  BUYER_ACCESS_STATUS_ORDER,
   buildBuyerWhere,
   compareBuyersByRecency,
   compareBuyersByScore,
   type BuyerRecencyKey,
   type BuyerScoreKey,
 } from '@/server/queries/buyer-where'
+import { groupByOrder } from '@/lib/group'
 import { parseBuyerFilters, type BuyerFilters } from '@/lib/filters/buyer-filters'
 
 /** `parseBuyerFilters({})` gives the exact default shape; overrides layer on top. */
@@ -171,5 +173,31 @@ describe('compareBuyersByScore', () => {
     const a = scoreKey('b-2', '2026-01-01T00:00:00Z', 70, 3)
     const b = scoreKey('b-1', '2026-01-01T00:00:00Z', 70, 3)
     expect(compareBuyersByScore(a, b)).not.toBe(0)
+  })
+})
+
+describe('BUYER_ACCESS_STATUS_ORDER', () => {
+  it('leads with the only group the buyer can act on', () => {
+    expect(BUYER_ACCESS_STATUS_ORDER[0]).toBe('APPROVED')
+  })
+
+  it('closes with the two terminal statuses, decline before revocation', () => {
+    expect(BUYER_ACCESS_STATUS_ORDER.slice(2)).toEqual(['DECLINED', 'REVOKED'])
+  })
+
+  it('covers every AccessStatus exactly once', () => {
+    const every = ['REQUESTED', 'APPROVED', 'DECLINED', 'REVOKED']
+    expect([...BUYER_ACCESS_STATUS_ORDER].sort()).toEqual([...every].sort())
+  })
+
+  /** The composition the buyer dashboard renders, asserted end to end. */
+  it('groups a buyer\'s requests approved-first regardless of the order they arrived in', () => {
+    const requests = [
+      { id: '1', status: 'REVOKED' as const },
+      { id: '2', status: 'REQUESTED' as const },
+      { id: '3', status: 'APPROVED' as const },
+    ]
+    const groups = groupByOrder(requests, (request) => request.status, BUYER_ACCESS_STATUS_ORDER)
+    expect(groups.map((group) => group.key)).toEqual(['APPROVED', 'REQUESTED', 'REVOKED'])
   })
 })

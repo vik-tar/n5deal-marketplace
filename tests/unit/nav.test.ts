@@ -19,7 +19,10 @@ describe('navKeysFor', () => {
     ])
   })
 
-  it('gives a manager everything, including admin', () => {
+  // "Everything a role alone unlocks" — the profile-gated keys Task 18 added
+  // (`newListing`, `profile`) are deliberately absent here, because this
+  // asserts the default no-profiles call. Their own cases are below.
+  it('gives a manager every role-gated key, including admin', () => {
     expect(navKeysFor('MANAGER')).toEqual([
       'listings',
       'buyers',
@@ -33,5 +36,67 @@ describe('navKeysFor', () => {
     for (const role of [null, 'BUYER', 'SELLER']) {
       expect(navKeysFor(role)).not.toContain('admin')
     }
+  })
+})
+
+/**
+ * Task 18's handoff 3: `/profile` (Task 16) and `/listings/new` (Task 15)
+ * shipped finished but unreachable from any UI. These assert the two new
+ * entry points appear for exactly the viewers whose own pages would let them
+ * in, and for nobody else.
+ */
+describe('navKeysFor — role-specific entry points', () => {
+  it('shows /profile to a buyer who has a buyer profile', () => {
+    expect(navKeysFor('BUYER', { buyer: true, seller: false })).toEqual([
+      'listings',
+      'dashboard',
+      'inbox',
+      'profile',
+    ])
+  })
+
+  it('shows /listings/new to a seller who has a seller profile', () => {
+    expect(navKeysFor('SELLER', { buyer: false, seller: true })).toEqual([
+      'listings',
+      'buyers',
+      'dashboard',
+      'inbox',
+      'newListing',
+    ])
+  })
+
+  /**
+   * `canPublishListing` (`@/lib/authz`) requires an active SELLER *with* a
+   * `SellerProfile`; a seller row-less account would hit the 404 on
+   * `/listings/new`, so the nav must not offer it.
+   */
+  it('hides /listings/new from a seller with no seller profile', () => {
+    expect(navKeysFor('SELLER')).not.toContain('newListing')
+    expect(navKeysFor('SELLER', { buyer: false, seller: false })).not.toContain('newListing')
+  })
+
+  it('hides /profile from a buyer with no buyer profile', () => {
+    expect(navKeysFor('BUYER')).not.toContain('profile')
+  })
+
+  /**
+   * `canPublishListing` is role-gated as well as profile-gated, and a manager
+   * moderates the market rather than selling in it.
+   */
+  it('never offers /listings/new to a manager, profile row or not', () => {
+    expect(navKeysFor('MANAGER', { buyer: false, seller: true })).not.toContain('newListing')
+  })
+
+  /**
+   * `/profile` itself checks only `buyerProfileId !== null`, so the nav
+   * mirrors that rather than adding a stricter role test the page does not
+   * enforce.
+   */
+  it('offers /profile to any signed-in viewer holding a buyer profile', () => {
+    expect(navKeysFor('MANAGER', { buyer: true, seller: false })).toContain('profile')
+  })
+
+  it('never offers either entry point to an anonymous visitor', () => {
+    expect(navKeysFor(null, { buyer: true, seller: true })).toEqual(['listings'])
   })
 })

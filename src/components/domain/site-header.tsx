@@ -13,11 +13,23 @@ export function SiteHeader({ viewer, locale }: { viewer: Viewer | null; locale: 
   // A suspended viewer keeps a session — they can still see their email and
   // sign out below — but `canAccessApp` (`@/lib/authz/rules.ts`) already says
   // a non-ACTIVE viewer may not use the app, so the nav should show exactly
-  // what an anonymous visitor sees. Passing `null` here (rather than
-  // widening `navKeysFor`'s pure, separately-unit-tested signature to know
-  // about `status`) keeps that function's contract — and `tests/unit/nav.test.ts`
-  // — unchanged.
-  const navKeys = navKeysFor(viewer?.status === 'ACTIVE' ? viewer.role : null)
+  // what an anonymous visitor sees. That is expressed here, by passing `null`
+  // and no profiles, rather than by teaching `navKeysFor` about `status`:
+  // account status is this component's business, key visibility is that
+  // function's.
+  //
+  // Task 18 added the two role-specific entry points (`/listings/new`,
+  // `/profile`), which depend on whether the viewer holds the matching
+  // profile row and not only on their role. Only the two booleans travel into
+  // `navKeysFor`, never the cuids themselves, and both are dropped along with
+  // the role for a non-ACTIVE viewer.
+  const isActiveViewer = viewer !== null && viewer.status === 'ACTIVE'
+  const navKeys = navKeysFor(
+    isActiveViewer ? viewer.role : null,
+    isActiveViewer
+      ? { buyer: viewer.buyerProfileId !== null, seller: viewer.sellerProfileId !== null }
+      : { buyer: false, seller: false },
+  )
   const boundSignOut = signOutAction.bind(null, locale)
 
   return (
