@@ -75,11 +75,22 @@ export function MandateGroup({
 /**
  * The seller-facing buyer card: identity and mandate on the left, the match
  * badge (when this list was scored against a listing — `buyer.match` is
- * `null` otherwise) and ticket size on the right. The whole card is one link
- * to `/buyers/[id]`, carrying `forAssetId` through the query string so the
+ * `null` otherwise) and ticket size on the right. The card links to
+ * `/buyers/[id]`, carrying `forAssetId` through the query string so the
  * detail page shows the identical scored view the card linked from —
  * ruling 3's "scored against" state is shareable the same way the asset
  * catalog's own filters are (ruling 7).
+ *
+ * That link is a *stretched* link on the buyer's name, not a wrapper around
+ * the whole card. The card contains `MatchBadge`, which renders a `<button>`:
+ * HTML forbids interactive content inside an `<a>`, and in practice the
+ * anchor took the click, so opening the match-reasons disclosure navigated
+ * away instead — the deterministic reasons list and the AI explanation
+ * underneath it (Task 9) were unreachable from this card entirely. The
+ * `after:absolute after:inset-0` overlay below restores the whole-card click
+ * target without nesting anything inside the anchor, and the badge sits above
+ * that overlay on `relative z-10`. The focus ring lands on the name rather
+ * than the card, which is the correct affordance: the name is the link.
  */
 export function BuyerCard({
   buyer,
@@ -102,73 +113,82 @@ export function BuyerCard({
     : `/buyers/${buyer.id}`
 
   return (
-    <Link href={href} className={cn('block rounded-card', FOCUS_RING)}>
-      <Card className="transition hover:border-accent/60">
-        <CardBody className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex min-w-0 flex-col gap-2">
-            <div className="flex items-center gap-2 text-sm text-ink-muted">
-              {flag ? (
-                <span aria-hidden="true" className="text-base leading-none">
-                  {flag}
-                </span>
-              ) : null}
-              <span>{buyer.country}</span>
-              <span aria-hidden="true">&middot;</span>
-              <span>{tProfile(`buyerType.${buyer.buyerType}`)}</span>
-              {buyer.verified ? <Badge tone="success">{t('card.verifiedBadge')}</Badge> : null}
+    <Card className="relative transition hover:border-accent/60">
+      <CardBody className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 flex-col gap-2">
+          <div className="flex items-center gap-2 text-sm text-ink-muted">
+            {flag ? (
+              <span aria-hidden="true" className="text-base leading-none">
+                {flag}
+              </span>
+            ) : null}
+            <span>{buyer.country}</span>
+            <span aria-hidden="true">&middot;</span>
+            <span>{tProfile(`buyerType.${buyer.buyerType}`)}</span>
+            {buyer.verified ? <Badge tone="success">{t('card.verifiedBadge')}</Badge> : null}
+          </div>
+
+          <h3 className="text-lg font-semibold text-ink">
+            <Link
+              href={href}
+              className={cn('rounded-sm after:absolute after:inset-0', FOCUS_RING)}
+            >
+              {buyer.displayName}
+            </Link>
+          </h3>
+
+          <div className="flex flex-col gap-1.5">
+            <MandateGroup
+              label={t('card.categoriesLabel')}
+              values={buyer.mandate.categories}
+              anyLabel={tProfile('mandate.any.category')}
+              translateValue={(value) => tAssets(`category.${value}`)}
+            />
+            <MandateGroup
+              label={t('card.countriesLabel')}
+              values={buyer.mandate.countries}
+              anyLabel={tProfile('mandate.any.country')}
+              translateValue={(value) => {
+                const countryFlag = codeToFlag(value)
+                return countryFlag ? `${countryFlag} ${value}` : value
+              }}
+            />
+            <MandateGroup
+              label={t('card.licenceTypesLabel')}
+              values={buyer.mandate.licenceTypes}
+              anyLabel={tProfile('mandate.any.licenceType')}
+              translateValue={(value) => tProfile(`licenceType.${value}`)}
+            />
+          </div>
+
+          <p className="text-xs text-ink-muted">
+            {buyer.mandate.specificity === 0
+              ? t('card.specificityUnconstrained')
+              : t('card.specificity', { count: buyer.mandate.specificity })}
+          </p>
+        </div>
+
+        <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
+          {/* Above the name's `after:inset-0` overlay, so a click toggles
+              the disclosure instead of following the link. */}
+          {buyer.match ? (
+            <div className="relative z-10">
+              <MatchBadge result={buyer.match} locale={locale} aiEnabled={aiEnabled} />
             </div>
-
-            <h3 className="text-lg font-semibold text-ink">{buyer.displayName}</h3>
-
-            <div className="flex flex-col gap-1.5">
-              <MandateGroup
-                label={t('card.categoriesLabel')}
-                values={buyer.mandate.categories}
-                anyLabel={tProfile('mandate.any.category')}
-                translateValue={(value) => tAssets(`category.${value}`)}
-              />
-              <MandateGroup
-                label={t('card.countriesLabel')}
-                values={buyer.mandate.countries}
-                anyLabel={tProfile('mandate.any.country')}
-                translateValue={(value) => {
-                  const countryFlag = codeToFlag(value)
-                  return countryFlag ? `${countryFlag} ${value}` : value
-                }}
-              />
-              <MandateGroup
-                label={t('card.licenceTypesLabel')}
-                values={buyer.mandate.licenceTypes}
-                anyLabel={tProfile('mandate.any.licenceType')}
-                translateValue={(value) => tProfile(`licenceType.${value}`)}
-              />
-            </div>
-
-            <p className="text-xs text-ink-muted">
-              {buyer.mandate.specificity === 0
-                ? t('card.specificityUnconstrained')
-                : t('card.specificity', { count: buyer.mandate.specificity })}
+          ) : null}
+          <div className="text-left sm:text-right">
+            <p className="meta-label">{t('card.ticketLabel')}</p>
+            <p className="text-sm font-medium text-ink">
+              {ticketLabel(
+                buyer.mandate.ticketMinCents,
+                buyer.mandate.ticketMaxCents,
+                locale,
+                t,
+              )}
             </p>
           </div>
-
-          <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
-            {buyer.match ? (
-              <MatchBadge result={buyer.match} locale={locale} aiEnabled={aiEnabled} />
-            ) : null}
-            <div className="text-left sm:text-right">
-              <p className="meta-label">{t('card.ticketLabel')}</p>
-              <p className="text-sm font-medium text-ink">
-                {ticketLabel(
-                  buyer.mandate.ticketMinCents,
-                  buyer.mandate.ticketMaxCents,
-                  locale,
-                  t,
-                )}
-              </p>
-            </div>
-          </div>
-        </CardBody>
-      </Card>
-    </Link>
+        </div>
+    </CardBody>
+    </Card>
   )
 }

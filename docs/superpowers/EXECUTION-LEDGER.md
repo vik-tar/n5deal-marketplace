@@ -876,3 +876,46 @@ Task 17: fix round 1/5 (commit 28eb71c), verified by the controller from the dif
   by both findMany's orderBy and the in-memory sort; 7 new DB-free comparator tests.
   240 passing with and without DATABASE_URL.
 Task 17: complete (commits f06df66..28eb71c).
+
+Task 18: implementer DONE (commit 20dc438, amended after its own dispatched review). 276 passing
+  with and without DATABASE_URL (240 -> 276: asset-where 14, nav 7, group 6, score 5,
+  buyer-where 4). typecheck, lint and build clean. Controller re-ran all five independently on
+  the amended commit rather than trusting the report.
+Task 18: Ruling: getRecommendedAssets returns an EMPTY list at specificity 0, rather than a
+  ranking the component then declines to render. Handoff 2 forbids displaying that ranking; a
+  ranking that must never be displayed should not be computed, or the next caller renders a
+  correct-looking array in good faith. Query and component both call isMandateRankable
+  (@/lib/matching) so the rule has one definition.
+Task 18: Ruling: getSellerOverview supersedes rather than composes the per-listing
+  getAssetRequestQueue — the second option Task 14's handoff sanctions. Composing it would be N
+  round trips to rebuild one query's rows; the two share appendRequestRow, the summary types and
+  access-request-queue.tsx, which is what that handoff was actually protecting.
+Task 18: Ruling: navKeysFor gained an optional second argument (NavProfiles) instead of learning
+  about Viewer. /listings/new mirrors canPublishListing (role AND profile row); /profile mirrors
+  its page, which gates on buyerProfileId alone. Nav that hides a page the viewer can still open
+  is the inconsistency Task 13 removed between catalog and detail page. All five pre-existing
+  nav assertions hold verbatim.
+Task 18: two reaches outside the brief's file list, both load-bearing: decideAccess/revokeAccess
+  now revalidatePath the dashboard (proven necessary by replaying the real Server Action POST),
+  and countMandateMatches calls the extracted isRecommendableMatch instead of keeping a second
+  inline copy of the band rule.
+Task 18: AI-enabled path NOT RUN — still no ANTHROPIC_API_KEY. Unchanged since Task 17.
+Task 18: controller fix round 1/1 (commit see below), verified live in the rendered DOM.
+  buyer-card.tsx wrapped the whole card in a Link with MatchBadge's <button> nested inside it:
+  invalid HTML, and the anchor took the click, so the match-reasons disclosure — and the AI
+  explanation under it — could not be opened from the catalog at all. Pre-existing from Task 17;
+  Task 18 inherited it by reusing BuyerCard on the seller dashboard, which is what surfaced it.
+  Replaced with a stretched link on the buyer's name (after:absolute after:inset-0) and the badge
+  lifted onto relative z-10. Verified against the running production build with a real seller
+  session: /en/buyers 12 cards / 0 anchors containing a button, /en/buyers?forAsset=asset-731
+  12 match badges / 0 nested, /en/dashboard 3 matched-buyer cards / 0 nested.
+Task 18: OPEN RULING for the user, not decided: on the seller dashboard's top-3 matched buyers,
+  a buyer whose mandate constrains nothing is badged "Strong match - 100/100". BuyerCard does
+  print "This mandate constrains nothing" underneath, and Task 17's tie-break correctly ranks
+  specific buyers first, so nothing is hidden — but the collapsed badge is the part a seller
+  reads, and on a three-row recommendation surface it is the seller-side shape of exactly what
+  handoff 2 forbids on the buyer side. Options: (a) leave it — an unconstrained strategic
+  acquirer is a real lead and Task 17 is reviewed and closed; (b) make MatchBadge itself render
+  a neutral "mandate not specified" chip instead of a band and score at specificity 0, which
+  fixes catalog, detail page and dashboard in one place. Deferred, not dropped.
+Task 18: complete (commits 28eb71c..HEAD).
