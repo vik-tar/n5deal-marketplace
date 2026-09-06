@@ -9,51 +9,62 @@ Written 2026-09-04, mid-execution, so work can resume after a shutdown.
 - **Spec:** `docs/superpowers/specs/2026-09-04-n5deal-marketplace-design.md`.
 - **Full execution ledger:** `docs/superpowers/EXECUTION-LEDGER.md` — every ruling, every deferred minor, every interface fact, in order. This is the file to read first on resume. A live copy also sits at `.superpowers/sdd/2026-09-04-n5deal-marketplace/progress.md`, which is git-ignored scratch and will be destroyed by `git clean -fdx`; the committed copy is the durable one.
 
-## Status: 17 of 23 complete and reviewed
+## Status: 18 of 23 complete and reviewed
 
 Complete and reviewed: 1 scaffold, 2 Prisma schema, 3 i18n, 4 design system, 5 match scoring,
 6 authorization, 7 URL filters, 8 redaction, 9 AI layer, 10 seed data, 11 auth, 12 asset catalog,
-13 asset detail + NDA gate, 14 access requests, 15 listing creation, 16 buyer profile + mandate.
-17 buyer catalog for sellers.
+13 asset detail + NDA gate, 14 access requests, 15 listing creation, 16 buyer profile + mandate,
+17 buyer catalog for sellers, 18 role dashboards.
 
-**240 tests pass, and the whole suite passes with `DATABASE_URL` unset** — no unit test depends on
+**276 tests pass, and the whole suite passes with `DATABASE_URL` unset** — no unit test depends on
 infrastructure. Keep that property.
 
-## Task 17 is complete and reviewed
+## Task 18 is complete and reviewed
 
-Finished as `86489c9`, reviewed, and fixed as `28eb71c` (a buyer search input that had been built
-end-to-end in the query layer but had no UI control, and a missing final total-order key on the
-sort). **240 tests pass**, with and without `DATABASE_URL`.
+Finished as `20dc438` (dashboards, `getRecommendedAssets`/`getSellerOverview`/`getBuyerOverview`,
+the `/listings/new` and `/profile` nav entry points, 36 new tests), then `970621a` — a controller
+fix for a Task 17 defect Task 18 inherited: `BuyerCard` nested `MatchBadge`'s `<button>` inside
+the card's `<a>`, so the match-reasons disclosure could not be opened anywhere it was rendered.
+Both verified against the running production build with a real seller session, not by inspection.
 
-The `4b26a4e` WIP commit earlier in the history was a controller-made snapshot taken during a
-shutdown scare while that task was still running. It is superseded and harmless — do not act on
-its warning message.
+## Resume here: Task 19
 
-## Resume here: Task 18
+Task 19 (messaging and inbox) is a **full cycle**: implementer, task review, and a dispatched
+scoped re-review after every fix round. Its brief is
+`.superpowers/sdd/2026-09-04-n5deal-marketplace/task-19-brief.md`.
 
-Task 18 (role dashboards) was dispatched and produced nothing before the session ended — the
-working tree was clean at shutdown. Start it fresh from
-`.superpowers/sdd/2026-09-04-n5deal-marketplace/task-18-brief.md`, on the accelerated cycle.
+Two things it inherits:
 
-Three things that task must carry, recorded during earlier work:
+- **`canMessage` (`@/lib/authz`) is already settled and tested** — cold contact is allowed, no
+  grant or shared listing required; both parties must be active and distinct; a manager may never
+  message. Task 19 wires it, it does not redefine it.
+- **`thread-key.ts` and the `Conversation`/`Message` schema already exist** with a unique
+  `threadKey` — Task 14's `decideAccess` already opens a conversation on approval and reuses an
+  existing thread rather than creating a second one. The inbox reads what is already being
+  written; do not invent a parallel conversation-creation path.
+- **`/inbox` and `/admin` are linked from the header and, since Task 18, from a dashboard CTA,
+  but neither page exists yet** — both currently 404. Task 19 lands `/inbox`, Task 20 `/admin`.
 
-- **Reuse, do not reimplement.** Task 14 already built `getAssetRequestQueue` and
-  `access-request-queue.tsx` for the seller's approve/decline surface. `getSellerOverview` should
-  compose or consciously supersede them, not write a parallel second version.
-- **Never render a ranking at `specificity === 0`** — a mandate constraining nothing scores 100
-  against everything, so show the "complete your mandate" prompt instead. Between 1 and 4, render
-  the ranking but label what it is based on.
-- **Add the missing navigation entry points.** `/profile` (Task 16) and `/listings/new`
-  (Task 15) are finished but unreachable from the UI.
+## One open ruling for the user
+
+On the seller dashboard's top-3 matched buyers, a buyer whose mandate constrains nothing is
+badged "Strong match · 100/100". Nothing is hidden — `BuyerCard` prints "This mandate constrains
+nothing" underneath and Task 17's tie-break ranks specific buyers first — but the collapsed badge
+is what a seller actually reads. See the Task 18 entry in the ledger for the two options. Does not
+block Task 19.
 
 ## Restarting the environment
 
 ```bash
+open -a Docker                  # the daemon does not survive a reboot
 docker start n5deal-pg          # Postgres 16, port 55432; data persists in the container
 pnpm install                    # if node_modules is stale
-pnpm test                       # expect 240 passing
+pnpm test                       # expect 276 passing
 pnpm dev
 ```
+
+`pnpm start` on a port other than 3000 fails Auth.js with `UntrustedHost` unless
+`AUTH_TRUST_HOST=true` is set. Irrelevant on Vercel, relevant for local production-build testing.
 
 `.env` is git-ignored and holds `DATABASE_URL`, a generated `AUTH_SECRET`, and an empty
 `ANTHROPIC_API_KEY`. If `.env` is gone, recreate it from `.env.example`; the database URL is
@@ -68,8 +79,7 @@ Demo logins: `buyer@n5deal.demo`, `seller@n5deal.demo`, `manager@n5deal.demo`, p
 
 | Task | | Cycle |
 |---|---|---|
-| 18 | Role dashboards | accelerated — **resume here** |
-| 19 | Messaging and inbox | **full cycle** |
+| 19 | Messaging and inbox | **full cycle** — **resume here** |
 | 20 | Manager console and moderation | **full cycle** |
 | 21 | Landing page | accelerated |
 | 22 | End-to-end tests | accelerated |
