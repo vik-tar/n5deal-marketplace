@@ -3,6 +3,7 @@
 import { AuthError } from 'next-auth'
 import { signIn, signOut } from '@/auth'
 import { redirect, getPathname } from '@/i18n/navigation'
+import { toAppLocale } from '@/i18n/locale'
 import { prisma } from '@/server/db'
 
 /**
@@ -13,8 +14,25 @@ import { prisma } from '@/server/db'
  * `locale` is bound by the caller via `signInAction.bind(null, locale)` so the
  * success redirect — and the back-to-login redirect on failure — land on a
  * locale-prefixed path instead of guessing it from the request.
+ *
+ * Bound is not the same as trusted. A `.bind()`ed argument is serialised into
+ * the client payload and comes back over the wire with the submission, so it
+ * is exactly as caller-controlled as a field on a typed action input — the
+ * only difference is that it is harder to notice. Both entry points here
+ * therefore run `locale` through `toAppLocale` (`@/i18n/locale`), the same
+ * allowlist `redirectNow` (`@/server/session`) applies to every other
+ * action's locale.
+ *
+ * This file is the one that most needed it. Elsewhere a forged locale can only
+ * change which translation of a login page a visitor lands on; here it reaches
+ * `redirectTo`, which is handed to Auth.js's own `signIn` and decides where a
+ * *successfully authenticated* session is sent. That is the difference between
+ * a cosmetic mismatch and pointing a freshly signed-in user off-site, so the
+ * check belongs on the value before `getPathname` ever builds a path from it,
+ * not after.
  */
-export async function signInAction(locale: string, formData: FormData): Promise<void> {
+export async function signInAction(rawLocale: string, formData: FormData): Promise<void> {
+  const locale = toAppLocale(rawLocale)
   const email = String(formData.get('email') ?? '').toLowerCase().trim()
   const password = String(formData.get('password') ?? '')
 
@@ -48,6 +66,6 @@ export async function signInAction(locale: string, formData: FormData): Promise<
   }
 }
 
-export async function signOutAction(locale: string): Promise<void> {
-  await signOut({ redirectTo: getPathname({ href: '/', locale }) })
+export async function signOutAction(rawLocale: string): Promise<void> {
+  await signOut({ redirectTo: getPathname({ href: '/', locale: toAppLocale(rawLocale) }) })
 }

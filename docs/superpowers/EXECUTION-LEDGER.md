@@ -937,3 +937,61 @@ Cross-task: controller fix — every AI call site had max_tokens set to 400/512/
   Costs nothing: billing and the OTPM rate limit both count tokens actually generated, so an
   unreached ceiling is free. Found by reading the API docs, NOT by running anything — with no key
   this remains unverified against the real API, like the rest of the AI layer.
+
+Task 19: implementer DONE (commit 606af73). 287 passing with and without DATABASE_URL; typecheck,
+  lint and build clean; seeded DB restored exactly. Controller re-ran all five independently.
+Task 19: Ruling: a manager is not a participant and cannot read any thread. This is the ONE place
+  in the codebase where canModerate deliberately does not widen a read. Enforced by
+  participantConversationsWhere returning null rather than { OR: [] } — Prisma reads an empty OR
+  as "match everything", so that line is the highest-stakes one in the diff and is unit-tested
+  directly. The refusal does not depend on the nav change; the manager also gets an explicit
+  "managers do not have an inbox" card rather than a silently empty list.
+Task 19: Ruling: a seller's companyName inside a thread is gated by canViewFullAsset — the real
+  predicate, not a re-derived grant === 'APPROVED' — so an approved grant on a listing that later
+  left PUBLISHED, or whose owner was suspended, stops disclosing, exactly as on the listing page.
+  An asset-less (cold-contact) thread never names the seller. Without this, "Contact seller" is a
+  one-click bypass of the whole NDA gate, and canMessage makes that bypass free. Reviewer verified
+  on the wire: the seller's name appears 0 times in the full 31KB response of a cold thread,
+  RSC flight payload included. Never sent and then hidden.
+Task 19: review = spec MET, quality SHIP after fixes. No Critical, no authorization hole. Probed
+  live with three real sessions: manager/non-party seller/non-party buyer all 404 on every thread
+  they are not party to, and the two 404 bodies are byte-identical. All three Server Actions
+  refuse independently when called directly over HTTP, before zod, without trusting the page.
+Task 19: review PROVED the upsert is not what its comment claimed. With Prisma 7 + PrismaPg the
+  "upsert" emits a plain INSERT ... RETURNING; Postgres logged the unique-constraint violation
+  during a 12-way concurrent burst. So startConversation IS a check-then-write with a real race
+  window, and the catch (P2002) -> re-read-by-threadKey branch is the primary mechanism, not a
+  backstop. It works: all 12 calls returned the same conversationId, one row.
+Task 19: Ruling: ACCEPTED, not fixed — the three actions return FORBIDDEN for a real conversation
+  the caller is not party to and NOT_FOUND for a fabricated id, which distinguishes "exists" from
+  "does not exist" and is a literal exception to the brief's non-negotiable "hidden and
+  non-existent look identical". Accepted because the PAGES honour it (404 both ways, byte-
+  identical), it matches the precedent decideAccess set in Task 14, and exploiting it requires
+  already holding an unguessable cuid. Same ruling for the page-level timing difference the
+  reviewer measured on the same two cases (median 28.9ms vs 22.3ms): closing it costs a second
+  query to save nothing an attacker who already has the cuid could not learn anyway.
+Task 19: fix round 1/1 (commit 94e6196), verified by the controller. (1) The withheld-identity
+  hint told a buyer to file an access request on a cold-contact thread that has no listing —
+  unfollowable, and it implied a listing existed; now two strings chosen on asset !== null.
+  (2) An empty thread outranked real conversations in both inboxes; now
+  compareConversationsByActivity (pure, in conversation-where.ts, 6 tests) orders hasMessages
+  first, then lastMessageAt desc, then id asc for a total order. (3) Client-supplied locale
+  reached redirect() unvalidated — measured pre-fix as x-action-redirect: //evil.example.com/login
+  — fixed once at the root in redirectNow via a new pure toAppLocale (@/i18n/locale, 4 tests);
+  it lives beside routing rather than in session.ts because session.ts imports @/auth, which
+  builds a Prisma client at import time and would make it untestable. (4) The upsert comment
+  rewritten to state what was measured. 297 passing with and without DATABASE_URL.
+Task 19: controller follow-up — the root fix did NOT cover src/server/actions/auth.ts, which
+  reaches redirect()/getPathname without going through redirectNow. Its locale arrives via
+  .bind(null, locale), and a bound argument is serialised into the client payload, so it is
+  exactly as caller-controlled as a typed input field — only harder to notice. This was the
+  worst of the six sites: there the value reaches redirectTo, which Auth.js's signIn uses to
+  decide where a SUCCESSFULLY AUTHENTICATED session lands. Both entry points now run through
+  toAppLocale. Verified no regression live (login 302, then dashboard/inbox/profile all 200 in
+  both locales); NOT verified by forging a bound argument — the mechanism is the same validated
+  helper, but the attack path on this file specifically was not reproduced.
+Task 19: NOT fixed, deliberately — revalidatePath() in the messaging, access-request, asset and
+  profile actions still builds `/${locale}/...` from the raw input. That is cache invalidation,
+  not navigation: a forged value revalidates a path that does not exist and changes nothing an
+  attacker can observe. Left alone rather than touching six more call sites for no risk
+  reduction. Recorded so the whole-branch review sees it was a choice.
