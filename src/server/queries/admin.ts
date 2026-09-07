@@ -74,7 +74,22 @@ import {
 export interface ParticipantActivity {
   /** Listings this account owns, in every status. */
   listingCount: number
-  /** How many of those are `PUBLISHED` — the ones a suspension takes off the catalog. */
+  /**
+   * How many of those hold `status: 'PUBLISHED'` — the ones a suspension
+   * takes off the catalog, and the ones a reinstatement puts back.
+   *
+   * **This is one half of the catalog's visibility floor, not the whole of
+   * it.** `VISIBILITY_FLOOR` (`@/server/queries/asset-where`) requires
+   * `status: 'PUBLISHED'` *and* an `ACTIVE` owner, so for an account that is
+   * itself `SUSPENDED` or `REMOVED` this number counts listings that are not
+   * in the catalog at all. Deliberately so, because it is exactly the number
+   * both callers want: the suspension and reinstatement dialogs ask "how many
+   * listings does this leave or re-enter the catalog", which is this count in
+   * both directions. It is the *participants row* that has to qualify it,
+   * and does (`activity.publishedHidden`,
+   * `@/components/domain/participant-table`) — narrowing the count here would
+   * fix one caller by breaking two.
+   */
   publishedListingCount: number
   /** Access requests this account has filed, in every status. */
   requestCount: number

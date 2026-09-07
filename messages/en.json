@@ -616,6 +616,7 @@
       "activity": {
         "listings": "{count, plural, one {# listing} other {# listings}}",
         "published": "{count} in the catalog",
+        "publishedHidden": "{count} published, hidden while this account is not active",
         "requests": "{count, plural, one {# access request} other {# access requests}}",
         "none": "Nothing yet"
       },

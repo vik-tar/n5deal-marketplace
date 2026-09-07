@@ -110,8 +110,25 @@ function ParticipantRowView({
   if (row.activity.listingCount > 0) {
     activity.push(t('activity.listings', { count: row.activity.listingCount }))
   }
+  // `publishedListingCount` is the `status: 'PUBLISHED'` half of the catalog's
+  // visibility floor only; the other half is `sellerProfile.user.status ===
+  // 'ACTIVE'` (`VISIBILITY_FLOOR`, `@/server/queries/asset-where`). So for an
+  // account that is not itself active, "N in the catalog" is simply false —
+  // and the assets tab on this same page already flags those very listings
+  // "Owner not active, so hidden from the catalog", which is a contradiction
+  // a manager can see in two clicks. The count is right and the sentence was
+  // wrong, so the sentence changes: same number, qualified.
+  //
+  // The count is deliberately *not* zeroed for a suspended owner, because the
+  // reinstate dialog below reads the same field to promise how many listings
+  // come back — and there it is already correct, since reinstatement restores
+  // the missing half of the floor.
   if (row.activity.publishedListingCount > 0) {
-    activity.push(t('activity.published', { count: row.activity.publishedListingCount }))
+    activity.push(
+      row.status === 'ACTIVE'
+        ? t('activity.published', { count: row.activity.publishedListingCount })
+        : t('activity.publishedHidden', { count: row.activity.publishedListingCount }),
+    )
   }
   if (row.activity.requestCount > 0) {
     activity.push(t('activity.requests', { count: row.activity.requestCount }))

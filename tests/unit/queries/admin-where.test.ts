@@ -263,13 +263,28 @@ describe('USER_TRANSITIONS', () => {
 })
 
 describe('LISTING_TRANSITIONS', () => {
-  it('approves and rejects only out of the review queue', () => {
-    expect(LISTING_TRANSITIONS.APPROVE).toEqual({ from: ['PENDING_REVIEW'], to: 'PUBLISHED' })
+  it('approves and rejects out of the review queue', () => {
+    expect(LISTING_TRANSITIONS.APPROVE.to).toBe('PUBLISHED')
+    expect(LISTING_TRANSITIONS.APPROVE.from).toContain('PENDING_REVIEW')
     expect(LISTING_TRANSITIONS.REJECT).toEqual({ from: ['PENDING_REVIEW'], to: 'REJECTED' })
   })
 
   it('suspends only a published listing', () => {
     expect(LISTING_TRANSITIONS.SUSPEND).toEqual({ from: ['PUBLISHED'], to: 'SUSPENDED' })
+  })
+
+  /**
+   * The regression this table shipped with: `SUSPEND` produced a status no
+   * other transition accepted, and no other writer in the application accepts
+   * it either (`submitForReview` takes `DRAFT`/`REJECTED`, `saveDraft` leaves
+   * a non-`PUBLISHED` status alone, nothing deletes a listing), so a takedown
+   * could be undone only in the database. Asserted through `SUSPEND.to`
+   * rather than the literal `'SUSPENDED'` so that renaming the status cannot
+   * quietly re-open the trap.
+   */
+  it('takes a suspended listing back into the catalog, so a takedown is reversible', () => {
+    expect(LISTING_TRANSITIONS.APPROVE.from).toContain(LISTING_TRANSITIONS.SUSPEND.to)
+    expect(LISTING_TRANSITIONS.APPROVE.to).toBe(LISTING_TRANSITIONS.SUSPEND.from[0])
   })
 
   it('never lets a transition start from the status it produces', () => {

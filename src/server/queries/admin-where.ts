@@ -301,26 +301,47 @@ export const USER_TRANSITIONS: Record<UserModerationAction, StatusTransition<Use
 }
 
 /**
- * `APPROVE` and `REJECT` are legal only out of `PENDING_REVIEW` — the queue
- * is the only place a listing waits for a manager. `SUSPEND` is legal only
- * out of `PUBLISHED`: taking a listing off the catalog is the whole action,
- * and there is nothing to take down from `DRAFT`, `REJECTED` or `SOLD`.
+ * `REJECT` is legal only out of `PENDING_REVIEW` — the queue is the only
+ * place a listing waits to be sent back to its seller. `SUSPEND` is legal
+ * only out of `PUBLISHED`: taking a listing off the catalog is the whole
+ * action, and there is nothing to take down from `DRAFT`, `REJECTED` or
+ * `SOLD`. `APPROVE` accepts `PENDING_REVIEW` **and `SUSPENDED`**, which is
+ * the one transition here the brief does not spell out.
  *
- * A `SUSPENDED` listing has no path back through this table on purpose. Its
- * seller can resubmit it — `submitForReview` (`@/server/actions/assets`)
- * accepts `DRAFT` and `REJECTED` and not `SUSPENDED`, so in practice the
- * listing stays down until a manager rejects it (returning it to the seller's
- * court with a reason) or the seller edits and resubmits. Adding an
- * "unsuspend listing" transition here would need a matching `ModAction`
- * member to log it under, and `ModAction` has none: the enum is fixed by the
- * schema and this task does not migrate it. Recorded as a known gap rather
- * than worked around with a mislabelled log row.
+ * **`SUSPENDED` → `PUBLISHED` exists for the same reason `REINSTATE` accepts
+ * `REMOVED` above, and the symmetry is the point.** Nothing else in the
+ * application can move a suspended listing: `REJECT` does not accept it,
+ * `submitForReview` (`@/server/actions/assets`) accepts `DRAFT` and
+ * `REJECTED` only, `saveDraft` leaves every non-`PUBLISHED` status exactly
+ * where it found it, and there is no delete-listing path at all. Without this
+ * entry the console's own suspend button would be a one-way door — a listing
+ * a manager can take down from a screen and return only with raw SQL — and it
+ * would be this table's own doing, since before the console existed no writer
+ * in the codebase could produce `SUSPENDED` in the first place. That is
+ * exactly the irreversibility the argument for a reversible `REMOVE` above
+ * rejects, and a listing deserves it no less than an account.
+ *
+ * It needs no schema change. The restoration logs as `APPROVE_LISTING` —
+ * `ModAction` has had that member all along and the log renders it as
+ * "Listing approved", which is precisely what happened. (An earlier version
+ * of this comment asserted the opposite: that an "unsuspend" transition would
+ * need a `ModAction` member the enum does not have, and that a suspended
+ * listing could meanwhile be rejected or resubmitted. All three claims were
+ * false, which is why the dead end went unnoticed.)
+ *
+ * `moderateListing` (`@/server/actions/moderation`) already handles the two
+ * columns an approval touches correctly for this source status, with no
+ * special case: `publishedAt` is stamped only when it is null, so a restored
+ * listing keeps the date it first went live instead of floating to the top of
+ * the catalog's `newest` sort, and `rejectionReason` is cleared — which for a
+ * `SUSPENDED` listing is a no-op, since the only writer of that column sets
+ * it on the way into `REJECTED`.
  */
 export const LISTING_TRANSITIONS: Record<
   ListingModerationAction,
   StatusTransition<AssetStatus>
 > = {
-  APPROVE: { from: ['PENDING_REVIEW'], to: 'PUBLISHED' },
+  APPROVE: { from: ['PENDING_REVIEW', 'SUSPENDED'], to: 'PUBLISHED' },
   REJECT: { from: ['PENDING_REVIEW'], to: 'REJECTED' },
   SUSPEND: { from: ['PUBLISHED'], to: 'SUSPENDED' },
 }

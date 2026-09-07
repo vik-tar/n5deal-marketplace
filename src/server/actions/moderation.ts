@@ -21,12 +21,24 @@ import type { ActionResult } from './types'
  * accountable.
  *
  * Every one of them follows the shape Task 14's `access-requests.ts`
- * documents: `requireViewer` first, then load the row the mutation targets,
- * then call the `@/lib/authz` predicate and bail out with `FORBIDDEN` before
- * anything is validated or written — so an unauthorized caller learns only
- * `FORBIDDEN`, never `INVALID`, and cannot use a malformed payload to probe
- * what would have been accepted. Only then does zod see the reason, and only
- * then is the transition's legality considered.
+ * documents — `requireViewer`, then the `@/lib/authz` predicate and a bail-out
+ * with `FORBIDDEN` before anything is validated or written, then zod on the
+ * reason, then the transition's legality — with one deliberate departure:
+ * **the predicate runs before the target row is even read.**
+ *
+ * `access-requests.ts` has to read first, because its predicates take the row:
+ * `canDecideAccess` cannot answer without the loaded `GrantState`. Nothing
+ * here does. `canModerate` needs only the viewer, and `canModerateUser` needs
+ * the viewer and a target id the caller has already supplied — so the read
+ * buys the check nothing and costs an existence oracle. Loading first, as the
+ * first version of this module did, meant any signed-in account could tell a
+ * real user id from an invented one by whether the refusal came back
+ * `NOT_FOUND` or `FORBIDDEN`; it was measured with a buyer session against
+ * `suspendUser`. Now an unauthorized caller learns only `FORBIDDEN` — never
+ * `NOT_FOUND`, never `INVALID` — so neither a guessed id nor a malformed
+ * payload tells them anything about what exists. `NOT_FOUND` survives below
+ * for the caller who *is* a manager, where naming a row that is not there is
+ * the honest answer and reveals nothing they could not see in the console.
  *
  * **The `ModerationLog` row is written in the same transaction as the status
  * change, and that is not a convenience.** Design decision D4 exists to
@@ -128,17 +140,22 @@ async function applyUserModeration(
   const locale = toAppLocale(input.locale)
   const viewer = await requireViewer(locale)
 
+  // `canModerateUser`, not `canModerate`: the difference is the self-check,
+  // and it is the difference between a stray click and a manager locking
+  // themselves out of the only surface that could undo it. See the
+  // predicate's doc comment (`@/lib/authz`).
+  //
+  // Above the read, not below it: the predicate compares the viewer against
+  // the id the caller sent, so the loaded row would tell it nothing, and
+  // checking afterwards would answer a non-manager `FORBIDDEN` for an id that
+  // exists and `NOT_FOUND` for one that does not. See the module doc.
+  if (!canModerateUser(viewer, { userId: input.userId })) return { ok: false, error: 'FORBIDDEN' }
+
   const target = await prisma.user.findUnique({
     where: { id: input.userId },
     select: { id: true, status: true },
   })
   if (!target) return { ok: false, error: 'NOT_FOUND' }
-
-  // `canModerateUser`, not `canModerate`: the difference is the self-check,
-  // and it is the difference between a stray click and a manager locking
-  // themselves out of the only surface that could undo it. See the
-  // predicate's doc comment (`@/lib/authz`).
-  if (!canModerateUser(viewer, { userId: target.id })) return { ok: false, error: 'FORBIDDEN' }
 
   const parsed = moderationReasonSchema.safeParse(input.reason)
   if (!parsed.success) return { ok: false, error: 'INVALID' }
@@ -252,8 +269,9 @@ function logActionFor(decision: ListingModerationAction): ModAction {
 }
 
 /**
- * The manager's verdict on one listing: publish it, send it back with a
- * reason, or take a published one down.
+ * The manager's verdict on one listing: publish it (out of the review queue
+ * or back out of a suspension), send it back with a reason, or take a
+ * published one down.
  *
  * **`publishedAt` is stamped only when it is null.** A listing that was
  * published, edited (which returns it to `PENDING_REVIEW` — Task 15's ruling)
@@ -263,14 +281,25 @@ function logActionFor(decision: ListingModerationAction): ModAction {
  * float a year-old listing to the top of the catalog every time its seller
  * fixed a typo. The rejected alternative — always stamping — would make
  * `publishedAt` mean "last approved", which nothing in the product asks for
- * and which silently rewrites the catalog's ordering.
+ * and which silently rewrites the catalog's ordering. The same rule is what
+ * lets `APPROVE` accept a `SUSPENDED` listing without a special case: that
+ * listing was published once already, so its `publishedAt` is non-null and
+ * survives the restoration untouched — a takedown and its reversal leave no
+ * trace in the catalog's order, which is the correct outcome and is the
+ * reason `LISTING_TRANSITIONS` (`@/server/queries/admin-where`) could add the
+ * transition without touching this branch.
  *
  * **An approval clears `rejectionReason`.** The seller's dashboard renders
  * that string verbatim on a `REJECTED` listing; leaving a stale one on a
  * now-published listing would be a manager's old complaint attached to a
  * listing that has since satisfied it. `submitForReview`
  * (`@/server/actions/assets`) already clears it on the way in for the same
- * reason; this closes the other end.
+ * reason; this closes the other end. On a restored `SUSPENDED` listing the
+ * clear is a no-op — the column's only writer sets it on the way into
+ * `REJECTED`, and no path leads from `REJECTED` to `SUSPENDED` — but it is
+ * written unconditionally rather than guarded by the source status, because
+ * "a published listing carries no rejection reason" is the invariant worth
+ * asserting on every approval, not a fact to re-derive per transition.
  *
  * **A suspension does not write `rejectionReason`,** and that is a known,
  * deliberate gap rather than an oversight. The column is named for rejection,
@@ -287,17 +316,20 @@ export async function moderateListing(input: ModerateListingInput): Promise<Acti
   const locale = toAppLocale(input.locale)
   const viewer = await requireViewer(locale)
 
+  // Plain `canModerate`: there is no self-moderation case for a listing. A
+  // `MANAGER` holds no `SellerProfile`, so `isOwner` (`@/lib/authz`) is false
+  // for every asset in the database and there is no listing of their own to
+  // guard against — which is also why this one takes no argument at all and
+  // so cannot possibly want the row. Checked before the read for the reason
+  // the module doc gives: afterwards, the two refusals would differ by
+  // whether the asset id names a real listing.
+  if (!canModerate(viewer)) return { ok: false, error: 'FORBIDDEN' }
+
   const asset = await prisma.asset.findUnique({
     where: { id: input.assetId },
     select: { id: true, status: true, publishedAt: true },
   })
   if (!asset) return { ok: false, error: 'NOT_FOUND' }
-
-  // Plain `canModerate`: there is no self-moderation case for a listing. A
-  // `MANAGER` holds no `SellerProfile`, so `isOwner` (`@/lib/authz`) is false
-  // for every asset in the database and there is no listing of their own to
-  // guard against.
-  if (!canModerate(viewer)) return { ok: false, error: 'FORBIDDEN' }
 
   const parsedDecision = listingDecisionSchema.safeParse(input.decision)
   const parsedReason = moderationReasonSchema.safeParse(input.reason)

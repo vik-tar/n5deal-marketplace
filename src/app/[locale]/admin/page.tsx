@@ -126,11 +126,24 @@ export default async function AdminPage({
 // ---------------------------------------------------------------------------
 
 /**
- * One filter value as a toggle link, the pattern `FilterSidebar`
- * (`@/components/domain/filter-sidebar`) already uses for the catalog's
- * category and status checkboxes: pressing it adds or removes the value and
- * navigates, so the whole filter state lives in the URL and the control needs
- * no client JavaScript at all.
+ * One filter value as a toggle link. It shares `FilterSidebar`'s rule
+ * (`@/components/domain/filter-sidebar`) that the whole filter state lives in
+ * the URL — pressing a value adds or removes it and navigates — but not its
+ * markup: the sidebar's category and status controls are real checkboxes in a
+ * client component that calls `router.push`, where these are plain `Link`s
+ * and need no client JavaScript at all.
+ *
+ * Which is why the current value is announced with `aria-current` and not
+ * `aria-pressed`. An earlier version of this file used `aria-pressed` and
+ * cited the sidebar as the precedent; the sidebar sets no such attribute, and
+ * `aria-pressed` is defined only for `role="button"` — on an `<a>` it is
+ * invalid, and a screen reader either drops it or announces a toggle button
+ * that is not there. This codebase's one `aria-pressed` is on a genuine
+ * `<button>` (`@/components/domain/mandate-form`), and its links say what
+ * they are with `aria-current`: `page` for the tab bar
+ * (`@/components/ui/tabs`), `true` for the locale switcher. `true` is the
+ * right member here too — an applied filter is a current state, but it is not
+ * a page.
  */
 function ToggleLink({
   label,
@@ -146,7 +159,7 @@ function ToggleLink({
   return (
     <Link
       href={{ pathname: ADMIN_PATH, query }}
-      aria-pressed={active}
+      aria-current={active ? 'true' : undefined}
       aria-label={ariaLabel}
       className={cn(
         'inline-flex items-center rounded-full border px-3 py-1 text-xs transition',

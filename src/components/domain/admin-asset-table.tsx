@@ -131,9 +131,19 @@ function AssetRowView({ row, locale }: { row: AdminAssetRow; locale: string }) {
 
 /**
  * Which decisions this listing offers, mirroring `LISTING_TRANSITIONS`
- * (`@/server/queries/admin-where`): approve and reject only out of
- * `PENDING_REVIEW`, suspend only out of `PUBLISHED`. Every other status shows
- * nothing to press rather than a button that would come back `FORBIDDEN`.
+ * (`@/server/queries/admin-where`): reject only out of `PENDING_REVIEW`,
+ * suspend only out of `PUBLISHED`, approve out of either `PENDING_REVIEW` or
+ * `SUSPENDED`. Every other status shows nothing to press rather than a button
+ * that would come back `FORBIDDEN`.
+ *
+ * A suspended listing therefore offers approve alone, and it reuses the
+ * approve copy verbatim rather than getting a "restore" label of its own.
+ * That is deliberate: the decision *is* `APPROVE`, it writes the same
+ * columns, and it lands in the moderation log as "Listing approved" — a
+ * button labelled anything else would be the one place on this page where the
+ * control and the audit trail disagree about what the manager just did. The
+ * dialog's title ("Publish {ref}?") and its consequence line both describe
+ * the outcome exactly, for a suspended listing as much as for a queued one.
  *
  * Approve carries a mandatory reason like the other two, which reads oddly
  * for a positive decision and is deliberate: design decision D4's audit trail
@@ -170,6 +180,23 @@ function RowActions({ row, locale }: { row: AdminAssetRow; locale: string }) {
           }
         />
       </div>
+    )
+  }
+
+  if (row.status === 'SUSPENDED') {
+    return (
+      <ModerationDialog
+        triggerLabel={t('approve.trigger')}
+        triggerVariant="primary"
+        confirmVariant="primary"
+        title={t('approve.title', { ref: row.publicRef })}
+        consequence={t('approve.consequence')}
+        confirmLabel={t('approve.confirm')}
+        pendingLabel={t('approve.pending')}
+        onConfirm={(reason) =>
+          moderateListing({ assetId: row.id, decision: 'APPROVE', reason, locale })
+        }
+      />
     )
   }
 
