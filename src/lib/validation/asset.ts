@@ -22,12 +22,37 @@ const countryCode = z
   .transform((value) => value.toUpperCase())
   .pipe(z.string().regex(/^[A-Z]{2}$/, 'Enter a 2-letter ISO country code.'))
 
-/** Blank means "no data room yet" (`dataRoomUrl` is nullable in the schema); anything else must be a URL. */
+/**
+ * The only two schemes a link this app renders may use.
+ *
+ * `z.url()` alone is not enough: on the installed zod (4.5.4) it accepts
+ * `javascript:alert(1)` and `data:text/html,…` as valid URLs, and
+ * `dataRoomUrl` is written by a seller and rendered as an `<a href>` to
+ * every approved buyer and every manager (`gated-section.tsx`). React 19
+ * refuses to emit a `javascript:` href and browsers block top-level
+ * navigation to `data:`, so nothing is exploitable today — but that is two
+ * framework runtime behaviours standing in for a validator, and this is the
+ * validator. Checked with `new URL(...)` rather than a regex so the scheme
+ * is read the way the browser reads it, not the way a pattern guesses at it.
+ */
+const HREF_PROTOCOLS: readonly string[] = ['http:', 'https:']
+
+const httpUrl = z.url().refine((value) => {
+  try {
+    return HREF_PROTOCOLS.includes(new URL(value).protocol)
+  } catch {
+    // Unreachable behind `z.url()`, which has already parsed the value;
+    // present so a future loosening of that cannot turn a throw into a 500.
+    return false
+  }
+}, 'Enter a link starting with http:// or https://.')
+
+/** Blank means "no data room yet" (`dataRoomUrl` is nullable in the schema); anything else must be an http(s) URL. */
 const optionalDataRoomUrl = z.preprocess((value) => {
   if (typeof value !== 'string') return value
   const trimmed = value.trim()
   return trimmed === '' ? undefined : trimmed
-}, z.url().optional())
+}, httpUrl.optional())
 
 /**
  * The single source of truth for what a listing may contain, shared by the

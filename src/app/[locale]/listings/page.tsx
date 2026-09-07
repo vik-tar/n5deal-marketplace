@@ -7,6 +7,7 @@ import { AssetCard } from '@/components/domain/asset-card'
 import { Pagination } from '@/components/domain/pagination'
 import { listAssets } from '@/server/queries/assets'
 import { getViewer } from '@/server/session'
+import { isActive } from '@/lib/authz'
 import { isAiEnabled } from '@/lib/ai/client'
 import { codeToFlag } from '@/lib/geo/flag'
 import { formatCents } from '@/lib/money'
@@ -53,7 +54,15 @@ export default async function ListingsPage({
   const [viewer, t] = await Promise.all([getViewer(), getTranslations('assets')])
   const { items, total, facets } = await listAssets(filters, viewer)
 
-  const aiEnabled = isAiEnabled()
+  // Two conditions, not one: the key must be configured *and* this viewer
+  // must be someone `parseSearchQueryAction` (`@/server/actions/search`)
+  // will answer. That action refuses an anonymous or suspended caller —
+  // deliberately, since it is an unmetered model call and the catalog's
+  // public-ness is not an argument for publishing one — so offering the
+  // button to a viewer it refuses would render a control guaranteed to fall
+  // straight back to a plain text search, which is the defect class both
+  // admin tables are built to avoid.
+  const aiEnabled = isAiEnabled() && isActive(viewer)
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   const sortItems = ASSET_SORTS.map((sort) => ({

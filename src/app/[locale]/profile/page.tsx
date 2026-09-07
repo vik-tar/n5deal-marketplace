@@ -28,7 +28,14 @@ import { keepKnown } from '@/lib/filters/shared'
  *
  * `countMandateMatches` runs once here, server-side, so the page's very first
  * render already shows the real "matches N of M" summary (or the
- * "constrains nothing" notice) — not just after the buyer's first save.
+ * "constrains nothing" notice) — not just after the buyer's first save. It is
+ * a Server Action and it re-runs `requireViewer` and the `buyerProfileId`
+ * check this page has already run: that duplication is the point, since the
+ * action is a network endpoint that anyone can POST to and must not be
+ * safe only because of who reaches this page. Its `{ ok: false }` branch is
+ * therefore unreachable from here — the two guards above decided the same
+ * thing — and is answered with the same 404 the `buyerProfileId` guard uses
+ * rather than an error state the page cannot explain.
  */
 export default async function ProfilePage({
   params,
@@ -103,7 +110,8 @@ export default async function ProfilePage({
     ticketMinCents: mandate.ticketMinCents,
     ticketMaxCents: mandate.ticketMaxCents,
   }
-  const match = await countMandateMatches(criteria)
+  const match = await countMandateMatches({ mandate: criteria, locale })
+  if (!match.ok) notFound()
 
   const t = await getTranslations('profile')
 

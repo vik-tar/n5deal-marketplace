@@ -58,6 +58,16 @@ export const buyerProfileSchema = z.object({
 export type BuyerProfileInput = z.infer<typeof buyerProfileSchema>
 
 /**
+ * The six comparable facets of a mandate — exactly the fields
+ * `MandateCriteria` (`@/lib/matching`) carries, and therefore exactly what
+ * `scoreMatch` reads. Split out of `mandateSchema` below (which is those six
+ * plus the buyer's own planning fields) so that `countMandateMatches`
+ * (`@/server/actions/profile`) — a Server Action that scores a
+ * *client-supplied* mandate without saving it — validates against the same
+ * rules a saved mandate is held to, instead of trusting a raw
+ * `MandateCriteria` off the wire. Before it did, a `categories` that was not
+ * an array reached `scoreMatch` and threw, which Next.js surfaces as a 500.
+ *
  * `categories`/`businessStatuses` are the real Prisma enums; `licenceTypes`
  * validates against the fixed, non-enum universe `MANDATE_LICENCE_TYPES`
  * documents; `countries` is regex-checked, not membership-checked, since any
@@ -70,27 +80,44 @@ export type BuyerProfileInput = z.infer<typeof buyerProfileSchema>
  * maximum. The refinement's issue is attached to `ticketMaxCents` — the field
  * whose value is invalid *relative to* the other, mirroring which field the
  * form should flag inline.
+ *
+ * The shape and the refinement are shared with `mandateSchema` as values
+ * rather than re-typed, because two schemas that are meant to agree on six
+ * fields and differ on two must not be able to drift on the six.
  */
+const mandateCriteriaShape = {
+  categories: z.array(z.enum(ASSET_CATEGORIES)).max(ASSET_CATEGORIES.length),
+  countries: z.array(countryCode).max(MAX_MANDATE_COUNTRIES),
+  licenceTypes: z.array(z.enum(MANDATE_LICENCE_TYPES)).max(MANDATE_LICENCE_TYPES.length),
+  businessStatuses: z.array(z.enum(BUSINESS_STATUSES)).max(BUSINESS_STATUSES.length),
+  ticketMinCents: z.number().int().nonnegative().nullable(),
+  ticketMaxCents: z.number().int().nonnegative().nullable(),
+}
+
+const ticketBoundsOrdered = (data: {
+  ticketMinCents: number | null
+  ticketMaxCents: number | null
+}) =>
+  data.ticketMinCents === null ||
+  data.ticketMaxCents === null ||
+  data.ticketMinCents <= data.ticketMaxCents
+
+/** A fresh object per call: zod stores the `path` array it is handed. */
+const ticketBoundsIssue = () => ({
+  message: 'The maximum ticket must be at least the minimum.',
+  path: ['ticketMaxCents'],
+})
+
+export const mandateCriteriaSchema = z
+  .object(mandateCriteriaShape)
+  .refine(ticketBoundsOrdered, ticketBoundsIssue())
+
 export const mandateSchema = z
   .object({
-    categories: z.array(z.enum(ASSET_CATEGORIES)).max(ASSET_CATEGORIES.length),
-    countries: z.array(countryCode).max(MAX_MANDATE_COUNTRIES),
-    licenceTypes: z.array(z.enum(MANDATE_LICENCE_TYPES)).max(MANDATE_LICENCE_TYPES.length),
-    businessStatuses: z.array(z.enum(BUSINESS_STATUSES)).max(BUSINESS_STATUSES.length),
-    ticketMinCents: z.number().int().nonnegative().nullable(),
-    ticketMaxCents: z.number().int().nonnegative().nullable(),
+    ...mandateCriteriaShape,
     timelineMonths: z.number().int().min(MIN_TIMELINE_MONTHS).max(MAX_TIMELINE_MONTHS).nullable(),
     notes: z.string().trim().max(MAX_MANDATE_NOTES),
   })
-  .refine(
-    (data) =>
-      data.ticketMinCents === null ||
-      data.ticketMaxCents === null ||
-      data.ticketMinCents <= data.ticketMaxCents,
-    {
-      message: 'The maximum ticket must be at least the minimum.',
-      path: ['ticketMaxCents'],
-    },
-  )
+  .refine(ticketBoundsOrdered, ticketBoundsIssue())
 
 export type MandateInput = z.infer<typeof mandateSchema>

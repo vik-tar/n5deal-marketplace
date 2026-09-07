@@ -4,10 +4,11 @@ import type { BuyerFilters } from '@/lib/filters/buyer-filters'
 import { PAGE_SIZE } from '@/lib/filters/shared'
 import {
   canBrowseBuyers,
-  canMessage,
   canModerate,
+  contactAvailability,
   isOwner,
   type AssetRef,
+  type ContactAvailability,
   type MaybeViewer,
 } from '@/lib/authz'
 import {
@@ -80,8 +81,9 @@ export interface BuyerDetail {
   match: MatchResult | null
   scoredAssetId: string | null
   /**
-   * Whether "Contact buyer" should be offered as a live control: would
-   * `startConversation` (`@/server/actions/messages`) accept the click?
+   * Whether "Contact buyer" should be offered as a live control, and if not,
+   * why not: would `startConversation` (`@/server/actions/messages`) accept
+   * the click?
    *
    * `canMessage` (`@/lib/authz`) is most of the answer — a manager may never
    * message, and a suspended buyer may not be messaged. Task 19 added the
@@ -90,10 +92,15 @@ export interface BuyerDetail {
    * with `FORBIDDEN`. `canBrowseBuyers` (which gates this whole page) checks
    * the SELLER *role* but not the profile row, so the two are genuinely
    * different questions and a role-only check would light up a button that
-   * cannot work. Same reasoning as `AssetDetail.canContactSeller`
-   * (`@/server/queries/assets`) on the other side of the market.
+   * cannot work.
+   *
+   * Both halves now come from one call to `contactAvailability`
+   * (`@/lib/authz`), which `AssetDetail.canContactSeller`
+   * (`@/server/queries/assets`) also calls on the other side of the market —
+   * the same rule stated once instead of twice, and a reason rather than a
+   * boolean, because the disabled button has to say which of them applies.
    */
-  canContact: boolean
+  canContact: ContactAvailability
 }
 
 /**
@@ -353,10 +360,12 @@ export async function getBuyerDetail(
     mandate: { ...criteria, specificity: mandateSpecificity(criteria) },
     match: asset !== null ? scoreMatch(criteria, asset) : null,
     scoredAssetId: asset !== null && forAssetId ? forAssetId : null,
-    canContact:
-      viewer !== null &&
-      viewer.sellerProfileId !== null &&
-      canMessage(viewer, { userId: row.userId, status: row.user.status }),
+    canContact: contactAvailability(
+      viewer,
+      { userId: row.userId, status: row.user.status },
+      // Contacting a buyer puts the viewer on the seller side of the thread.
+      'SELLER',
+    ),
   }
 }
 

@@ -37,17 +37,29 @@ function ErrorLine({ state }: { state: ActionResult | null }) {
   )
 }
 
+/**
+ * `canDecide` is `AssetRequestQueue.canDecide` (`@/server/queries/assets`),
+ * which is `canDecideAccess` — the owning seller only. When it is false the
+ * two buttons are **omitted, not disabled**: unlike `ContactButton`, where a
+ * disabled control plus a reason tells the viewer something they can act on,
+ * a manager has no route to approving anything and a greyed-out Approve
+ * would only invite the click it is there to prevent. The row itself stays,
+ * because a manager reading a listing's queue is a legitimate thing to do —
+ * they just read it.
+ */
 function PendingRow({
   requestId,
   buyerDisplayName,
   message,
   requestedAt,
+  canDecide,
   locale,
 }: {
   requestId: string
   buyerDisplayName: string
   message: string
   requestedAt: Date
+  canDecide: boolean
   locale: string
 }) {
   const t = useTranslations('requestQueue')
@@ -67,16 +79,20 @@ function PendingRow({
         <span className="text-xs text-ink-muted">{t('requestedOn', { date })}</span>
       </div>
       {message.length > 0 ? <p className="text-sm text-ink-muted">{message}</p> : null}
-      <div className="flex flex-wrap items-center gap-2">
-        <form action={approveAction}>
-          <ActionButton label={t('approve')} pendingLabel={t('approving')} />
-        </form>
-        <form action={declineAction}>
-          <ActionButton label={t('decline')} pendingLabel={t('declining')} variant="secondary" />
-        </form>
-      </div>
-      <ErrorLine state={approveState} />
-      <ErrorLine state={declineState} />
+      {canDecide ? (
+        <>
+          <div className="flex flex-wrap items-center gap-2">
+            <form action={approveAction}>
+              <ActionButton label={t('approve')} pendingLabel={t('approving')} />
+            </form>
+            <form action={declineAction}>
+              <ActionButton label={t('decline')} pendingLabel={t('declining')} variant="secondary" />
+            </form>
+          </div>
+          <ErrorLine state={approveState} />
+          <ErrorLine state={declineState} />
+        </>
+      ) : null}
     </li>
   )
 }
@@ -116,11 +132,21 @@ function ApprovedRow({
 }
 
 /**
- * The owning seller's (or a manager's) control over the requests on this one
- * listing — invisible to every other viewer, since `queue` already comes
- * back empty for them (`getAssetRequestQueue`, `@/server/queries/assets`).
- * Renders nothing at all when there is genuinely nothing to act on, rather
- * than an empty card.
+ * The requests standing against one listing: the owning seller decides them,
+ * a manager reads them and may revoke an approved grant. Invisible to every
+ * other viewer, since `queue` already comes back empty for them
+ * (`getAssetRequestQueue`, `@/server/queries/assets`). Renders nothing at
+ * all when there is genuinely nothing to show, rather than an empty card.
+ *
+ * **Deciding and revoking are two different permissions here**, and the card
+ * used to offer both to whoever could see it. `canDecideAccess`
+ * (`@/lib/authz`) is `isOwner && grant === 'REQUESTED'` and a `MANAGER`
+ * holds no `SellerProfile`, so every Approve and Decline a manager pressed
+ * came back `FORBIDDEN` and printed "This request can no longer be acted
+ * on" — a sentence that is wrong in both halves: it could be, and never by
+ * them. Revoke, which `canRevokeAccess` does grant a manager, worked the
+ * whole time, so the card was half-live rather than plainly broken. It now
+ * follows `queue.canDecide`, and says why the buttons are absent.
  */
 export function AccessRequestQueue({ queue, locale }: { queue: AssetRequestQueue; locale: string }) {
   const t = useTranslations('requestQueue')
@@ -136,6 +162,9 @@ export function AccessRequestQueue({ queue, locale }: { queue: AssetRequestQueue
         {queue.pending.length > 0 ? (
           <div>
             <p className="meta-label">{t('pendingTitle')}</p>
+            {queue.canDecide ? null : (
+              <p className="text-xs text-ink-muted">{t('decideOwnerOnly')}</p>
+            )}
             <ul>
               {queue.pending.map((request) => (
                 <PendingRow
@@ -145,6 +174,7 @@ export function AccessRequestQueue({ queue, locale }: { queue: AssetRequestQueue
                   buyerDisplayName={request.buyerDisplayName}
                   message={request.message}
                   requestedAt={request.requestedAt}
+                  canDecide={queue.canDecide}
                 />
               ))}
             </ul>

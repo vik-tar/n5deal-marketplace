@@ -49,4 +49,36 @@ describe('assetInputSchema', () => {
       'yearOfIssue',
     )
   })
+
+  /**
+   * `dataRoomUrl` is seller-written and rendered as an `<a href>` to approved
+   * buyers and managers (`gated-section.tsx`). `z.url()` on its own accepts
+   * both of these — verified against the installed zod 4.5.4 — so without the
+   * scheme check the only thing standing between a seller and a
+   * `javascript:` href in someone else's browser is React's own refusal to
+   * emit one.
+   */
+  it.each(['javascript:alert(1)', 'data:text/html,<script>alert(1)</script>', 'vbscript:msgbox(1)'])(
+    'rejects %s as a data room link',
+    (dataRoomUrl) => {
+      const result = assetInputSchema.safeParse({ ...validInput, dataRoomUrl })
+      expect(result.success).toBe(false)
+      expect(result.success ? [] : result.error.issues.map((issue) => issue.path[0])).toContain(
+        'dataRoomUrl',
+      )
+    },
+  )
+
+  it.each(['https://dataroom.example.com/n5-701', 'http://dataroom.example.com/n5-701'])(
+    'accepts %s as a data room link',
+    (dataRoomUrl) => {
+      expect(assetInputSchema.safeParse({ ...validInput, dataRoomUrl }).success).toBe(true)
+    },
+  )
+
+  it('still treats a blank data room link as "no data room yet"', () => {
+    const result = assetInputSchema.safeParse({ ...validInput, dataRoomUrl: '   ' })
+    expect(result.success).toBe(true)
+    expect(result.success && result.data.dataRoomUrl).toBeUndefined()
+  })
 })

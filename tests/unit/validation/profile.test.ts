@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buyerProfileSchema, mandateSchema } from '@/lib/validation/profile'
+import { buyerProfileSchema, mandateCriteriaSchema, mandateSchema } from '@/lib/validation/profile'
 
 /** A fully valid mandate, used as the base for the invalid variants below. */
 const validMandate = {
@@ -116,6 +116,61 @@ describe('mandateSchema', () => {
   it('rejects a negative ticket bound', () => {
     const result = mandateSchema.safeParse({ ...validMandate, ticketMinCents: -1 })
     expect(result.success).toBe(false)
+  })
+})
+
+/**
+ * The six comparable fields on their own, which is what `countMandateMatches`
+ * (`@/server/actions/profile`) scores a *client-supplied* mandate with. That
+ * action used to take a raw `MandateCriteria` off the wire and hand it
+ * straight to `scoreMatch`, which indexes these four fields as arrays without
+ * checking that they are arrays — so a non-array `categories` threw out of
+ * the loop and reached the caller as a 500 rather than as `INVALID`.
+ */
+describe('mandateCriteriaSchema', () => {
+  /** The six comparable fields, named rather than spread, since being exactly six is the point. */
+  const validCriteria = {
+    categories: validMandate.categories,
+    countries: validMandate.countries,
+    licenceTypes: validMandate.licenceTypes,
+    businessStatuses: validMandate.businessStatuses,
+    ticketMinCents: validMandate.ticketMinCents,
+    ticketMaxCents: validMandate.ticketMaxCents,
+  }
+
+  it('accepts the six comparable fields, with or without the planning fields around them', () => {
+    const result = mandateCriteriaSchema.safeParse(validCriteria)
+    expect(result.success).toBe(true)
+    expect(result.success && result.data.countries).toEqual(['MT', 'GB'])
+  })
+
+  it.each(['categories', 'countries', 'licenceTypes', 'businessStatuses'] as const)(
+    'rejects a %s that is not an array',
+    (field) => {
+      const result = mandateCriteriaSchema.safeParse({ ...validCriteria, [field]: 'EMI' })
+      expect(result.success).toBe(false)
+      expect(result.success ? [] : result.error.issues.map((issue) => issue.path[0])).toContain(
+        field,
+      )
+    },
+  )
+
+  it('enforces the same ticket ordering rule as the full mandate', () => {
+    const result = mandateCriteriaSchema.safeParse({
+      ...validCriteria,
+      ticketMinCents: 9_000_000_00,
+      ticketMaxCents: 1_000_000_00,
+    })
+    expect(result.success).toBe(false)
+    expect(result.success ? [] : result.error.issues.map((issue) => issue.path[0])).toContain(
+      'ticketMaxCents',
+    )
+  })
+
+  it('rejects a category outside the fixed universe, exactly as mandateSchema does', () => {
+    const payload = { ...validCriteria, categories: ['NOT_A_CATEGORY'] }
+    expect(mandateCriteriaSchema.safeParse(payload).success).toBe(false)
+    expect(mandateSchema.safeParse({ ...validMandate, ...payload }).success).toBe(false)
   })
 })
 

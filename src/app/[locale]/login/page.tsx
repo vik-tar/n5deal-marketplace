@@ -1,6 +1,5 @@
 import { getTranslations } from 'next-intl/server'
-import { redirect } from '@/i18n/navigation'
-import { getViewer } from '@/server/session'
+import { getViewer, redirectNow } from '@/server/session'
 import { signInAction } from '@/server/actions/auth'
 import { Button } from '@/components/ui/button'
 import { Card, CardBody } from '@/components/ui/card'
@@ -19,8 +18,16 @@ export default async function LoginPage({
 
   // Already signed in: an active viewer has nothing to do here, and a
   // suspended one belongs on `/suspended`, not back at the sign-in form.
+  //
+  // Through `redirectNow` (`@/server/session`) for consistency with
+  // `/suspended`, which stopped carrying its own copy of this in Task 20 —
+  // not as a fix. The open-redirect hypothesis was tested against this line
+  // and **refuted**: `[locale]` is a route segment the router has already
+  // matched against the configured locales, so a crafted value 404s before
+  // this page runs. What the shared helper buys is that no future edit here
+  // has to know that.
   const viewer = await getViewer()
-  if (viewer) redirect({ href: viewer.status === 'ACTIVE' ? '/' : '/suspended', locale })
+  if (viewer) redirectNow(viewer.status === 'ACTIVE' ? '/' : '/suspended', locale)
 
   const t = await getTranslations('login')
   const boundSignIn = signInAction.bind(null, locale)

@@ -223,8 +223,14 @@
     "seller": "Contact seller",
     "buyer": "Contact buyer",
     "opening": "Opening thread...",
-    "signInFirst": "Sign in to contact the seller.",
-    "unavailable": "This account cannot be messaged.",
+    "unavailable": {
+      "SIGN_IN": "{target, select, asset {Sign in to contact this seller.} other {Sign in to contact this buyer.}}",
+      "VIEWER_INACTIVE": "Your account is suspended, so you cannot start new conversations.",
+      "MANAGER": "Managers moderate the marketplace and do not message the people in it.",
+      "SELF": "{target, select, asset {This is your own listing.} other {This is your own profile.}}",
+      "WRONG_SIDE": "{target, select, asset {Only a buyer account can message a seller.} other {Only a seller account can message a buyer.}}",
+      "COUNTERPARTY_INACTIVE": "{target, select, asset {This seller's account is suspended and cannot be messaged.} other {This buyer's account is suspended and cannot be messaged.}}"
+    },
     "error": {
       "FORBIDDEN": "You cannot start a conversation with this account.",
       "NOT_FOUND": "This account could not be found.",
@@ -384,6 +390,7 @@
     },
     "savedNotice": "Draft saved.",
     "submittedNotice": "Submitted for review. A platform manager will decide whether to publish it.",
+    "alreadyInReviewNotice": "This listing is already in the review queue. Saving keeps it there until a manager publishes or rejects it.",
     "unpublishedForReviewNotice": "Your changes were saved, but this listing is no longer publicly visible: editing a published listing sends it back for review. A platform manager will decide whether to publish it again.",
     "suspendedSentForReviewNotice": "Your changes were saved and this listing is now in the review queue. It was already out of the public catalog, and it stays out until a platform manager approves it again.",
     "errors": {
@@ -422,6 +429,7 @@
   "requestQueue": {
     "title": "Access requests",
     "pendingTitle": "Pending requests",
+    "decideOwnerOnly": "Only the seller who owns this listing can approve or decline a request. You can still revoke an approved grant below.",
     "approvedTitle": "Approved buyers",
     "requestedOn": "Requested {date}",
     "decidedOn": "Approved {date}",

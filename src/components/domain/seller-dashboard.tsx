@@ -157,16 +157,27 @@ function Listings({
                   </div>
                   <div className="meta-label flex flex-wrap items-center gap-x-2 gap-y-1">
                     <span>{tAssets('card.views', { count: listing.viewCount })}</span>
-                    <span aria-hidden="true">&middot;</span>
-                    <Link
-                      href={`/listings/${listing.id}/edit`}
-                      className={cn(
-                        'rounded-sm text-accent normal-case transition hover:opacity-80',
-                        FOCUS_RING,
-                      )}
-                    >
-                      {t('seller.listings.editAction')}
-                    </Link>
+                    {/* `listing.canEdit` is `assetStatusAllowsEditing`
+                        (`@/lib/authz`), decided in `getSellerOverview` — not
+                        `status !== 'SOLD'` re-derived here. `SELLER_STATUS_ORDER`
+                        includes `SOLD` and this list renders every group, so
+                        without it the demo seller's own dashboard offered an
+                        Edit link on their sold listing that leads straight to
+                        the edit page's `notFound()`. */}
+                    {listing.canEdit ? (
+                      <>
+                        <span aria-hidden="true">&middot;</span>
+                        <Link
+                          href={`/listings/${listing.id}/edit`}
+                          className={cn(
+                            'rounded-sm text-accent normal-case transition hover:opacity-80',
+                            FOCUS_RING,
+                          )}
+                        >
+                          {t('seller.listings.editAction')}
+                        </Link>
+                      </>
+                    ) : null}
                   </div>
                   {listing.status === 'REJECTED' && listing.rejectionReason ? (
                     <p className="rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-ink">

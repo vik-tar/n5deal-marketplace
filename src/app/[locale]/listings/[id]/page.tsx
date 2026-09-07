@@ -112,8 +112,7 @@ export default async function AssetDetailPage({
 
           <ContactButton
             target={{ kind: 'asset', assetId: id }}
-            canContact={canContactSeller}
-            isAnonymous={viewer === null}
+            availability={canContactSeller}
             locale={locale}
           />
         </CardBody>

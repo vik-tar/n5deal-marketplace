@@ -25,12 +25,15 @@ import type { RawSearchParams } from '@/lib/filters/shared'
  * "Contact buyer" opens a thread through `startConversation`
  * (`@/server/actions/messages`) and navigates into it — see `ContactButton`,
  * which both entry points share. It is rendered disabled — never omitted —
- * when `canContact` is false, so a manager (who moderates rather than
- * transacts, `canMessage`) or a viewer looking at a suspended buyer sees why
- * the action is unavailable rather than a missing button they might
- * otherwise assume is a bug. `isAnonymous` is hard-coded false because
- * `getBuyerDetail` already 404s for a viewer who is not an active seller or
- * manager, so no anonymous visitor ever renders this page.
+ * when `detail.canContact` is not `'ALLOWED'`, and the reason it carries is
+ * what the button prints: a manager is told that managers moderate rather
+ * than transact, a seller with no `SellerProfile` row that only a seller
+ * account can open this thread, and only a genuinely suspended buyer is
+ * described as unmessageable. It used to be a boolean and all three read
+ * "This account cannot be messaged", which was true for the last case only.
+ * `'SIGN_IN'` cannot occur here: `getBuyerDetail` already 404s for a viewer
+ * who is not an active seller or manager, so no anonymous visitor ever
+ * renders this page.
  */
 export default async function BuyerDetailPage({
   params,
@@ -143,8 +146,7 @@ export default async function BuyerDetailPage({
           <div className="border-t border-border pt-4">
             <ContactButton
               target={{ kind: 'buyer', buyerProfileId: detail.id }}
-              canContact={detail.canContact}
-              isAnonymous={false}
+              availability={detail.canContact}
               locale={locale}
             />
           </div>

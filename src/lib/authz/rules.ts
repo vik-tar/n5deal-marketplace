@@ -136,7 +136,32 @@ export function canViewAsset(viewer: MaybeViewer, asset: AssetRef): boolean {
   return PUBLIC_ASSET_STATUSES.includes(asset.status) && asset.ownerStatus === 'ACTIVE'
 }
 
-/** Confidential-field visibility. Requires an approved, still-valid grant. */
+/**
+ * Confidential-field visibility. Requires an approved, still-valid grant.
+ *
+ * **The `&& canViewAsset(viewer, asset)` conjunct is load-bearing, not a
+ * redundant re-check.** It is what stops an approved grant from outliving
+ * the listing it was granted on: an `AccessRequest` row stays `'APPROVED'`
+ * when the listing is suspended and when its seller is suspended, so on the
+ * grant alone the confidential half would keep disclosing after a takedown.
+ *
+ * It *reads* as dead code at `getAssetDetail` (`@/server/queries/assets`),
+ * which has already returned `null` on `!canViewAsset` several lines before
+ * it calls this. It is the **entire** gate at `discloseSellerName`
+ * (`@/server/queries/conversations`), which has no prior visibility check
+ * anywhere and uses this predicate's answer to decide whether every message
+ * thread about a listing prints the seller's `companyName`. Simplify the
+ * conjunct away on the strength of the first call site and the second one
+ * silently opens the seller's identity on every thread about a suspended
+ * listing — which is the one thing the NDA gate exists to protect.
+ *
+ * `tests/unit/authz/rules.test.ts` asserts both halves against an
+ * `'APPROVED'` grant (a `'SUSPENDED'` listing, and a listing whose owner is
+ * suspended) for exactly that reason: before those two cases existed, every
+ * `false` assertion here was already satisfied by an earlier conjunct and
+ * every `true` one used a `PUBLISHED`/`ACTIVE`-owner ref, so deleting this
+ * line left the whole suite green.
+ */
 export function canViewFullAsset(
   viewer: MaybeViewer,
   asset: AssetRef,
@@ -148,8 +173,24 @@ export function canViewFullAsset(
   return grant === 'APPROVED' && canViewAsset(viewer, asset)
 }
 
+/**
+ * The status half of `canEditAsset`, on its own. `SOLD` is terminal: the
+ * edit page 404s on one and `saveDraft` refuses it.
+ *
+ * Exported so the seller dashboard can decide per row whether to *offer*
+ * "Edit" (`SellerListingSummary.canEdit`, `@/server/queries/assets`) instead
+ * of re-deriving `!== 'SOLD'` inline in a component. That query reads one
+ * seller's own listings by `sellerProfileId`, so `isOwner` holds by
+ * construction there and this is the only half left to decide. Anywhere a
+ * viewer is genuinely in question, `canEditAsset` below is the predicate to
+ * call — this one answers nothing about who is asking.
+ */
+export function assetStatusAllowsEditing(status: AssetStatus): boolean {
+  return status !== 'SOLD'
+}
+
 export function canEditAsset(viewer: MaybeViewer, asset: AssetRef): boolean {
-  return isOwner(viewer, asset) && asset.status !== 'SOLD'
+  return isOwner(viewer, asset) && assetStatusAllowsEditing(asset.status)
 }
 
 /**
@@ -202,4 +243,63 @@ export function canMessage(
   if (viewer.role === 'MANAGER') return false
   if (viewer.userId === counterparty.userId) return false
   return counterparty.status === 'ACTIVE'
+}
+
+/**
+ * Why "Contact seller" / "Contact buyer" is or is not offered — a reason,
+ * not a boolean.
+ *
+ * `canMessage` above answers only "may these two parties talk", which is
+ * part of the question a *disabled* button has to explain. A `Conversation`
+ * has a buyer side and a seller side, and a viewer holding no profile row
+ * for the side they would occupy cannot be a party to it at all:
+ * `startConversation` (`@/server/actions/messages`) refuses them with
+ * `FORBIDDEN`. `AssetDetail.canContactSeller` and `BuyerDetail.canContact`
+ * each combined those two rules by hand, in the same shape, on opposite
+ * sides of the market; this is that combination named once so they cannot
+ * drift, and so the copy can say *which* answer applies.
+ *
+ * The boolean this replaces collapsed several unrelated situations into one
+ * sentence — "This account cannot be messaged" — that was true for exactly
+ * one of them. A manager viewing anyone, and a seller viewing a listing, are
+ * both looking at a perfectly messageable counterparty; what disqualifies
+ * them is their own standing, not the account in front of them, and telling
+ * them otherwise sends them to support about somebody else's account.
+ *
+ * The order is deliberate: the viewer's own disqualifications are reported
+ * before the counterparty's, so a suspended viewer looking at a suspended
+ * seller is told about their own account — the one they can actually appeal.
+ * `'ALLOWED'` is returned exactly where the two booleans it replaces were
+ * `true`.
+ */
+export type ContactAvailability =
+  | 'ALLOWED'
+  | 'SIGN_IN'
+  | 'VIEWER_INACTIVE'
+  | 'MANAGER'
+  | 'SELF'
+  | 'WRONG_SIDE'
+  | 'COUNTERPARTY_INACTIVE'
+
+export function contactAvailability(
+  viewer: MaybeViewer,
+  counterparty: { userId: string; status: 'ACTIVE' | 'SUSPENDED' | 'REMOVED' },
+  /** Which side of the thread this viewer would occupy. */
+  viewerSide: 'BUYER' | 'SELLER',
+): ContactAvailability {
+  if (viewer === null) return 'SIGN_IN'
+  if (!isActive(viewer)) return 'VIEWER_INACTIVE'
+  if (viewer.role === 'MANAGER') return 'MANAGER'
+  if (viewer.userId === counterparty.userId) return 'SELF'
+  const sideProfileId = viewerSide === 'BUYER' ? viewer.buyerProfileId : viewer.sellerProfileId
+  if (sideProfileId === null) return 'WRONG_SIDE'
+  // Every reason `canMessage` refuses for has now been named individually,
+  // so the only one it has left is the counterparty's status. The call is
+  // still made rather than that condition re-derived, because this
+  // function's `'ALLOWED'` must mean the same thing the action's own gate
+  // means. It is also why this branch, not the `return` below it, absorbs
+  // anything a future rule adds to `canMessage`: the failure mode is copy
+  // that names the wrong reason, never a button that is offered and refused.
+  if (!canMessage(viewer, counterparty)) return 'COUNTERPARTY_INACTIVE'
+  return 'ALLOWED'
 }

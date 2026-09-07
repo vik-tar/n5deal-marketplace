@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  assetStatusAllowsEditing,
   canBrowseBuyers,
   canDecideAccess,
   canEditAsset,
@@ -11,6 +12,7 @@ import {
   canRevokeAccess,
   canViewAsset,
   canViewFullAsset,
+  contactAvailability,
   statusAllowsAuthenticatedSurfaces,
   viewerGate,
 } from '@/lib/authz'
@@ -52,6 +54,7 @@ const published: AssetRef = {
 }
 const draft: AssetRef = { ...published, status: 'DRAFT' }
 const sold: AssetRef = { ...published, status: 'SOLD' }
+const suspendedListing: AssetRef = { ...published, status: 'SUSPENDED' }
 const ownerSuspended: AssetRef = { ...published, ownerStatus: 'SUSPENDED' }
 
 describe('canViewAsset', () => {
@@ -123,6 +126,41 @@ describe('canViewFullAsset', () => {
     expect(canViewFullAsset({ ...buyer, status: 'SUSPENDED' }, published, 'APPROVED')).toBe(
       false,
     )
+  })
+
+  /**
+   * The two cases below are the only ones in this file that exercise the
+   * `&& canViewAsset(viewer, asset)` conjunct. Every other `false` here is
+   * already decided by an earlier line of the predicate, and every `true`
+   * uses a `PUBLISHED` listing with an `ACTIVE` owner — so before these
+   * existed, deleting that conjunct left all 355 tests green while
+   * `discloseSellerName` (`@/server/queries/conversations`), where it is the
+   * whole gate, began printing the seller's `companyName` in every thread
+   * about a taken-down listing. An approved grant is not revoked by a
+   * takedown; it simply stops meaning anything, and that is what these
+   * assert.
+   */
+  it('withholds it once the listing itself is suspended, even on an approved grant', () => {
+    expect(canViewFullAsset(buyer, suspendedListing, 'APPROVED')).toBe(false)
+  })
+
+  it("withholds it once the listing's seller is suspended, even on an approved grant", () => {
+    expect(canViewFullAsset(buyer, ownerSuspended, 'APPROVED')).toBe(false)
+  })
+})
+
+describe('assetStatusAllowsEditing', () => {
+  it('refuses only SOLD', () => {
+    expect(assetStatusAllowsEditing('SOLD')).toBe(false)
+    for (const status of ['DRAFT', 'PENDING_REVIEW', 'PUBLISHED', 'REJECTED', 'SUSPENDED'] as const) {
+      expect(assetStatusAllowsEditing(status), status).toBe(true)
+    }
+  })
+
+  it('is the status half of canEditAsset, so the two cannot disagree', () => {
+    for (const ref of [published, draft, sold, suspendedListing]) {
+      expect(canEditAsset(seller, ref), ref.status).toBe(assetStatusAllowsEditing(ref.status))
+    }
   })
 })
 
@@ -294,6 +332,86 @@ describe('canModerate, canModerateUser and canMessage', () => {
 
   it('refuses to let anyone message themselves', () => {
     expect(canMessage(buyer, { userId: buyer.userId, status: 'ACTIVE' })).toBe(false)
+  })
+})
+
+describe('contactAvailability', () => {
+  const activeSeller = { userId: 'u-seller', status: 'ACTIVE' } as const
+  const activeBuyer = { userId: 'u-buyer', status: 'ACTIVE' } as const
+
+  it('lets an active buyer contact an active seller, and vice versa', () => {
+    expect(contactAvailability(buyer, activeSeller, 'BUYER')).toBe('ALLOWED')
+    expect(contactAvailability(seller, activeBuyer, 'SELLER')).toBe('ALLOWED')
+  })
+
+  it('tells an anonymous visitor to sign in', () => {
+    expect(contactAvailability(null, activeSeller, 'BUYER')).toBe('SIGN_IN')
+  })
+
+  /**
+   * The four reasons the single "This account cannot be messaged" string
+   * used to cover. In three of them the counterparty is perfectly
+   * messageable and the copy was simply false; only the last one is about
+   * the account being looked at.
+   */
+  it('names the viewer-side reason rather than blaming the counterparty', () => {
+    expect(contactAvailability({ ...buyer, status: 'SUSPENDED' }, activeSeller, 'BUYER')).toBe(
+      'VIEWER_INACTIVE',
+    )
+    expect(contactAvailability(manager, activeSeller, 'BUYER')).toBe('MANAGER')
+    // A seller looking at their own listing: `canMessage` refuses a
+    // self-thread, and "this account cannot be messaged" reads as an error
+    // about the seller's own company.
+    expect(contactAvailability(seller, { userId: seller.userId, status: 'ACTIVE' }, 'BUYER')).toBe(
+      'SELF',
+    )
+    // A seller (no `BuyerProfile`) on a listing page, and a buyer (no
+    // `SellerProfile`) on a buyer page: neither can occupy the side of the
+    // thread they would have to occupy.
+    expect(contactAvailability(seller, { userId: otherSeller.userId, status: 'ACTIVE' }, 'BUYER')).toBe(
+      'WRONG_SIDE',
+    )
+    expect(contactAvailability(buyer, activeSeller, 'SELLER')).toBe('WRONG_SIDE')
+  })
+
+  it('blames the counterparty only when the counterparty is genuinely not active', () => {
+    expect(contactAvailability(buyer, { userId: 'u-seller', status: 'SUSPENDED' }, 'BUYER')).toBe(
+      'COUNTERPARTY_INACTIVE',
+    )
+    expect(contactAvailability(buyer, { userId: 'u-seller', status: 'REMOVED' }, 'BUYER')).toBe(
+      'COUNTERPARTY_INACTIVE',
+    )
+  })
+
+  /**
+   * `'ALLOWED'` must mean exactly what the two hand-written booleans it
+   * replaced meant — `canMessage` plus the profile row for the viewer's own
+   * side of the thread — or a button comes back that the action refuses.
+   */
+  it("agrees with canMessage plus the viewer's own side of the thread", () => {
+    const viewers = [null, buyer, seller, manager, { ...buyer, status: 'SUSPENDED' as const }]
+    const counterparties = [
+      { userId: 'u-seller', status: 'ACTIVE' as const },
+      { userId: 'u-buyer', status: 'ACTIVE' as const },
+      { userId: 'u-seller', status: 'SUSPENDED' as const },
+    ]
+    for (const viewer of viewers) {
+      for (const counterparty of counterparties) {
+        for (const side of ['BUYER', 'SELLER'] as const) {
+          const sideProfileId =
+            viewer === null
+              ? null
+              : side === 'BUYER'
+                ? viewer.buyerProfileId
+                : viewer.sellerProfileId
+          const expected = sideProfileId !== null && canMessage(viewer, counterparty)
+          expect(
+            contactAvailability(viewer, counterparty, side) === 'ALLOWED',
+            `${viewer?.role ?? 'anonymous'} → ${counterparty.userId}/${counterparty.status} as ${side}`,
+          ).toBe(expected)
+        }
+      }
+    }
   })
 })
 

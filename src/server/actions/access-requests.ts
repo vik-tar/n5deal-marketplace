@@ -23,8 +23,21 @@ import type { ActionResult } from './types'
  *
  * Authorization runs *before* zod validation everywhere here, deliberately:
  * an unauthorized caller learns only `FORBIDDEN`, never `INVALID`, so a
- * malformed payload cannot be used to probe whether a given id would have
- * been accepted had the caller been allowed to act on it.
+ * malformed payload cannot be used to probe which *fields* a request would
+ * have accepted, or to distinguish a well-formed refusal from a malformed
+ * one.
+ *
+ * It does **not** hide whether a given id exists, and an earlier version of
+ * this paragraph claimed that it did — the `NOT_FOUND` two lines into each
+ * action below is returned before any predicate runs, so a caller holding an
+ * id can tell "this row exists and is not yours" (`FORBIDDEN`) from "no such
+ * row" (`NOT_FOUND`). That is a deliberate exception to the brief's "hidden
+ * and non-existent look identical" rule, ruled twice and left standing:
+ * every id here is a cuid and non-enumerable, the *pages* honour the rule
+ * with byte-identical 404s on both cases, and closing it would cost a second
+ * query to conceal something only a caller who already holds the id could
+ * observe. `@/server/actions/messages` and `@/server/actions/assets` share
+ * the shape and the ruling.
  */
 
 // ---------------------------------------------------------------------------

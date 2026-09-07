@@ -218,6 +218,12 @@ export function ListingForm({
     })
   }
 
+  /**
+   * Only ever reached from a listing whose status the button's own render
+   * condition already admits (see it, below) — never from `'PENDING_REVIEW'`,
+   * where `submitForReview` would refuse the row this save had just
+   * successfully written.
+   */
   function handleSubmitForReview() {
     if (!initial) return
     const data = validate()
@@ -547,12 +553,28 @@ export function ListingForm({
         <Button type="button" variant="secondary" disabled={isPending} onClick={handleSave}>
           {isPending ? t('actions.saving') : t('actions.saveDraft')}
         </Button>
-        {initial ? (
+        {/* Offered on every editable listing except one already in the
+            queue. `submitForReview` (`@/server/actions/assets`) accepts a
+            `'DRAFT'`/`'REJECTED'` source status; `'PUBLISHED'` and
+            `'SUSPENDED'` reach `'PENDING_REVIEW'` through the demotion the
+            save itself performs, which `handleSubmitForReview` handles
+            above. `'PENDING_REVIEW'` is the one status where neither route
+            exists: the save succeeds, `sentBackForReview` returns `null`
+            because nothing moved, and `submitForReview` then answers
+            `FORBIDDEN` — so the seller was told "You are not able to edit
+            this listing" immediately after their edit had been written.
+            `'SOLD'` never appears here at all; `canEditAsset` refuses it and
+            the edit page 404s before this form renders. */}
+        {initial && initial.status !== 'PENDING_REVIEW' ? (
           <Button type="button" disabled={isPending} onClick={handleSubmitForReview}>
             {isPending ? t('actions.submitting') : t('actions.submitForReview')}
           </Button>
         ) : null}
       </div>
+
+      {initial?.status === 'PENDING_REVIEW' ? (
+        <p className="text-sm text-ink-muted">{t('alreadyInReviewNotice')}</p>
+      ) : null}
 
       {formError === 'CLIENT_INVALID' ? (
         <p role="alert" className="text-sm text-danger">

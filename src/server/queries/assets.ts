@@ -9,13 +9,16 @@ import {
 import { PAGE_SIZE } from '@/lib/filters/shared'
 import { isFullAsset, toAssetDto, toTeaserAsset, type AssetDto, type TeaserAsset } from '@/lib/dto/asset'
 import {
-  canMessage,
+  assetStatusAllowsEditing,
+  canDecideAccess,
   canModerate,
   canRequestAccess,
   canViewAsset,
   canViewFullAsset,
+  contactAvailability,
   isOwner,
   type AssetRef,
+  type ContactAvailability,
   type GrantState,
   type MaybeViewer,
 } from '@/lib/authz'
@@ -317,11 +320,11 @@ export interface AssetDetail {
   /** The viewer's own request date. Only meaningful when `gateStatus` is `'PENDING'`. */
   requestedAt: Date | null
   /**
-   * Whether "Contact seller" should be offered as a live control (Task 19).
-   * The mirror of `BuyerDetail.canContact` (`@/server/queries/buyers`) on the
-   * other side of the market, and it answers the same question that page's
-   * button asks: would `startConversation` (`@/server/actions/messages`)
-   * accept this click?
+   * Whether "Contact seller" should be offered as a live control (Task 19),
+   * and if not, why not. The mirror of `BuyerDetail.canContact`
+   * (`@/server/queries/buyers`) on the other side of the market, and it
+   * answers the same question that page's button asks: would
+   * `startConversation` (`@/server/actions/messages`) accept this click?
    *
    * That is deliberately narrower than `canMessage` alone. `canMessage` would
    * let one seller message another, but a `Conversation` has a buyer side and
@@ -330,8 +333,14 @@ export interface AssetDetail {
    * that is guaranteed to fail is the same class of inconsistency Task 13
    * removed between the catalog and this page, so the buyer-profile
    * requirement is part of the answer rather than a surprise behind it.
+   *
+   * A `ContactAvailability` rather than the boolean it was, because the
+   * button is rendered disabled and has to explain itself, and one boolean
+   * cannot carry three different explanations. `contactAvailability`
+   * (`@/lib/authz`) is now where the two-part rule lives; both sides of the
+   * market call it instead of each spelling it out.
    */
-  canContactSeller: boolean
+  canContactSeller: ContactAvailability
   /**
    * The requests the owning seller (or a manager) may act on for *this*
    * listing — empty for every other viewer. Task 18's `getSellerOverview`
@@ -362,6 +371,28 @@ export interface ApprovedGrantSummary {
 export interface AssetRequestQueue {
   pending: PendingRequestSummary[]
   approved: ApprovedGrantSummary[]
+  /**
+   * Whether this viewer may actually approve or decline the rows in
+   * `pending` — `canDecideAccess` (`@/lib/authz`), which is `isOwner` and a
+   * `'REQUESTED'` grant, nothing else.
+   *
+   * It is not the same question as "may this viewer see the queue at all",
+   * and conflating the two put two dead buttons in front of every manager.
+   * `getAssetRequestQueue` returns real pending rows to `isOwner ||
+   * canModerate`, but a `MANAGER` holds no `SellerProfile`, so `isOwner` is
+   * false for every asset and `decideAccess` (`@/server/actions/access-requests`)
+   * answered their every click with `FORBIDDEN` — surfaced as "This request
+   * can no longer be acted on", which is false twice over: it could, and not
+   * by them. Revoke on the same card is genuinely theirs
+   * (`canRevokeAccess` admits `canModerate`), so the card was half-live
+   * rather than obviously broken.
+   *
+   * Decided here rather than in the component for the reason
+   * `AssetDetail.gateStatus` above documents: the component would have to
+   * re-derive it from data it does not have, and a stand-in that happens to
+   * be right today cannot fail a review.
+   */
+  canDecide: boolean
 }
 
 /**
@@ -410,11 +441,18 @@ function appendRequestRow(queue: AssetRequestQueue, row: AccessRequestQueueRow):
 
 /**
  * The pending and approved `AccessRequest` rows against one listing, for its
- * owning seller or a manager to decide or revoke. Returns empty arrays —
- * never an error, never partial data — for anyone else, including the
- * requesting buyers themselves: a buyer already sees their own standing via
- * `grant`/`gateStatus` above, and must not learn about another buyer's
- * request against the same listing.
+ * owning seller to decide and for either the seller or a manager to revoke.
+ * Returns empty arrays — never an error, never partial data — for anyone
+ * else, including the requesting buyers themselves: a buyer already sees
+ * their own standing via `grant`/`gateStatus` above, and must not learn about
+ * another buyer's request against the same listing.
+ *
+ * **Reading the queue and deciding it are two different permissions**, and
+ * they are answered by two different predicates here. A manager may read it
+ * (`canModerate`) and may revoke an approved grant (`canRevokeAccess`), but
+ * may not approve or decline: `canDecideAccess` is `isOwner && grant ===
+ * 'REQUESTED'`, and a `MANAGER` holds no `SellerProfile`. `queue.canDecide`
+ * carries that second answer to the component so the buttons match it.
  *
  * This is a real, narrow query, not a stand-in: unlike `listAssets`'s
  * removed per-row `canViewAsset` re-check (see the doc comment on
@@ -423,8 +461,13 @@ function appendRequestRow(queue: AssetRequestQueue, row: AccessRequestQueueRow):
  * and worth keeping.
  */
 async function getAssetRequestQueue(ref: AssetRef, viewer: MaybeViewer): Promise<AssetRequestQueue> {
+  // `'REQUESTED'` rather than the viewer's own grant: every row this queue
+  // can offer a decision on is a pending one by construction, and the
+  // per-row grant is exactly what `decideAccess` re-reads before it writes.
+  const canDecide = canDecideAccess(viewer, ref, 'REQUESTED')
+
   if (!isOwner(viewer, ref) && !canModerate(viewer)) {
-    return { pending: [], approved: [] }
+    return { pending: [], approved: [], canDecide: false }
   }
 
   const rows = await prisma.accessRequest.findMany({
@@ -440,7 +483,7 @@ async function getAssetRequestQueue(ref: AssetRef, viewer: MaybeViewer): Promise
     },
   })
 
-  const queue: AssetRequestQueue = { pending: [], approved: [] }
+  const queue: AssetRequestQueue = { pending: [], approved: [], canDecide }
   for (const row of rows) {
     appendRequestRow(queue, row)
   }
@@ -561,13 +604,12 @@ export async function getAssetDetail(
     },
     gateStatus,
     requestedAt: viewerRequest?.requestedAt ?? null,
-    canContactSeller:
-      viewer !== null &&
-      viewer.buyerProfileId !== null &&
-      canMessage(viewer, {
-        userId: sellerProfile.user.id,
-        status: sellerProfile.user.status,
-      }),
+    canContactSeller: contactAvailability(
+      viewer,
+      { userId: sellerProfile.user.id, status: sellerProfile.user.status },
+      // Contacting a seller puts the viewer on the buyer side of the thread.
+      'BUYER',
+    ),
     requestQueue,
   }
 }
@@ -710,6 +752,24 @@ export interface SellerListingSummary {
   rejectionReason: string | null
   publishedAt: Date | null
   viewCount: number
+  /**
+   * Whether the dashboard should offer "Edit" on this row.
+   *
+   * `SELLER_STATUS_ORDER` includes `SOLD`, and the dashboard renders every
+   * group, so before this field every seller with a sold listing was shown
+   * an Edit link that leads to a 404: `canEditAsset` (`@/lib/authz`) refuses
+   * a `SOLD` listing and the edit page `notFound()`s on it. Reachable on the
+   * demo seller's own dashboard — the seed puts the single `SOLD` listing on
+   * `seller@n5deal.demo`.
+   *
+   * `assetStatusAllowsEditing` and not `canEditAsset`, uniquely here,
+   * because this query takes a `sellerProfileId` and no viewer (see below):
+   * every row is the caller's own by construction, so `isOwner` is
+   * structural and only the status half is left to decide. It is still the
+   * predicate module's rule, not a `!== 'SOLD'` written out again in a
+   * component.
+   */
+  canEdit: boolean
 }
 
 /** The seller's listings in one `AssetStatus`, in `SELLER_STATUS_ORDER`. */
@@ -849,13 +909,20 @@ export async function getSellerOverview(sellerProfileId: string): Promise<Seller
     rejectionReason: row.rejectionReason,
     publishedAt: row.publishedAt,
     viewCount: row.viewCount,
+    canEdit: assetStatusAllowsEditing(row.status),
   }))
 
   const queuesByAsset = new Map<string, SellerRequestQueue>()
   for (const row of requestRows) {
     let entry = queuesByAsset.get(row.asset.id)
     if (entry === undefined) {
-      entry = { asset: row.asset, queue: { pending: [], approved: [] } }
+      // `canDecide: true` without a `canDecideAccess` call, uniquely here:
+      // every row in this read is `{ asset: { sellerProfileId } }` where
+      // `sellerProfileId` came from `viewer.sellerProfileId`, so `isOwner`
+      // holds structurally rather than as something to check. The
+      // per-listing `getAssetRequestQueue` above, which serves a page any
+      // manager can open, decides it with the predicate.
+      entry = { asset: row.asset, queue: { pending: [], approved: [], canDecide: true } }
       queuesByAsset.set(row.asset.id, entry)
     }
     appendRequestRow(entry.queue, row)
