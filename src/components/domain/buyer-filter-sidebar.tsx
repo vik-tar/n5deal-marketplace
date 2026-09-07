@@ -3,10 +3,11 @@
 import type { FormEvent } from 'react'
 import { useTranslations } from 'next-intl'
 import { Link, useRouter } from '@/i18n/navigation'
+import { ASSET_CATEGORIES } from '@/lib/filters/asset-filters'
 import {
   BUYER_TYPES,
-  MANDATE_CATEGORIES,
   buyerFiltersToSearchParams,
+  hasActiveBuyerFilters,
   type BuyerFilters,
 } from '@/lib/filters/buyer-filters'
 import { toCountryCodes } from '@/lib/filters/shared'
@@ -16,17 +17,6 @@ import { Field } from '@/components/ui/field'
 import { FOCUS_RING, cn } from '@/lib/cn'
 
 const BUYERS_PATH = '/buyers' as const
-
-/** True when any of the actual filter facets (not page) is set. */
-function hasActiveFilters(filters: BuyerFilters): boolean {
-  return (
-    filters.q !== '' ||
-    filters.buyerTypes.length > 0 ||
-    filters.categories.length > 0 ||
-    filters.countries.length > 0 ||
-    filters.ticketMinCents !== null
-  )
-}
 
 const checkboxClass = cn(
   'h-4 w-4 shrink-0 rounded border-border bg-surface-2 accent-accent',
@@ -106,7 +96,7 @@ export function BuyerFilterSidebar({
     <aside className="flex flex-col gap-6">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-sm font-semibold text-ink">{t('filters.title')}</h2>
-        {hasActiveFilters(filters) ? (
+        {hasActiveBuyerFilters(filters) ? (
           <Link
             href={clearHref}
             className={cn(
@@ -136,7 +126,7 @@ export function BuyerFilterSidebar({
 
       <fieldset className="flex flex-col gap-2">
         <legend className="meta-label mb-1">{t('filters.categoryLabel')}</legend>
-        {MANDATE_CATEGORIES.map((category) => (
+        {ASSET_CATEGORIES.map((category) => (
           <label key={category} className="flex items-center gap-2 text-sm text-ink">
             <input
               type="checkbox"

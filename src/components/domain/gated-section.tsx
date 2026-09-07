@@ -8,6 +8,7 @@ import { SIGN_IN_HREF } from '@/lib/nav'
 import { Link } from '@/i18n/navigation'
 import type { GrantState } from '@/lib/authz'
 import type { GateStatus } from '@/lib/gate'
+import { formatDate } from '@/lib/datetime'
 
 /**
  * The NDA gate. Renders exactly one of four states, chosen server-side
@@ -121,7 +122,7 @@ function OpenGate({ dto, locale }: { dto: FullAsset; locale: string }) {
 
 function PendingGate({ requestedAt, locale }: { requestedAt: Date | null; locale: string }) {
   const t = useTranslations('gate')
-  const date = requestedAt ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(requestedAt) : ''
+  const date = requestedAt ? formatDate(requestedAt, locale) : ''
 
   return (
     <Card>

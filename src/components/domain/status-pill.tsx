@@ -21,6 +21,17 @@ import { Badge, type BadgeTone } from '@/components/ui/badge'
  * needed to read differently would mean turning this union into a
  * discriminated prop, and the only thing that would surface it is someone
  * noticing the wrong word on screen.
+ *
+ * **That shared word already costs something in Russian, and the decision was
+ * to pay it.** The `status` namespace's listing members are neuter, agreeing
+ * with the implied noun the catalog uses («Опубликовано», «Отклонено»,
+ * «Продано»), while its account and request members are masculine
+ * («Активен», «Удалён», «Запрошен»). `SUSPENDED` is one entry serving both
+ * sides and is written neuter — «Заблокировано» — so a *listing* reads
+ * correctly and a suspended *account* reads a gender off. The alternative is
+ * the discriminated prop above: a second enum-shaped namespace and a second
+ * tone map, to fix one word. Left as is, deliberately, and written down here
+ * so the next reader knows it was seen rather than missed.
  */
 export type PillStatus = AssetStatus | UserStatus | AccessStatus
 

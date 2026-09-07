@@ -8,6 +8,7 @@ import { Card, CardBody, CardHeader } from '@/components/ui/card'
 import { decideAccess, revokeAccess } from '@/server/actions/access-requests'
 import type { ActionResult } from '@/server/actions/types'
 import type { AssetRequestQueue } from '@/server/queries/assets'
+import { formatDate } from '@/lib/datetime'
 
 /** Disables its button and swaps its label while its own form is submitting. */
 function ActionButton({
@@ -63,7 +64,7 @@ function PendingRow({
   locale: string
 }) {
   const t = useTranslations('requestQueue')
-  const date = new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(requestedAt)
+  const date = formatDate(requestedAt, locale)
 
   const [approveState, approveAction] = useActionState<ActionResult | null>(async () => {
     return decideAccess({ requestId, decision: 'APPROVED', locale })
@@ -109,7 +110,7 @@ function ApprovedRow({
   locale: string
 }) {
   const t = useTranslations('requestQueue')
-  const date = decidedAt ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium' }).format(decidedAt) : ''
+  const date = decidedAt ? formatDate(decidedAt, locale) : ''
 
   const [state, revokeFormAction] = useActionState<ActionResult | null>(async () => {
     return revokeAccess({ requestId, locale })

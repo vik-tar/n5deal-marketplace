@@ -87,7 +87,8 @@ export default async function ProfilePage({
     // `Mandate.licenceTypes` is a plain `String[]` column (no Prisma enum to
     // lean on) — filtered through the same fixed universe the write side
     // validates against, so a stray legacy value in the database cannot
-    // reach the client typed as a `MandateLicenceType` when it is not one.
+    // reach the client typed as a member of `MANDATE_LICENCE_TYPES` when it
+    // is not one.
     licenceTypes: keepKnown(buyerProfile.mandate?.licenceTypes ?? [], MANDATE_LICENCE_TYPES),
     businessStatuses: buyerProfile.mandate?.businessStatuses ?? [],
     ticketMinCents:

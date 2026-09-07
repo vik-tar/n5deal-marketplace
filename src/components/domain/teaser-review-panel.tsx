@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardBody, CardHeader } from '@/components/ui/card'
 import { runTeaserReview } from '@/server/actions/assets'
 import type { TeaserReview } from '@/lib/ai/teaser-review'
+import type { Translator } from '@/i18n/translator'
 
 /**
  * The one feature in this project where AI guards the confidentiality
@@ -74,13 +75,6 @@ export function TeaserReviewPanel({
     </Card>
   )
 }
-
-/**
- * Loose on purpose, matching every other `t()` alias in this codebase
- * (`listings/page.tsx`, `listings/[id]/page.tsx`): this app does not augment
- * next-intl's `Messages` type.
- */
-type Translator = (key: string, values?: Record<string, string | number>) => string
 
 function ReviewOutcome({ result, t }: { result: TeaserReview | null; t: Translator }) {
   if (result === null) {

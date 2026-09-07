@@ -40,4 +40,3 @@ export function Button({
 }
 
 export type ButtonVariant = Variant
-export type ButtonSize = Size

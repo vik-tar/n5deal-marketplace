@@ -7,6 +7,7 @@ import {
   BUSINESS_STATUSES,
   assetFiltersToSearchParams,
   categoryCountsInOrder,
+  hasActiveAssetFilters,
   type AssetFilters,
 } from '@/lib/filters/asset-filters'
 import { toCountryCodes } from '@/lib/filters/shared'
@@ -17,18 +18,6 @@ import { FOCUS_RING, cn } from '@/lib/cn'
 import type { CategoryFacet } from '@/server/queries/assets'
 
 const LISTINGS_PATH = '/listings' as const
-
-/** True when any of the actual filter facets (not sort, not page) is set. */
-function hasActiveFilters(filters: AssetFilters): boolean {
-  return (
-    filters.q !== '' ||
-    filters.categories.length > 0 ||
-    filters.countries.length > 0 ||
-    filters.businessStatuses.length > 0 ||
-    filters.priceMinCents !== null ||
-    filters.priceMaxCents !== null
-  )
-}
 
 const checkboxClass = cn(
   'h-4 w-4 shrink-0 rounded border-border bg-surface-2 accent-accent',
@@ -102,7 +91,7 @@ export function FilterSidebar({
     <aside className="flex flex-col gap-6">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-sm font-semibold text-ink">{t('filters.title')}</h2>
-        {hasActiveFilters(filters) ? (
+        {hasActiveAssetFilters(filters) ? (
           <Link
             href={LISTINGS_PATH}
             className={cn(

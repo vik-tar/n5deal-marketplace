@@ -26,16 +26,10 @@ import {
   parseAdminFilters,
   type AdminFilters,
 } from '@/lib/filters/admin-filters'
+import type { Translator } from '@/i18n/translator'
+import { dateTimeFormatter } from '@/lib/datetime'
 
 const ADMIN_PATH = '/admin' as const
-
-/**
- * Loose on purpose, matching every other `t()` alias in this codebase
- * (`listings/page.tsx`, `buyers/page.tsx`): this app does not augment
- * next-intl's `Messages` type, so every `t()` call already takes a plain
- * string key.
- */
-type Translator = (key: string, values?: Record<string, string | number>) => string
 
 /**
  * The platform manager's console: participants, listings and the audit trail,
@@ -368,7 +362,7 @@ async function LogPanel({ viewer, locale }: { viewer: Viewer; locale: string }) 
     )
   }
 
-  const formatter = new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' })
+  const formatter = dateTimeFormatter(locale)
 
   return (
     <section className="flex flex-col gap-4">

@@ -1,10 +1,10 @@
-/**
- * Pure — no database import — so it can be unit-tested on its own and so
- * `@/server/actions/assets` (a `'use server'` module, where every top-level
- * export must be an async Server Action) can use it as a plain helper
- * without exporting it itself.
- */
-export const PUBLIC_REF_PREFIX = 'N5-'
+// This module is pure — no database import — so `nextPublicRef` below can be
+// unit-tested on its own and so `@/server/actions/assets` (a `'use server'`
+// module, where every top-level export must be an async Server Action) can use
+// it as a plain helper without exporting it itself.
+
+/** The prefix every listing's human-readable reference carries. Module-local: only `nextPublicRef` reads it. */
+const PUBLIC_REF_PREFIX = 'N5-'
 
 /**
  * The next free `publicRef`, given every ref already in play.

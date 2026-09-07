@@ -220,13 +220,20 @@ async function loadOwnedAssetCriteria(
  * no defined relative order, and a paginated read across such a boundary
  * could duplicate or drop a row.
  *
- * Like `countMandateMatches` (`@/server/actions/profile`, Task 16) and
- * `listAssets`'s facet counts, this scores every matching row in memory
- * rather than pushing the ranking into SQL: with 12 seeded buyers (and no
- * more expected at this prototype's scale) that is correct and simple. A
- * real deployment would move this to a filtered query plus a
- * background-computed score, exactly as Task 18's own README note for
- * `getRecommendedAssets` says for the mirror-image query.
+ * Like `countMandateMatches` (`@/server/actions/profile`, Task 16), this
+ * scores every matching row in memory rather than pushing the ranking into
+ * SQL: with 12 seeded buyers (and no more expected at this prototype's scale)
+ * that is correct and simple. A real deployment would move this to a filtered
+ * query plus a background-computed score, exactly as Task 18's own README
+ * note for `getRecommendedAssets` says for the mirror-image query.
+ *
+ * `listAssets`'s facet counts are **not** another example of this, though an
+ * earlier version of this comment cited them as one: those are a
+ * `prisma.asset.groupBy`, computed in the database. The distinction is the
+ * whole point of the paragraph — a count over a fixed set of buckets is
+ * expressible in SQL, a per-row score against a weighted rubric is not
+ * expressible in this app's SQL without materialising it, which is why one
+ * moved into the query and the other did not.
  */
 export async function listBuyers(
   filters: BuyerFilters,

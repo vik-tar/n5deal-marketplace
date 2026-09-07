@@ -1235,3 +1235,72 @@ Task 23: Step 2 (deploy) NOT done and correctly not attempted — it needs Neon 
   reachable through a browser, which only the user can create. Instructions written, deployed-URL
   placeholder left, no account created, no remote, no push.
 Task 23: complete (commit e12edf8). ALL 23 TASKS COMPLETE.
+
+WHOLE-BRANCH REVIEW, fix round 2 (comment drift and duplication) — 2026-09-07.
+Round 2: A3 SETTLED BY MEASUREMENT, and the parked Task 11 ruling stands. I ran the experiment a
+  fourth time: both annotations genuinely stripped from src/auth.ts, then tsconfig.tsbuildinfo,
+  node_modules/.cache and the whole .next directory deleted. `pnpm typecheck` exits 0 with zero
+  output; a hard-cold `npx tsc --noEmit` (exit code captured directly, not through a pipeline)
+  exits 0 with a zero-byte output file; and `pnpm build` exits 0, its own "Running TypeScript"
+  pass included. Three independent checkers, no errors. The annotations were RESTORED — the
+  ruling to keep them is parked, not reopened — and the comment now describes them as defensive
+  with their necessity unreproduced, which is exactly what the ruling required and what the old
+  comment refused to say. The dangling `task-11-report.md` citation is gone; `.superpowers/` is
+  git-ignored, so it was the one source comment pointing at a file no clone contains.
+Round 2: ELEVEN false comments corrected, all verified against the code first, none by changing
+  behaviour. The two worst were both in admin-where.ts and both were load-bearing prose: the
+  LISTING_TRANSITIONS paragraph justified widening APPROVE.from on the claim that `saveDraft`
+  "leaves every non-PUBLISHED status exactly where it found it" (false since Task 20 fix round 2
+  — saveDraft demotes PUBLISHED *or SUSPENDED* to PENDING_REVIEW, and assets.ts:190 says so), and
+  the StatusTransition paragraph repeated the concurrency claim a reviewer had already disproved
+  under a FOR UPDATE lock, seventy lines above the paragraph that states the opposite.
+  admin-where.ts contradicted itself on a race. Both now say what the code does, and the
+  concurrency rule is stated once, on the interface, with the two writes' difference spelled out.
+Round 2: the "only query that returns a DRAFT" claim was replaced with "the only query with no
+  visibility floor at all" — the wording admin.ts already used correctly. getSellerOverview and
+  getAssetDetail both return non-public rows; they are floored to a relationship, the console is
+  floored to nothing.
+Round 2: Task 7's deferred minor (ASSET_CATEGORIES vs MANDATE_CATEGORIES, ledger :349) is
+  RESOLVED, not deferred again. The two lists had become a live hazard rather than a tidiness
+  point: ASSET_CATEGORIES drove the mandate form's checkboxes while MANDATE_CATEGORIES drove the
+  buyer filter sidebar and parseBuyerFilters, so a divergence produced a category a buyer can put
+  in a mandate and cannot filter by — silent, since both satisfy the same enum. One list now.
+  ADMIN_ASSET_STATUSES is deliberately NOT collapsed and its comment says why; the difference is
+  that its twin is a presentation ordering, not the same question.
+Round 2: statusAllowsAuthenticatedSurfaces GIVEN AN ENFORCEMENT ROLE rather than demoted.
+  viewerGate now calls it, so every requireViewer in the app flows through it. Before, three
+  production files cited it by name in prose, four tests exercised it, and nothing called it —
+  documentation with an export, the shape listAssets' per-row check was deleted for. The header
+  cannot call it (it returns true for null by design) and now calls `isActive` instead of
+  re-deriving that predicate inline, which is the reuse that was actually available there.
+Round 2: SIX exports removed or un-exported. ButtonSize, MandateLicenceType and
+  ConfidentialAssetField deleted (no importer anywhere; the two prose references were reworded to
+  name the live value). AI_MODEL, MATCH_WEIGHTS, PRICE_TOLERANCE, PUBLIC_ASSET_STATUSES,
+  PUBLIC_REF_PREFIX and LANDING_RECENT_LIMIT un-exported — read only inside their own module,
+  the DEFAULT_MAX_TOKENS precedent from Task 19. Checked against tests/ first as instructed:
+  NONE of the six had a test consumer, so the "exported so a unit test can assert against it"
+  caution did not apply to any of them. CONFIDENTIAL_ASSET_FIELDS (the value) is used by
+  tests/unit/dto/asset.test.ts and was kept.
+Round 2: `common.save` was the only dead message key — deleted from both catalogues. The
+  catalogue is 518 keys, not the 512 the review brief states. The eight unreachable ActionError
+  keys were NOT deleted (components index the closed union with a template literal, so a missing
+  key is worse than an unused one); the four that asserted a cause no code path produces were
+  rewritten to the neutral fallback the listing and profile namespaces already used, and the
+  whole convention is now documented once on ActionError itself. contact.error.ALREADY_REQUESTED
+  was the clearest: it described a case startConversation deliberately returns as a success.
+Round 2: B1 DEMONSTRATED, not asserted. With a temporary Playwright probe reading the rendered
+  attributes on /en/listings/new as a signed-in seller: baseline teaserTitle maxlength=120,
+  confidentialNotes=4000, country=2, yearOfIssue min=1900. Perturbing TEASER_TITLE_MAX to 111,
+  MAX_CONFIDENTIAL_NOTES to 3777, COUNTRY_CODE_LENGTH to 3 and MIN_YEAR_OF_ISSUE to 1971 and
+  rebuilding moved all four widgets to the new values, while the two bounds left alone
+  (teaserDescription=2000, yearOfIssue max=2026) did not move. Constants and probe restored.
+Round 2: the status-pill ruling's own doc now states its Russian cost — the shared SUSPENDED
+  label is neuter («Заблокировано»), correct for a listing and a gender off for an account. The
+  ruling is unchanged; it was simply never written down that it was seen rather than missed.
+Round 2: nav.admin said "Admin"/"Админка" while the page it opens says "Manager console"/
+  "Консоль менеджера" and every other string in the product says manager. Both now match the
+  page. Also fixed: the one "модератор" in the RU catalogue, and the last pre-Task-11
+  "объявлениями" in inbox.manager.body.
+Round 2: NOT touched, as instructed — the specificity-0 badge, the category tile's count/unit
+  split, raw locale in the six older revalidatePath sites, LANDING_RECENT_LIMIT <= PAGE_SIZE by
+  comment, pnpm db:reset, getViewer() twice per request, the action-level existence oracles.

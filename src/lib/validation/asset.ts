@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { ASSET_CATEGORIES, BUSINESS_STATUSES } from '@/lib/filters/asset-filters'
+import { countryCode, optionalHttpUrl, requiredText } from './primitives'
 
 /** Bounds the brief spells out for the teaser copy. */
 export const TEASER_TITLE_MIN = 10
@@ -10,49 +11,34 @@ export const TEASER_DESCRIPTION_MAX = 2000
 /** A listing cannot pre-date the marketplace's own notion of "old enough to sell". */
 export const MIN_YEAR_OF_ISSUE = 1900
 
+/**
+ * The ceiling on `yearOfIssue` — you cannot have been licensed in the future.
+ *
+ * A function rather than a constant because the form's `<input max>` is
+ * re-evaluated on every render and should track the clock. `assetInputSchema`
+ * below still captures it once at module load, exactly as the inline
+ * `new Date().getFullYear()` it replaces always did, so a server process alive
+ * across New Year's Eve keeps last year's ceiling until it restarts. That is
+ * unchanged, known and out of scope here. What this fixes is narrower and
+ * real: the browser's bound and the server's were two separate expressions
+ * that happened to agree, and only one of them was in this file.
+ */
+export function maxYearOfIssue(): number {
+  return new Date().getFullYear()
+}
+
 /** "included" is a short highlight list for the teaser card, not a data room index. */
 export const MAX_INCLUDED_ITEMS = 8
+export const MAX_INCLUDED_ITEM_LENGTH = 80
 
-const requiredText = (max: number) => z.string().trim().min(1).max(max)
+/** The seller's private working notes — long, but bounded, since it is a text column with a `@default("")`. */
+export const MAX_CONFIDENTIAL_NOTES = 4000
 
-/** ISO 3166-1 alpha-2, case-insensitive on input — normalised to upper case before validating the shape. */
-const countryCode = z
-  .string()
-  .trim()
-  .transform((value) => value.toUpperCase())
-  .pipe(z.string().regex(/^[A-Z]{2}$/, 'Enter a 2-letter ISO country code.'))
+/** The three free-text teaser identifiers (`licenceType`, `businessType`, `regulator`) share one ceiling. */
+export const MAX_SHORT_TEXT = 120
 
-/**
- * The only two schemes a link this app renders may use.
- *
- * `z.url()` alone is not enough: on the installed zod (4.5.4) it accepts
- * `javascript:alert(1)` and `data:text/html,…` as valid URLs, and
- * `dataRoomUrl` is written by a seller and rendered as an `<a href>` to
- * every approved buyer and every manager (`gated-section.tsx`). React 19
- * refuses to emit a `javascript:` href and browsers block top-level
- * navigation to `data:`, so nothing is exploitable today — but that is two
- * framework runtime behaviours standing in for a validator, and this is the
- * validator. Checked with `new URL(...)` rather than a regex so the scheme
- * is read the way the browser reads it, not the way a pattern guesses at it.
- */
-const HREF_PROTOCOLS: readonly string[] = ['http:', 'https:']
-
-const httpUrl = z.url().refine((value) => {
-  try {
-    return HREF_PROTOCOLS.includes(new URL(value).protocol)
-  } catch {
-    // Unreachable behind `z.url()`, which has already parsed the value;
-    // present so a future loosening of that cannot turn a throw into a 500.
-    return false
-  }
-}, 'Enter a link starting with http:// or https://.')
-
-/** Blank means "no data room yet" (`dataRoomUrl` is nullable in the schema); anything else must be an http(s) URL. */
-const optionalDataRoomUrl = z.preprocess((value) => {
-  if (typeof value !== 'string') return value
-  const trimmed = value.trim()
-  return trimmed === '' ? undefined : trimmed
-}, httpUrl.optional())
+/** The registered company name behind the teaser — released only with the confidential block. */
+export const MAX_LEGAL_NAME = 200
 
 /**
  * The single source of truth for what a listing may contain, shared by the
@@ -77,10 +63,10 @@ const optionalDataRoomUrl = z.preprocess((value) => {
 export const assetInputSchema = z.object({
   // Public teaser — shown to every visitor.
   category: z.enum(ASSET_CATEGORIES),
-  licenceType: requiredText(120),
-  businessType: requiredText(120),
+  licenceType: requiredText(MAX_SHORT_TEXT),
+  businessType: requiredText(MAX_SHORT_TEXT),
   country: countryCode,
-  regulator: requiredText(120),
+  regulator: requiredText(MAX_SHORT_TEXT),
   businessStatus: z.enum(BUSINESS_STATUSES),
   askingPriceCents: z.number().int().positive(),
   employees: z.number().int().nonnegative(),
@@ -88,8 +74,8 @@ export const assetInputSchema = z.object({
     .number()
     .int()
     .min(MIN_YEAR_OF_ISSUE)
-    .max(new Date().getFullYear()),
-  included: z.array(requiredText(80)).max(MAX_INCLUDED_ITEMS),
+    .max(maxYearOfIssue()),
+  included: z.array(requiredText(MAX_INCLUDED_ITEM_LENGTH)).max(MAX_INCLUDED_ITEMS),
   teaserTitle: z.string().trim().min(TEASER_TITLE_MIN).max(TEASER_TITLE_MAX),
   teaserDescription: z
     .string()
@@ -98,12 +84,12 @@ export const assetInputSchema = z.object({
     .max(TEASER_DESCRIPTION_MAX),
 
   // Confidential — released only once the seller approves a buyer's access request.
-  legalName: requiredText(200),
+  legalName: requiredText(MAX_LEGAL_NAME),
   revenueCents: z.number().int().nonnegative(),
   ebitdaCents: z.number().int().nonnegative(),
   clientCount: z.number().int().nonnegative(),
-  dataRoomUrl: optionalDataRoomUrl,
-  confidentialNotes: z.string().trim().max(4000),
+  dataRoomUrl: optionalHttpUrl,
+  confidentialNotes: z.string().trim().max(MAX_CONFIDENTIAL_NOTES),
 })
 
 export type AssetInput = z.infer<typeof assetInputSchema>

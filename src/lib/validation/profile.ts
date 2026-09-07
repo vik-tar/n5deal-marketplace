@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { ASSET_CATEGORIES, BUSINESS_STATUSES } from '@/lib/filters/asset-filters'
 import { BUYER_TYPES, MANDATE_LICENCE_TYPES } from '@/lib/filters/buyer-filters'
+import { countryCode, optionalHttpUrl, requiredText } from './primitives'
 
 /**
  * The single source of truth for what a buyer's profile and investment
@@ -19,23 +20,8 @@ import { BUYER_TYPES, MANDATE_LICENCE_TYPES } from '@/lib/filters/buyer-filters'
  * count this schema's shape feeds.
  */
 
-const requiredText = (max: number) => z.string().trim().min(1).max(max)
-
-/** ISO 3166-1 alpha-2, case-insensitive on input — normalised to upper case, mirroring `@/lib/validation/asset`'s identical rule for a listing's own jurisdiction. */
-const countryCode = z
-  .string()
-  .trim()
-  .transform((value) => value.toUpperCase())
-  .pipe(z.string().regex(/^[A-Z]{2}$/, 'Enter a 2-letter ISO country code.'))
-
-/** Blank means "no website on file"; anything else must be a URL. Mirrors `@/lib/validation/asset`'s `optionalDataRoomUrl`. */
-const optionalWebsiteUrl = z.preprocess((value) => {
-  if (typeof value !== 'string') return value
-  const trimmed = value.trim()
-  return trimmed === '' ? undefined : trimmed
-}, z.url().optional())
-
 export const MAX_BIO_LENGTH = 1000
+export const MAX_DISPLAY_NAME_LENGTH = 200
 export const MAX_MANDATE_NOTES = 1000
 export const MIN_TIMELINE_MONTHS = 1
 export const MAX_TIMELINE_MONTHS = 60
@@ -48,11 +34,11 @@ export const MAX_MANDATE_COUNTRIES = 50
  * not identity.
  */
 export const buyerProfileSchema = z.object({
-  displayName: requiredText(200),
+  displayName: requiredText(MAX_DISPLAY_NAME_LENGTH),
   buyerType: z.enum(BUYER_TYPES),
   country: countryCode,
   bio: z.string().trim().max(MAX_BIO_LENGTH),
-  websiteUrl: optionalWebsiteUrl,
+  websiteUrl: optionalHttpUrl,
 })
 
 export type BuyerProfileInput = z.infer<typeof buyerProfileSchema>

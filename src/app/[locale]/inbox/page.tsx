@@ -6,6 +6,7 @@ import { requireViewer } from '@/server/session'
 import { listConversations, type ConversationSummary } from '@/server/queries/conversations'
 import { canModerate } from '@/lib/authz'
 import { FOCUS_RING, cn } from '@/lib/cn'
+import { formatDateTime } from '@/lib/datetime'
 
 /**
  * Every thread the viewer is a party to, newest activity first.
@@ -102,10 +103,7 @@ function ConversationRow({
 }) {
   const t = useTranslations('inbox')
   const name = conversation.counterparty.name ?? t(`counterparty.${conversation.counterparty.side}`)
-  const timestamp = new Intl.DateTimeFormat(locale, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(conversation.lastMessageAt)
+  const timestamp = formatDateTime(conversation.lastMessageAt, locale)
 
   return (
     <li className="relative flex flex-col gap-1 border-b border-border px-5 py-4 last:border-b-0">

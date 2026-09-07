@@ -5,27 +5,36 @@ import { Button } from '@/components/ui/button'
 import { LocaleSwitcher } from '@/components/domain/locale-switcher'
 import { NAV_HREF, SIGN_IN_HREF, navKeysFor } from '@/lib/nav'
 import { FOCUS_RING, cn } from '@/lib/cn'
-import type { Viewer } from '@/lib/authz'
+import { isActive, type Viewer } from '@/lib/authz'
 import { signOutAction } from '@/server/actions/auth'
 
 export function SiteHeader({ viewer, locale }: { viewer: Viewer | null; locale: string }) {
   const t = useTranslations()
   // A suspended viewer keeps a session — they can still see their email and
-  // sign out below — but `statusAllowsAuthenticatedSurfaces`
-  // (`@/lib/authz/rules.ts`) already says a non-ACTIVE viewer may not reach
-  // an authenticated surface, so the nav should offer exactly what an
-  // anonymous visitor is offered. The public pages stay open to them; the
-  // dashboard, the inbox and the profile do not. That is expressed here, by
-  // passing `null` and no profiles, rather than by teaching `navKeysFor` about
-  // `status`: account status is this component's business, key visibility is
-  // that function's.
+  // sign out below — but a non-ACTIVE viewer may not reach an authenticated
+  // surface (`statusAllowsAuthenticatedSurfaces`, `@/lib/authz`, which
+  // `viewerGate` enforces for every page that requires a viewer), so the nav
+  // should offer exactly what an anonymous visitor is offered. The public
+  // pages stay open to them; the dashboard, the inbox and the profile do not.
+  // That is expressed here, by passing `null` and no profiles, rather than by
+  // teaching `navKeysFor` about `status`: account status is this component's
+  // business, key visibility is that function's.
+  //
+  // The predicate below is `isActive`, not `statusAllowsAuthenticatedSurfaces`
+  // — the two answer different questions and only one of them is this one.
+  // That one returns `true` for an anonymous `null` by design (nothing about
+  // their *status* bars them; being signed out does, under another rule), and
+  // a header that treated `null` as admissible would render a dashboard link
+  // for a signed-out visitor. `isActive` is "signed in and ACTIVE", which is
+  // exactly the condition these three lines need, and it was previously
+  // written out inline here rather than called.
   //
   // Task 18 added the two role-specific entry points (`/listings/new`,
   // `/profile`), which depend on whether the viewer holds the matching
   // profile row and not only on their role. Only the two booleans travel into
   // `navKeysFor`, never the cuids themselves, and both are dropped along with
   // the role for a non-ACTIVE viewer.
-  const isActiveViewer = viewer !== null && viewer.status === 'ACTIVE'
+  const isActiveViewer = isActive(viewer)
   const navKeys = navKeysFor(
     isActiveViewer ? viewer.role : null,
     isActiveViewer

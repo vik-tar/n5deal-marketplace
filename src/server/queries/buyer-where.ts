@@ -12,9 +12,14 @@ import type { BuyerFilters } from '@/lib/filters/buyer-filters'
 /**
  * The floor every buyer-catalog query enforces (ruling 1, Task 17): only
  * buyers whose account is still active. Nothing in this module — or in any
- * caller — widens it; `listBuyers` (`@/server/queries/buyers`) applies this
- * unconditionally, before the authorization check that decides whether the
- * caller may see the directory at all.
+ * caller — widens it.
+ *
+ * `listBuyers` (`@/server/queries/buyers`) applies it unconditionally to
+ * every read it performs, *after* `canBrowseBuyers` has already turned a
+ * caller who may not see the directory at all away with an empty result. The
+ * order is authorization first, floor second, and neither substitutes for the
+ * other: the check decides whether there is a query, the floor decides what a
+ * permitted query may return.
  */
 export const BUYER_VISIBILITY_FLOOR = {
   user: { status: 'ACTIVE' },

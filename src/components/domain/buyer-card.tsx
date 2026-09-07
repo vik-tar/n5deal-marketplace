@@ -7,13 +7,7 @@ import { codeToFlag } from '@/lib/geo/flag'
 import { formatCents } from '@/lib/money'
 import { FOCUS_RING, cn } from '@/lib/cn'
 import type { BuyerListItem } from '@/server/queries/buyers'
-
-/**
- * Loose on purpose, matching every other `t()` alias in this codebase
- * (`listings/page.tsx`, `mandate-form.tsx`): this app does not augment
- * next-intl's `Messages` type.
- */
-export type Translator = (key: string, values?: Record<string, string | number>) => string
+import type { Translator } from '@/i18n/translator'
 
 /**
  * Exported alongside `BuyerCard` (not just used internally) so
@@ -163,8 +157,8 @@ export function BuyerCard({
 
           <p className="text-xs text-ink-muted">
             {buyer.mandate.specificity === 0
-              ? t('card.specificityUnconstrained')
-              : t('card.specificity', { count: buyer.mandate.specificity })}
+              ? t('specificityUnconstrained')
+              : t('specificity', { count: buyer.mandate.specificity })}
           </p>
         </div>
 

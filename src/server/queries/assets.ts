@@ -183,7 +183,7 @@ export async function listAssets(
  * first catalog page rather than running its own `findMany`, so a limit
  * larger than a page would silently return fewer rows than it asks for.
  */
-export const LANDING_RECENT_LIMIT = 6
+const LANDING_RECENT_LIMIT = 6
 
 /** Everything the landing page shows, all of it derived from one catalog read. */
 export interface MarketplaceSummary {
@@ -343,12 +343,14 @@ export interface AssetDetail {
   canContactSeller: ContactAvailability
   /**
    * The requests the owning seller (or a manager) may act on for *this*
-   * listing — empty for every other viewer. Task 18's `getSellerOverview`
-   * will aggregate the equivalent queue across a seller's whole catalog for
-   * the dashboard; this per-listing slice exists so `decideAccess` and
-   * `revokeAccess` (`@/server/actions/access-requests`) have a real place to
-   * be invoked from today, on the listing they act on, rather than sitting
-   * unreachable until that dashboard lands.
+   * listing — empty for every other viewer. `getSellerOverview` below
+   * aggregates the equivalent queue across a seller's whole catalog for the
+   * dashboard, built on this same row projection rather than as a second,
+   * parallel approve/decline surface. This per-listing slice came first, in
+   * Task 14, so that `decideAccess` and `revokeAccess`
+   * (`@/server/actions/access-requests`) had a real place to be invoked from
+   * on the listing they act on, instead of sitting unreachable until the
+   * dashboard landed in Task 18.
    */
   requestQueue: AssetRequestQueue
 }

@@ -8,6 +8,32 @@ import {
   type RawSearchParams,
 } from './shared'
 
+/**
+ * The whole `AssetCategory` universe, in the order every category control in
+ * the product renders it — the catalog sidebar and the landing page's tiles
+ * (both via `categoryCountsInOrder` below), the listing form's select, the
+ * mandate form's checkboxes and the buyer filter sidebar.
+ *
+ * **Both sides of the market use this one list.** `buyer-filters.ts` used to
+ * carry a `MANDATE_CATEGORIES` with the same five members and nothing keeping
+ * the two in step, which had become a live hazard rather than a tidiness
+ * point: `ASSET_CATEGORIES` already drove the mandate form's checkboxes while
+ * `MANDATE_CATEGORIES` drove the buyer filter sidebar and `parseBuyerFilters`,
+ * so the two lists sat on opposite sides of a single feature. Adding a
+ * category to one and not the other would have produced a category a buyer
+ * can put in a mandate and then cannot filter by — a silent, data-dependent
+ * hole rather than a compile error, since both lists satisfy the same enum.
+ *
+ * Contrast `ADMIN_ASSET_STATUSES` (`@/lib/filters/admin-filters`), which
+ * deliberately does *not* reuse a same-membered constant: that one's twin is
+ * a presentation *ordering* for a different page, so sharing would couple an
+ * allowlist to a layout decision. Here both uses are the same question —
+ * "which categories exist" — so there is one answer.
+ *
+ * Not `satisfies` alone: the `as const satisfies readonly AssetCategory[]`
+ * pair keeps the literal member types for `keepKnown` while still failing to
+ * compile if a member stops being a real enum value.
+ */
 export const ASSET_CATEGORIES = [
   'BANK',
   'FINTECH',
@@ -68,6 +94,31 @@ export function parseAssetFilters(sp: RawSearchParams): AssetFilters {
       : DEFAULTS.sort,
     page: toPositiveInt(sp.page, 1),
   }
+}
+
+/**
+ * True when any of the actual filter facets is set — deliberately not `sort`
+ * and not `page`, which are always populated and would make this constantly
+ * true.
+ *
+ * Lives beside the shape it reads rather than beside either of the two things
+ * that ask. `FilterSidebar` asks in order to offer a "clear filters" control,
+ * and `/listings` asks in order to choose between the "no results for these
+ * filters" empty state and the "nothing published yet" one — two questions
+ * with one answer, which was previously written out twice, byte-identically,
+ * with the page's copy carrying a comment saying it matched the sidebar's.
+ * A field added to `AssetFilters` now has exactly one place to be accounted
+ * for.
+ */
+export function hasActiveAssetFilters(filters: AssetFilters): boolean {
+  return (
+    filters.q !== '' ||
+    filters.categories.length > 0 ||
+    filters.countries.length > 0 ||
+    filters.businessStatuses.length > 0 ||
+    filters.priceMinCents !== null ||
+    filters.priceMaxCents !== null
+  )
 }
 
 export function assetFiltersToSearchParams(

@@ -26,8 +26,13 @@ import type { Viewer } from '@/lib/authz'
  * the per-thread count on `/inbox`, the thread page's own count, and
  * `markRead` (`@/server/actions/messages`), whose `where` must select
  * exactly the rows the counts were counting or the dot would not clear.
- * Five copies of one definition is five chances for them to drift, so it is
- * extracted here and imported by all five.
+ * Five copies of one definition is five chances for them to drift, so the
+ * rule is written once, here, and every one of those five reads it from this
+ * module. Four import this `where` fragment directly; the thread page
+ * (`getConversation`, `@/server/queries/conversations`) has the messages in
+ * hand rather than a query to build, so it calls `isUnreadForViewer` below —
+ * the same predicate in row form, defined immediately underneath so the two
+ * cannot answer differently.
  */
 export function unreadForViewerWhere(viewerUserId: string): Prisma.MessageWhereInput {
   return { readAt: null, senderUserId: { not: viewerUserId } }

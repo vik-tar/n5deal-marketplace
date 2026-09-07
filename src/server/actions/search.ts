@@ -7,11 +7,23 @@ import { parseSearchQuery } from '@/lib/ai/search'
 
 /**
  * Thin `'use server'` wrapper so the smart-search client component can call
- * the AI layer without bundling the Anthropic SDK. `locale` is accepted for
- * parity with this app's other server actions (`signInAction`,
- * `signOutAction`), which all take the caller's locale as their first
- * non-payload argument; `parseSearchQuery`'s system prompt is not yet
- * locale-aware, so it is not passed through today.
+ * the AI layer without bundling the Anthropic SDK.
+ *
+ * `locale` is accepted and deliberately unused (`void locale` below):
+ * `parseSearchQuery`'s system prompt is not locale-aware, so there is nothing
+ * to pass it to yet, and the parameter is here so that making the prompt
+ * locale-aware is a change inside this file rather than a change to every
+ * caller. It is the **second** positional argument, which matches neither of
+ * this app's two locale conventions and is not meant to: `signInAction` and
+ * `signOutAction` (`@/server/actions/auth`) take a bare locale **first**
+ * because they are `.bind`-ed as form actions (`signInAction.bind(null,
+ * locale)`), where a bound argument necessarily precedes the `FormData` React
+ * appends, and every other action takes `locale` as a field of a typed input
+ * object (`RequestAccessInput`, `StartConversationInput`, `ModerateUserInput`
+ * and the rest). This one takes a bare `string` query rather than an input
+ * object, so it has no field to put it in — and unlike those actions it never
+ * redirects, so the locale is not load-bearing here and nothing depends on
+ * where it sits.
  *
  * **Requires an active signed-in viewer, even though the catalog it serves
  * is public.** The catalog being public is an argument about listings, not

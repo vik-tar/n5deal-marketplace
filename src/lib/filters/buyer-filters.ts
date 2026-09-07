@@ -1,4 +1,5 @@
 import type { AssetCategory, BuyerType } from '@/generated/prisma/client'
+import { ASSET_CATEGORIES } from './asset-filters'
 import {
   keepKnown,
   toCents,
@@ -14,14 +15,6 @@ export const BUYER_TYPES = [
   'FAMILY_OFFICE',
   'INDIVIDUAL',
 ] as const satisfies readonly BuyerType[]
-
-export const MANDATE_CATEGORIES = [
-  'BANK',
-  'FINTECH',
-  'PAYMENT',
-  'EMI',
-  'CRYPTO',
-] as const satisfies readonly AssetCategory[]
 
 /**
  * `Mandate.licenceTypes` and `Asset.licenceType` are both plain strings in
@@ -46,8 +39,6 @@ export const MANDATE_LICENCE_TYPES = [
   'Banking',
 ] as const
 
-export type MandateLicenceType = (typeof MANDATE_LICENCE_TYPES)[number]
-
 export interface BuyerFilters {
   q: string
   buyerTypes: BuyerType[]
@@ -63,7 +54,7 @@ export function parseBuyerFilters(sp: RawSearchParams): BuyerFilters {
   return {
     q: (rawQ ?? '').trim().slice(0, 200),
     buyerTypes: keepKnown(toList(sp.buyerTypes), BUYER_TYPES),
-    categories: keepKnown(toList(sp.categories), MANDATE_CATEGORIES),
+    categories: keepKnown(toList(sp.categories), ASSET_CATEGORIES),
     countries: toCountryCodes(sp.countries),
     ticketMinCents: toCents(sp.ticketMin),
     page: toPositiveInt(sp.page, 1),
@@ -88,6 +79,22 @@ export function parseForAssetId(sp: RawSearchParams): string | undefined {
   const raw = Array.isArray(sp.forAsset) ? sp.forAsset[0] : sp.forAsset
   const trimmed = raw?.trim() ?? ''
   return trimmed === '' ? undefined : trimmed
+}
+
+/**
+ * The buyer-side twin of `hasActiveAssetFilters` (`@/lib/filters/asset-filters`),
+ * kept here for the same reason and answering the same two questions:
+ * `BuyerFilterSidebar`'s "clear filters" control and `/buyers`'s choice of
+ * empty state. `page` is excluded; there is no `sort` on this side.
+ */
+export function hasActiveBuyerFilters(filters: BuyerFilters): boolean {
+  return (
+    filters.q !== '' ||
+    filters.buyerTypes.length > 0 ||
+    filters.categories.length > 0 ||
+    filters.countries.length > 0 ||
+    filters.ticketMinCents !== null
+  )
 }
 
 export function buyerFiltersToSearchParams(

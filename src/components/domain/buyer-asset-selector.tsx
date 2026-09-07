@@ -23,9 +23,12 @@ export interface ScorableAsset {
  * (ruling 7). Choosing the placeholder option clears `forAsset` and returns
  * to the unscored, newest-first view.
  *
- * Only ever rendered for a viewer with published listings to offer — the
- * page passes an empty `assets` array (renders the "no listings yet" notice
- * instead) for a manager, who has none.
+ * Only ever rendered for a viewer who holds a `SellerProfile`: `/buyers`
+ * mounts this at all only when `viewer?.sellerProfileId` is set, so a manager
+ * browsing the directory gets neither the selector nor its notice. The empty
+ * `assets` branch below (the "no listings yet" notice) is therefore reachable
+ * for exactly one viewer — a seller who has nothing published to score
+ * against yet.
  */
 export function BuyerAssetSelector({
   assets,

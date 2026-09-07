@@ -7,7 +7,7 @@ import type {
   MatchResult,
 } from './types'
 
-export const MATCH_WEIGHTS: Record<MatchReasonCode, number> = {
+const MATCH_WEIGHTS: Record<MatchReasonCode, number> = {
   CATEGORY: 30,
   COUNTRY: 20,
   PRICE: 25,
@@ -16,7 +16,7 @@ export const MATCH_WEIGHTS: Record<MatchReasonCode, number> = {
 }
 
 /** How far outside the ticket band still earns partial credit. */
-export const PRICE_TOLERANCE = 0.2
+const PRICE_TOLERANCE = 0.2
 
 const STRONG_THRESHOLD = 70
 const GOOD_THRESHOLD = 45

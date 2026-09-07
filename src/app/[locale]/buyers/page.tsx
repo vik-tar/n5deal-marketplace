@@ -14,30 +14,14 @@ import { formatCents } from '@/lib/money'
 import { codeToFlag } from '@/lib/geo/flag'
 import { FOCUS_RING, cn } from '@/lib/cn'
 import { PAGE_SIZE, type RawSearchParams } from '@/lib/filters/shared'
+import type { Translator } from '@/i18n/translator'
 import {
   buyerFiltersToSearchParams,
+  hasActiveBuyerFilters,
   parseBuyerFilters,
   parseForAssetId,
   type BuyerFilters,
 } from '@/lib/filters/buyer-filters'
-
-/**
- * Loose on purpose, matching every other `t()` alias in this codebase
- * (`listings/page.tsx`, `mandate-form.tsx`): this app does not augment
- * next-intl's `Messages` type.
- */
-type Translator = (key: string, values?: Record<string, string | number>) => string
-
-/** Same "is any real filter set" check `BuyerFilterSidebar` uses, for the empty state. */
-function hasActiveFilters(filters: BuyerFilters): boolean {
-  return (
-    filters.q !== '' ||
-    filters.buyerTypes.length > 0 ||
-    filters.categories.length > 0 ||
-    filters.countries.length > 0 ||
-    filters.ticketMinCents !== null
-  )
-}
 
 /**
  * The seller's half of the marketplace (Task 17): browse, filter and search
@@ -121,7 +105,7 @@ export default async function BuyersPage({
             />
 
             {items.length === 0 ? (
-              <EmptyState t={t} kind="noResults" hasFilters={hasActiveFilters(filters)} />
+              <EmptyState t={t} kind="noResults" hasFilters={hasActiveBuyerFilters(filters)} />
             ) : (
               <>
                 <ul className="mt-4 flex flex-col gap-4">

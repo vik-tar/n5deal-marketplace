@@ -11,6 +11,7 @@ import { ASSET_CATEGORIES, BUSINESS_STATUSES } from '@/lib/filters/asset-filters
 import { BUYER_TYPES, MANDATE_LICENCE_TYPES } from '@/lib/filters/buyer-filters'
 import { parseEuros } from '@/lib/money'
 import {
+  MAX_BIO_LENGTH,
   MAX_MANDATE_NOTES,
   MAX_TIMELINE_MONTHS,
   MIN_TIMELINE_MONTHS,
@@ -19,6 +20,7 @@ import {
   type BuyerProfileInput,
   type MandateInput,
 } from '@/lib/validation/profile'
+import { COUNTRY_CODE_LENGTH } from '@/lib/validation/primitives'
 import {
   saveBuyerProfile,
   saveMandate,
@@ -328,7 +330,7 @@ export function MandateForm({
                   id="profileCountry"
                   name="country"
                   type="text"
-                  maxLength={2}
+                  maxLength={COUNTRY_CODE_LENGTH}
                   defaultValue={profile.country}
                   placeholder={t('profileSection.fields.countryPlaceholder')}
                   className="field-control uppercase"
@@ -345,7 +347,7 @@ export function MandateForm({
                 id="bio"
                 name="bio"
                 rows={3}
-                maxLength={1000}
+                maxLength={MAX_BIO_LENGTH}
                 defaultValue={profile.bio}
                 placeholder={t('profileSection.fields.bioPlaceholder')}
                 className="field-control"
@@ -484,7 +486,7 @@ export function MandateForm({
                       addCountry()
                     }
                   }}
-                  maxLength={2}
+                  maxLength={COUNTRY_CODE_LENGTH}
                   placeholder={t('mandate.fields.countryAddPlaceholder')}
                   aria-label={t('mandate.fields.countryAddPlaceholder')}
                   className="field-control w-24 uppercase"

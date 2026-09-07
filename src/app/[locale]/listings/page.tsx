@@ -13,32 +13,14 @@ import { codeToFlag } from '@/lib/geo/flag'
 import { formatCents } from '@/lib/money'
 import { FOCUS_RING, cn } from '@/lib/cn'
 import { PAGE_SIZE, type RawSearchParams } from '@/lib/filters/shared'
+import type { Translator } from '@/i18n/translator'
 import {
   ASSET_SORTS,
   assetFiltersToSearchParams,
+  hasActiveAssetFilters,
   parseAssetFilters,
   type AssetFilters,
 } from '@/lib/filters/asset-filters'
-
-/**
- * Loose on purpose: this app does not augment next-intl's `Messages` type, so
- * every `t()` call across the codebase already takes a plain string key. This
- * alias just gives the two render helpers below a name for "the `assets`
- * namespace translator `getTranslations('assets')` resolves to".
- */
-type Translator = (key: string, values?: Record<string, string | number>) => string
-
-/** Same "is any real filter set" check `FilterSidebar` uses, for the empty state. */
-function hasActiveFilters(filters: AssetFilters): boolean {
-  return (
-    filters.q !== '' ||
-    filters.categories.length > 0 ||
-    filters.countries.length > 0 ||
-    filters.businessStatuses.length > 0 ||
-    filters.priceMinCents !== null ||
-    filters.priceMaxCents !== null
-  )
-}
 
 export default async function ListingsPage({
   params,
@@ -92,7 +74,7 @@ export default async function ListingsPage({
           </div>
 
           {items.length === 0 ? (
-            <EmptyState t={t} hasFilters={hasActiveFilters(filters)} />
+            <EmptyState t={t} hasFilters={hasActiveAssetFilters(filters)} />
           ) : (
             <>
               <ul className="mt-4 flex flex-col gap-4">

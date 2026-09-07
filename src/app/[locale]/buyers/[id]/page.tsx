@@ -135,9 +135,15 @@ export default async function BuyerDetailPage({
               )}
             </p>
             <p className="text-xs text-ink-muted">
+              {/* `buyers.*`, not `buyerDetail.*`: the card and this page render
+                  the same sentence in the same `text-xs text-ink-muted` line
+                  one click apart, and used to do it from two key pairs whose
+                  unconstrained halves were already byte-identical in both
+                  locales. One string now, in the namespace both surfaces
+                  already load. */}
               {detail.mandate.specificity === 0
-                ? t('specificityUnconstrained')
-                : t('specificity', { count: detail.mandate.specificity })}
+                ? tBuyers('specificityUnconstrained')
+                : tBuyers('specificity', { count: detail.mandate.specificity })}
             </p>
           </div>
 

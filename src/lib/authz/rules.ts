@@ -2,7 +2,7 @@ import type { AssetStatus } from '@/generated/prisma/client'
 import type { AssetRef, GrantState, MaybeViewer, Viewer } from './types'
 
 /** Statuses whose listings are reachable by a public URL. */
-export const PUBLIC_ASSET_STATUSES: readonly AssetStatus[] = ['PUBLISHED', 'SOLD']
+const PUBLIC_ASSET_STATUSES: readonly AssetStatus[] = ['PUBLISHED', 'SOLD']
 
 export function isActive(viewer: MaybeViewer): viewer is Viewer {
   return viewer !== null && viewer.status === 'ACTIVE'
@@ -32,9 +32,25 @@ export function isActive(viewer: MaybeViewer): viewer is Viewer {
  * bars them too, under a different rule. `viewerGate` below is the predicate
  * that makes the whole decision, splitting exactly those two cases into
  * `REQUIRE_LOGIN` and `SUSPENDED`, and it — not this — is what `requireViewer`
- * (`@/server/session`) actually dispatches on. This one states the status half
- * of the rule on its own, for a caller that has already established the viewer
- * is signed in.
+ * (`@/server/session`) actually dispatches on.
+ *
+ * **`viewerGate` calls this, and that is deliberate.** Until the whole-branch
+ * review it did not: three production files named this predicate in prose to
+ * justify their behaviour, four tests exercised it, and nothing in the app
+ * called it — documentation with an `export` on it. That is the exact shape
+ * this codebase deleted `listAssets`' per-row `canViewAsset` for (Task 12,
+ * cited again at `HERO_CTA_ORDER`, `@/lib/nav`): a rule that cannot change an
+ * outcome reads to the next maintainer as a rule that is doing something. The
+ * choice was to delete it or to give it the enforcement role its own doc
+ * already claimed. It got the role, because the second sentence of this
+ * comment is a real rule the product has to keep and `viewerGate`'s
+ * `status !== 'ACTIVE'` was that rule written out a second time — so the two
+ * could drift, and one of them was the one every page actually obeys.
+ *
+ * It is *not* callable in place of the whole gate, which is why the header
+ * does not use it: `site-header.tsx` needs "signed in **and** active", and
+ * this returns `true` for `null`. That question is `isActive` above, and the
+ * header calls that.
  */
 export function statusAllowsAuthenticatedSurfaces(viewer: MaybeViewer): boolean {
   return viewer === null || viewer.status === 'ACTIVE'
@@ -56,7 +72,7 @@ export type ViewerGate = 'ALLOW' | 'REQUIRE_LOGIN' | 'SUSPENDED'
  */
 export function viewerGate(viewer: MaybeViewer): ViewerGate {
   if (viewer === null) return 'REQUIRE_LOGIN'
-  if (viewer.status !== 'ACTIVE') return 'SUSPENDED'
+  if (!statusAllowsAuthenticatedSurfaces(viewer)) return 'SUSPENDED'
   return 'ALLOW'
 }
 

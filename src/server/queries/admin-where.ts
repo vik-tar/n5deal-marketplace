@@ -101,10 +101,16 @@ export function buildParticipantWhere(filters: AdminFilters): Prisma.UserWhereIn
  * The listings table's filter — the status checkboxes and nothing else.
  *
  * Also floor-free, for the same reason and with the same guard behind it:
- * this is the only query in the application that returns a `DRAFT` listing,
- * a `REJECTED` one, or a listing belonging to a suspended seller. An empty
- * `assetStatuses` means every status, so the default view is the whole
- * marketplace.
+ * this is the only query in the application with **no visibility floor at
+ * all** (the phrasing `@/server/queries/admin` uses, and the accurate one).
+ * Other queries do return non-public rows — `getSellerOverview` reads a
+ * seller's own catalogue with no status filter and the dashboard renders
+ * `rejectionReason` off those rows, and `getAssetDetail` returns a `DRAFT` to
+ * its owner or to a manager — but each of those is floored to a relationship:
+ * your own listings, or a listing you may see. This one is floored to
+ * nothing, which is why the authorization guard in front of it carries the
+ * whole weight. An empty `assetStatuses` means every status, so the default
+ * view is the whole marketplace.
  */
 export function buildAdminAssetWhere(filters: AdminFilters): Prisma.AssetWhereInput {
   if (filters.assetStatuses.length === 0) return {}
@@ -262,13 +268,25 @@ export type ListingModerationAction = 'APPROVE' | 'REJECT' | 'SUSPEND'
  * A legal status transition: which statuses it may be applied *from*, and the
  * status it produces.
  *
- * `from` is a list rather than a single status because it is handed straight
- * to the conditional `updateMany` in `@/server/actions/moderation` — the
- * write is conditioned on the exact set of statuses validated here, not just
- * on the row's id, so a row a concurrent action already moved matches zero
- * rows instead of being silently overwritten. That is the pattern
- * `decideAccess` (`@/server/actions/access-requests`) established and every
- * mutation in this codebase has followed since.
+ * `from` is a list rather than a single status because more than one source
+ * status can legally reach the same destination (`REINSTATE` and `APPROVE`
+ * below both do). It is validated here and then re-checked by a conditional
+ * `updateMany` in `@/server/actions/moderation`, so that a row a concurrent
+ * action already moved matches zero rows instead of being silently
+ * overwritten — the pattern `decideAccess` (`@/server/actions/access-requests`)
+ * established and every mutation in this codebase has followed since.
+ *
+ * **The two moderation writes condition on different things, deliberately.**
+ * `applyUserModeration` hands this whole array to the write
+ * (`status: { in: [...transition.from] }`), because a status change is its
+ * entire payload and any member matching is a correct outcome.
+ * `moderateListing` does *not*: it pins `status: asset.status`, the single
+ * status it actually read, because its payload carries a `publishedAt`
+ * derived from that row. Passing the array there was a real bug, found under
+ * a `FOR UPDATE` lock and fixed — see `LISTING_TRANSITIONS` below and that
+ * action's own module doc for the interleaving. The rule to carry forward:
+ * **a multi-member `from` list is only safe to hand to a write whose payload
+ * does not depend on which member matched.**
  */
 export interface StatusTransition<S extends string> {
   from: readonly S[]
@@ -309,17 +327,30 @@ export const USER_TRANSITIONS: Record<UserModerationAction, StatusTransition<Use
  * the one transition here the brief does not spell out.
  *
  * **`SUSPENDED` → `PUBLISHED` exists for the same reason `REINSTATE` accepts
- * `REMOVED` above, and the symmetry is the point.** Nothing else in the
- * application can move a suspended listing: `REJECT` does not accept it,
+ * `REMOVED` above, and the symmetry is the point.** This is the only way a
+ * *manager* can move a suspended listing: `REJECT` does not accept it,
  * `submitForReview` (`@/server/actions/assets`) accepts `DRAFT` and
- * `REJECTED` only, `saveDraft` leaves every non-`PUBLISHED` status exactly
- * where it found it, and there is no delete-listing path at all. Without this
- * entry the console's own suspend button would be a one-way door — a listing
- * a manager can take down from a screen and return only with raw SQL — and it
- * would be this table's own doing, since before the console existed no writer
- * in the codebase could produce `SUSPENDED` in the first place. That is
- * exactly the irreversibility the argument for a reversible `REMOVE` above
- * rejects, and a listing deserves it no less than an account.
+ * `REJECTED` only, and there is no delete-listing path at all. Without this
+ * entry the console's own suspend button would be a one-way door for the
+ * person holding the console — a listing a manager can take down from a
+ * screen and return only with raw SQL — and it would be this table's own
+ * doing, since before the console existed no writer in the codebase could
+ * produce `SUSPENDED` in the first place. That is exactly the
+ * irreversibility the argument for a reversible `REMOVE` above rejects, and a
+ * listing deserves it no less than an account.
+ *
+ * There is a second exit, on the seller's side, and it is not this table's:
+ * `saveDraft` (`@/server/actions/assets`) demotes a `'PUBLISHED'` **or a
+ * `'SUSPENDED'`** listing into `PENDING_REVIEW` when its owner edits it, so a
+ * suspended seller-owned listing can also leave `SUSPENDED` by being edited
+ * and re-queued for review. (An earlier version of this paragraph asserted
+ * that `saveDraft` "leaves every non-`PUBLISHED` status exactly where it
+ * found it" and that `APPROVE` was therefore the only exit at all. That was
+ * true when it was written and stopped being true in Task 20's second fix
+ * round, which added the `SUSPENDED` arm precisely so an edit cannot silently
+ * republish a listing a manager took down. The two exits do different things
+ * and both are wanted: `APPROVE` returns the listing to the catalog
+ * unchanged, an edit returns it to the queue.)
  *
  * It needs no schema change. The restoration logs as `APPROVE_LISTING` —
  * `ModAction` has had that member all along and the log renders it as
@@ -345,9 +376,8 @@ export const USER_TRANSITIONS: Record<UserModerationAction, StatusTransition<Use
  * concurrent publish-then-suspend matched on `SUSPENDED` and re-stamped a
  * `publishedAt` that was already set. The action now pins the exact status it
  * read, and its module doc carries the reproduction. Recorded here because
- * this table is where the next widening will be written: a `from` list with
- * more than one member is only safe for a write whose payload does not depend
- * on which member matched.
+ * this table is where the next widening will be written; the general rule the
+ * incident produced is stated once, on `StatusTransition` above.
  */
 export const LISTING_TRANSITIONS: Record<
   ListingModerationAction,

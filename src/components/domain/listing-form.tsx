@@ -11,7 +11,18 @@ import { StatusPill } from '@/components/domain/status-pill'
 import { TeaserReviewPanel } from '@/components/domain/teaser-review-panel'
 import { ASSET_CATEGORIES, BUSINESS_STATUSES } from '@/lib/filters/asset-filters'
 import { parseEuros } from '@/lib/money'
-import { assetInputSchema, MAX_INCLUDED_ITEMS, type AssetInput } from '@/lib/validation/asset'
+import {
+  assetInputSchema,
+  maxYearOfIssue,
+  MAX_CONFIDENTIAL_NOTES,
+  MAX_INCLUDED_ITEM_LENGTH,
+  MAX_INCLUDED_ITEMS,
+  MIN_YEAR_OF_ISSUE,
+  TEASER_DESCRIPTION_MAX,
+  TEASER_TITLE_MAX,
+  type AssetInput,
+} from '@/lib/validation/asset'
+import { COUNTRY_CODE_LENGTH } from '@/lib/validation/primitives'
 import { saveDraft, submitForReview, type SaveDraftResult } from '@/server/actions/assets'
 import type { ActionError } from '@/server/actions/types'
 
@@ -341,7 +352,7 @@ export function ListingForm({
                 id="country"
                 name="country"
                 type="text"
-                maxLength={2}
+                maxLength={COUNTRY_CODE_LENGTH}
                 defaultValue={initial?.country ?? ''}
                 placeholder={t('fields.countryPlaceholder')}
                 className="field-control uppercase"
@@ -386,8 +397,8 @@ export function ListingForm({
                 id="yearOfIssue"
                 name="yearOfIssue"
                 type="number"
-                min={1900}
-                max={new Date().getFullYear()}
+                min={MIN_YEAR_OF_ISSUE}
+                max={maxYearOfIssue()}
                 step="1"
                 inputMode="numeric"
                 defaultValue={initial?.yearOfIssue ?? ''}
@@ -401,7 +412,7 @@ export function ListingForm({
               id="teaserTitle"
               name="teaserTitle"
               type="text"
-              maxLength={120}
+              maxLength={TEASER_TITLE_MAX}
               defaultValue={initial?.teaserTitle ?? ''}
               className="field-control"
             />
@@ -417,7 +428,7 @@ export function ListingForm({
               id="teaserDescription"
               name="teaserDescription"
               rows={5}
-              maxLength={2000}
+              maxLength={TEASER_DESCRIPTION_MAX}
               defaultValue={initial?.teaserDescription ?? ''}
               className="field-control"
             />
@@ -431,7 +442,7 @@ export function ListingForm({
                 <input
                   type="text"
                   value={item}
-                  maxLength={80}
+                  maxLength={MAX_INCLUDED_ITEM_LENGTH}
                   onChange={(event) => updateIncluded(index, event.target.value)}
                   placeholder={t('fields.includedPlaceholder')}
                   aria-label={t('fields.includedItemLabel', { index: index + 1 })}
@@ -541,7 +552,7 @@ export function ListingForm({
               id="confidentialNotes"
               name="confidentialNotes"
               rows={4}
-              maxLength={4000}
+              maxLength={MAX_CONFIDENTIAL_NOTES}
               defaultValue={initial?.confidentialNotes ?? ''}
               className="field-control"
             />

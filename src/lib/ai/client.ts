@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import type { z } from 'zod'
 
-export const AI_MODEL = 'claude-opus-5'
+const AI_MODEL = 'claude-opus-5'
 
 let client: Anthropic | null = null
 

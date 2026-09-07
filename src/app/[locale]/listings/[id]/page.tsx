@@ -10,13 +10,7 @@ import { getAssetDetail, type SellerSummary } from '@/server/queries/assets'
 import { getViewer } from '@/server/session'
 import { codeToFlag } from '@/lib/geo/flag'
 import { formatCents } from '@/lib/money'
-
-/**
- * Loose on purpose, matching `src/app/[locale]/listings/page.tsx`: this app
- * does not augment next-intl's `Messages` type, so every `t()` call already
- * takes a plain string key.
- */
-type Translator = (key: string, values?: Record<string, string | number>) => string
+import type { Translator } from '@/i18n/translator'
 
 /**
  * "Contact seller" sits with the seller strip, in the listing's own card,

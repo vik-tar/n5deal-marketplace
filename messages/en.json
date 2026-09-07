@@ -3,15 +3,14 @@
     "appName": "N5Deal",
     "signIn": "Sign in",
     "signOut": "Sign out",
-    "cancel": "Cancel",
-    "save": "Save"
+    "cancel": "Cancel"
   },
   "nav": {
     "listings": "All listings",
     "buyers": "Buyers",
     "dashboard": "Dashboard",
     "inbox": "Inbox",
-    "admin": "Admin",
+    "admin": "Manager console",
     "newListing": "New listing",
     "profile": "Profile"
   },
@@ -183,8 +182,6 @@
       "categoriesLabel": "Categories",
       "countriesLabel": "Jurisdictions",
       "licenceTypesLabel": "Licence types",
-      "specificity": "Constrains {count} of 5 mandate criteria",
-      "specificityUnconstrained": "This mandate constrains nothing — every listing would score the same",
       "ticketLabel": "Ticket size",
       "ticketAny": "Any ticket size",
       "ticketFrom": "From {value}",
@@ -207,7 +204,9 @@
         "body": "Try widening the ticket size, clearing a filter, or removing a jurisdiction.",
         "clearAction": "Clear all filters"
       }
-    }
+    },
+    "specificity": "This mandate constrains {count} of 5 criteria",
+    "specificityUnconstrained": "This mandate constrains nothing — every listing would score the same"
   },
   "buyerDetail": {
     "verifiedBadge": "Verified",
@@ -215,8 +214,6 @@
     "noBio": "This buyer has not added a description yet.",
     "mandateTitle": "Investment mandate",
     "ticketLabel": "Ticket size",
-    "specificity": "This mandate constrains {count} of 5 criteria",
-    "specificityUnconstrained": "This mandate constrains nothing — every listing would score the same",
     "notScored": "Select one of your published listings on the buyer directory to see how this buyer scores against it."
   },
   "contact": {
@@ -234,7 +231,7 @@
     "error": {
       "FORBIDDEN": "You cannot start a conversation with this account.",
       "NOT_FOUND": "This account could not be found.",
-      "ALREADY_REQUESTED": "A conversation with this account already exists.",
+      "ALREADY_REQUESTED": "That action is not valid here.",
       "INVALID": "That action is not valid."
     }
   },
@@ -268,7 +265,7 @@
       "error": {
         "FORBIDDEN": "This message could not be sent.",
         "NOT_FOUND": "This conversation could not be found.",
-        "ALREADY_REQUESTED": "This message has already been sent.",
+        "ALREADY_REQUESTED": "That action is not valid here.",
         "INVALID": "Write something before sending."
       }
     }
@@ -442,7 +439,7 @@
     "error": {
       "FORBIDDEN": "This request can no longer be acted on.",
       "NOT_FOUND": "This request could not be found.",
-      "ALREADY_REQUESTED": "This request has already been decided.",
+      "ALREADY_REQUESTED": "That action is not valid here.",
       "INVALID": "That action is not valid."
     }
   },
@@ -626,7 +623,7 @@
     "error": {
       "FORBIDDEN": "This is no longer possible — the record has changed since this page loaded.",
       "NOT_FOUND": "That record no longer exists.",
-      "ALREADY_REQUESTED": "That decision has already been taken.",
+      "ALREADY_REQUESTED": "That action is not valid here.",
       "INVALID": "Write a longer reason before confirming."
     },
     "participants": {

@@ -10,6 +10,7 @@ import { codeToFlag } from '@/lib/geo/flag'
 import { FOCUS_RING, cn } from '@/lib/cn'
 import type { RecommendedAssetsResult } from '@/server/queries/assets'
 import type { BuyerOverview, BuyerRequestGroup } from '@/server/queries/buyers'
+import { dateFormatter } from '@/lib/datetime'
 
 /**
  * The buyer's half of `/dashboard`. A server component with no fetching of
@@ -236,7 +237,7 @@ function Recommendations({
 /** The buyer's own access requests, newest first inside each status group. */
 function RequestGroups({ groups, locale }: { groups: BuyerRequestGroup[]; locale: string }) {
   const t = useTranslations('dashboard')
-  const dateFormat = new Intl.DateTimeFormat(locale, { dateStyle: 'medium' })
+  const dateFormat = dateFormatter(locale)
 
   return (
     <section className="flex flex-col gap-3">

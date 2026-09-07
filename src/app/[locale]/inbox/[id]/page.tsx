@@ -7,6 +7,7 @@ import { MarkReadOnView } from '@/components/domain/mark-read-on-view'
 import { requireViewer } from '@/server/session'
 import { getConversation, type ThreadMessage } from '@/server/queries/conversations'
 import { FOCUS_RING, cn } from '@/lib/cn'
+import { formatDateTime } from '@/lib/datetime'
 
 /**
  * One thread, oldest message first, with the composer under it.
@@ -143,10 +144,7 @@ function MessageBubble({
   youLabel: string
   locale: string
 }) {
-  const timestamp = new Intl.DateTimeFormat(locale, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(message.createdAt)
+  const timestamp = formatDateTime(message.createdAt, locale)
 
   return (
     <li

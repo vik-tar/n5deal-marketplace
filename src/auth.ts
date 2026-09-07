@@ -57,13 +57,31 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    // Explicitly typed rather than left to inference: re-verified on 2026-09-04
-    // (fix round 1) by stripping these annotations and running a clean
-    // `pnpm typecheck` (tsconfig.tsbuildinfo removed first, so nothing was
-    // cached) — the exact `TS2322: Type 'unknown' is not assignable to type
-    // '...'` errors returned on these five lines, unchanged from the original
-    // finding. Keeping the annotations; see task-11-report.md for the full
-    // repro output.
+    // Explicitly typed rather than left to inference. **Defensive, not a
+    // proven TypeScript limitation** — the distinction matters, because an
+    // earlier version of this comment claimed the second and was wrong.
+    //
+    // The claim was that stripping these two parameter annotations reproduces
+    // `TS2322: Type 'unknown' is not assignable to ...` on the five `token.*`
+    // and `session.user.*` assignments below. On this machine it does not.
+    // Measured on 2026-09-07 with the annotations genuinely removed and every
+    // incremental cache deleted first (`tsconfig.tsbuildinfo`,
+    // `node_modules/.cache`, and the whole `.next` directory — `tsconfig`
+    // sets `incremental: true`, so this matters): `tsc --noEmit` exits 0 with
+    // zero output, cold and warm, and `next build` — whose own "Running
+    // TypeScript" pass is a second, independent checker — also exits 0.
+    //
+    // The implementer who wrote these lines reported the errors twice, with
+    // Next's build checker agreeing; a reviewer, the controller (three runs)
+    // and this measurement all fail to reproduce them. The annotations stay
+    // anyway — a parked ruling, not an open question — because they cost
+    // nothing where they are unnecessary and are load-bearing where they are
+    // not, and because they reference the augmented `JWT`/`Session`/`User`
+    // interfaces directly rather than restating their fields, so there is no
+    // shape here that can drift out of step with those declarations. Deleting
+    // code that may be required on someone else's machine to win an aesthetic
+    // point is the wrong trade. What is not accepted is calling them
+    // *required*: on the machines that have been measured, they are not.
     jwt({ token, user }: { token: JWT; user?: User }) {
       if (user) {
         token.id = user.id
