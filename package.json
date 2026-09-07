@@ -12,6 +12,7 @@
     "test:e2e": "playwright test",
     "test:all": "pnpm test && pnpm test:e2e",
     "typecheck": "tsc --noEmit",
+    "postinstall": "prisma generate",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:reset": "prisma migrate reset --force",
