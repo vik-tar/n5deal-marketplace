@@ -1217,6 +1217,20 @@ Task 23: three more stale things found while writing up, left for the whole-bran
   claiming MatchReason "carries no comparanda" is stale, since the shipped type carries weight and
   earned — strike it rather than act on it; and `pnpm db:reset` is still in package.json and is
   exactly the command Prisma refuses for an agent, which is why the e2e helper avoids it.
+
+CORRECTION (whole-branch review, 2026-09-07) — the middle claim above is WRONG and the controller
+  wrote it into this ledger without checking. `git show 7541c86:src/lib/matching/types.ts` proves
+  MatchReason has carried { code, kind, weight, earned } since Task 5's FIRST commit; the type never
+  changed. The original note at :266 quotes that exact shape and says it lacks *comparanda* — the
+  wanted-versus-actual values, "wanted EMI, this is Payment" — which is a different thing entirely.
+  Task 23's report misread the note's own parenthetical as new evidence, and the controller relayed
+  it unverified. DO NOT STRIKE :266. It is live, and it got WORSE: the note deferred on the grounds
+  that "Tasks 17/18 hold both criteria objects server-side, so this is renderable there today", and
+  Task 17 then made MatchBadge a CLIENT component receiving only MatchResult, which closed that
+  escape hatch at all four call sites. Impact stays product-polish — the disclosure says "Category —
+  Does not match" instead of naming what was wanted — but the reason it was deferred no longer
+  holds. The lesson generalises past this entry: a triage that strikes a finding is a write to the
+  record, and deserves the same verification as a fix.
 Task 23: Step 2 (deploy) NOT done and correctly not attempted — it needs Neon and Vercel accounts
   reachable through a browser, which only the user can create. Instructions written, deployed-URL
   placeholder left, no account created, no remote, no push.
