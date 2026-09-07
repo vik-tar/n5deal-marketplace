@@ -1,4 +1,4 @@
-import type { AssetStatus } from '@/generated/prisma/client'
+import type { AssetStatus, UserStatus } from '@/generated/prisma/client'
 import type { AssetRef, GrantState, MaybeViewer, Viewer } from './types'
 
 /** Statuses whose listings are reachable by a public URL. */
@@ -253,7 +253,13 @@ export function canRevokeAccess(
  */
 export function canMessage(
   viewer: MaybeViewer,
-  counterparty: { userId: string; status: 'ACTIVE' | 'SUSPENDED' | 'REMOVED' },
+  // `UserStatus` from the generated client, not a hand-written union of the
+  // same three members: the two were byte-identical, which is exactly how a
+  // schema change adding or renaming a status would slip past `tsc` here
+  // while every other reader of that column moved. `import type` is erased at
+  // compile time, so this module stays as free of the Prisma runtime as
+  // `AssetStatus` above already keeps it.
+  counterparty: { userId: string; status: UserStatus },
 ): boolean {
   if (!isActive(viewer)) return false
   if (viewer.role === 'MANAGER') return false

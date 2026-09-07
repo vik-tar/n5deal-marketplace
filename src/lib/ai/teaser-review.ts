@@ -41,22 +41,74 @@ function normalise(text: string): string {
 }
 
 /**
- * Drops any leak whose excerpt is not actually present in the teaser.
+ * The shortest excerpt that can stand as evidence on its own.
+ *
+ * Below four characters an excerpt is a fragment, not a quotation: "a", "of"
+ * or "42" occur in almost any teaser by chance, so a substring test on one
+ * proves nothing about what the model actually found. The model is told to
+ * quote the offending text, and no real leak — a legal name, a figure, an
+ * identifying detail — is three characters long.
+ */
+const MIN_EXCERPT_LENGTH = 4
+
+/** Letters and digits in any script: the teaser may be English or Russian. */
+const WORD_CHARACTER = /[\p{L}\p{N}]/u
+
+/**
+ * Whether `haystack` contains `needle` as a quotation rather than as the
+ * middle of a longer word — "EMI" must not be verified against "semiannual".
+ *
+ * The boundary is only required on an end that is itself alphanumeric, so an
+ * excerpt that legitimately opens or closes on punctuation ("€4.2m," or
+ * "(Acme Ltd)") still matches. Both strings arrive normalised, so this
+ * compares collapsed, lower-cased text.
+ */
+function quotedAtWordBoundary(haystack: string, needle: string): boolean {
+  const opensOnWord = WORD_CHARACTER.test(needle.slice(0, 1))
+  const closesOnWord = WORD_CHARACTER.test(needle.slice(-1))
+  for (let at = haystack.indexOf(needle); at !== -1; at = haystack.indexOf(needle, at + 1)) {
+    const before = haystack.slice(at - 1, at)
+    const after = haystack.slice(at + needle.length, at + needle.length + 1)
+    const startsClean = !opensOnWord || at === 0 || !WORD_CHARACTER.test(before)
+    const endsClean = !closesOnWord || after === '' || !WORD_CHARACTER.test(after)
+    if (startsClean && endsClean) return true
+  }
+  return false
+}
+
+/**
+ * Drops any leak whose excerpt is not actually quoted in the teaser.
  *
  * The prompt tells the model to report nothing it cannot quote, but a prompt is
  * not an enforcement mechanism. This is: the deterministic layer verifies the
  * model's claim before a seller ever sees it, so a paraphrased or invented
  * "quote" is discarded rather than presented as evidence of a leak.
+ *
+ * "Quoted" is three conditions, not one. A bare `includes` on a single
+ * concatenated string — what this did until the branch review's third fix
+ * round — verified a one-character excerpt, verified "EMI" against
+ * "semiannual", and verified a "quote" that straddled the join between the
+ * title and the description and so appears in neither field the seller can
+ * edit. All three fail in the same direction: a leak reported that is not
+ * there. That is the safe direction for a review panel and still the wrong
+ * answer, because a false leak report is what teaches a seller to stop reading
+ * them.
+ *
+ * The title and the description are therefore searched separately rather than
+ * joined, which removes the straddle without a separator convention to get
+ * wrong, and `field` on the surviving leak keeps pointing at whichever
+ * confidential value the model matched — the two are unrelated.
  */
 export function keepQuotedLeaks(
   leaks: TeaserReview['leaks'],
   teaserTitle: string,
   teaserDescription: string,
 ): TeaserReview['leaks'] {
-  const haystack = normalise(`${teaserTitle} ${teaserDescription}`)
+  const fields = [normalise(teaserTitle), normalise(teaserDescription)]
   return leaks.filter((leak) => {
     const needle = normalise(leak.excerpt)
-    return needle.length > 0 && haystack.includes(needle)
+    if (needle.length < MIN_EXCERPT_LENGTH) return false
+    return fields.some((field) => quotedAtWordBoundary(field, needle))
   })
 }
 

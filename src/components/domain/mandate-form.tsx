@@ -56,9 +56,38 @@ const MANDATE_FIELD_ERROR_KEY: Record<keyof MandateInput, string> = {
   licenceTypes: 'invalidSelection',
   businessStatuses: 'invalidSelection',
   ticketMinCents: 'money',
-  ticketMaxCents: 'ticketRange',
+  ticketMaxCents: 'money',
   timelineMonths: 'timeline',
   notes: 'tooLong',
+}
+
+/**
+ * Which translated hint one zod issue earns — keyed on the issue's `code` as
+ * well as its field, because the field alone does not identify the rule that
+ * was broken.
+ *
+ * `ticketMaxCents` is the field where that matters: it carries both its own
+ * value rules (`z.number().int().nonnegative()`) and the cross-field
+ * refinement from `mandateSchema` (`@/lib/validation/profile`), whose issue is
+ * deliberately attached to it rather than to the object. Mapping the path
+ * alone sent every failure to `errors.ticketRange` — so typing `-5`, or an
+ * amount `parseEuros` cannot read (which `readOptionalMoney` turns into
+ * `NaN`), answered "The maximum ticket must be at least the minimum" about a
+ * minimum the buyer may not even have set.
+ *
+ * `custom` is the code zod gives a `.refine()` issue and nothing else here
+ * produces one, so it identifies the cross-field rule exactly. The two can
+ * never both fire: zod skips an object's refinements when the object's own
+ * fields failed, which is also why the first-issue-per-field rule below stays
+ * unambiguous.
+ *
+ * `listing-form.tsx` keys the same way off the path alone and stays correct:
+ * `assetInputSchema` has no refinement at all, so no field there has a second,
+ * differently-worded failure mode to confuse with its first.
+ */
+function mandateErrorKey(field: keyof MandateInput, code: string): string {
+  if (code === 'custom' && field === 'ticketMaxCents') return 'ticketRange'
+  return MANDATE_FIELD_ERROR_KEY[field] ?? 'invalidSelection'
 }
 
 const checkboxClass = cn(
@@ -242,7 +271,7 @@ export function MandateForm({
       for (const issue of result.error.issues) {
         const field = issue.path[0]
         if (typeof field !== 'string' || field in errors) continue
-        const key = MANDATE_FIELD_ERROR_KEY[field as keyof MandateInput] ?? 'invalidSelection'
+        const key = mandateErrorKey(field as keyof MandateInput, issue.code)
         errors[field as keyof MandateInput] = t(`errors.${key}`)
       }
       setMandateFieldErrors(errors)

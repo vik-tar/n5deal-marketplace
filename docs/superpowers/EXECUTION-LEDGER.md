@@ -1304,3 +1304,76 @@ Round 2: nav.admin said "Admin"/"Админка" while the page it opens says "M
 Round 2: NOT touched, as instructed — the specificity-0 badge, the category tile's count/unit
   split, raw locale in the six older revalidatePath sites, LANDING_RECENT_LIMIT <= PAGE_SIZE by
   comment, pnpm db:reset, getViewer() twice per request, the action-level existence oracles.
+Round 3: the accessibility gap CLOSED IN THE PRIMITIVE, not at the call sites. `Field`
+  (`src/components/ui/field.tsx`) told every caller to pass `aria-describedby={fieldErrorId(...)}`
+  plus `aria-invalid`, and across ~30 call sites not one did — verified: `fieldErrorId` appeared
+  three times in `src/`, all inside `field.tsx`. `Field` now finds the descendant carrying
+  `id={htmlFor}` (the same invariant its own `<label htmlFor>` already depends on) and clones it
+  with both attributes, merging into any `aria-describedby` the caller already set. A render prop
+  and a context+hook were both rejected for putting the spread back in the caller's hands, which
+  is the failure mode being fixed. Measured on the running build as a signed-in seller and buyer:
+  before, every failing control had `aria-invalid=null` and `aria-describedby=null`; after, all
+  13 failing fields on `listing-form` and the failing field on `mandate-form` carry
+  `aria-invalid="true"` and an `aria-describedby` resolving to the `<p role="alert">` whose text
+  is that field's message, and all 4 valid controls carry neither.
+Round 3: the browser found what the unit test missed. The first cut of `describeControl` handled
+  a single element only, so a `Field` whose `children` is an *array* (`teaserTitle`, which puts a
+  hint paragraph beside its input) was silently skipped — the unit test asserted the hint was
+  untouched and never that the control was wired. Fixed with `Children.map` plus fragment
+  descent, and the test now asserts the control's own attributes in that shape. This is the
+  second time on this branch that DOM verification caught something source reading did not.
+Round 3: `included` in `listing-form.tsx` is the one error paragraph NOT wired, and deliberately.
+  It is not a `Field`, and `fieldErrors.included` is unreachable through the UI: blank items are
+  filtered out by `readFormValues`, item length is capped by `maxLength`, and the count is capped
+  by the disabled "Add" button. Associating a message no path can produce buys nothing; removing
+  the branch is a separate call this round did not make.
+Round 3: `aria-current="page"` on the primary nav, via a CLIENT nav component, and the Next.js
+  docs are the reason rather than convenience. `use-pathname.md` in this version states: "Reading
+  the current URL from a Server Component is not supported. This design is intentional to support
+  layout state being preserved across page navigations." The second half is why a server read
+  would have been wrong even if it existed — the locale layout is not re-rendered when the router
+  moves between two pages that share it, so a request-time pathname would keep announcing the
+  first page visited. Measured: on `/en/listings`, `/en/listings/new` and `/en/dashboard` exactly
+  one link carries `aria-current="page"` and it is the right one (`/listings/new` marks "New
+  listing", not "All listings" — longest match wins); the landing page marks nothing; and after a
+  *client-side* click from `/dashboard` to `/buyers` the attribute moves. No console errors and
+  no hydration warnings across five pages. The matching rule is `activeNavKey` in `@/lib/nav`,
+  pure and unit-tested, so the edge cases live in a test rather than in a component.
+Round 3: `mandate-form.tsx` keyed its validation copy off the issue *path* alone, so any failure
+  on `ticketMaxCents` answered "The maximum ticket must be at least the minimum." Reproduced in
+  the browser: typing `-5` with the minimum left blank produced exactly that. Now keyed off
+  `issue.code` — `custom` is the refinement and nothing else here produces one. `-5` now says
+  "Enter a valid, non-negative amount in EUR, or leave it blank." and a genuine min > max still
+  says the range sentence. `listing-form.tsx` was checked and is NOT the same shape:
+  `assetInputSchema` carries no refinement at all, so no field there has a second, differently
+  worded failure mode to confuse with its first.
+Round 3: `keepQuotedLeaks` hardened — minimum excerpt length 4, word-boundary match, and the
+  title and description searched separately instead of joined by a space. All three old holes
+  fail permissive (a leak reported that is not there), and a false leak report is what teaches a
+  seller to stop reading the panel. Dormant while `ANTHROPIC_API_KEY` is unset, which is
+  permanent by the user's decision; five tests added.
+Round 3: `canMessage` now takes `UserStatus` from the generated client instead of a hand-written
+  `'ACTIVE' | 'SUSPENDED' | 'REMOVED'`. Byte-identical today (checked against
+  `src/generated/prisma/enums.ts`); the point is that a schema change would otherwise move every
+  other reader of that column and leave this one silently agreeing with nothing.
+Round 3: dependency pins — `@prisma/client` and `@prisma/adapter-pg` moved from `^7.10.0` to
+  exactly `7.10.0`, matching the `prisma` CLI pin that exists to prevent CLI/client major skew;
+  `@types/node` moved from `^26` to `^24.10.1` against the Node 24.14.1 runtime, resolving the
+  Task 1 deferred minor (ledger :113). `pnpm install` re-resolved to `@types/node@24.13.3`;
+  typecheck, lint, 398 unit tests, build and the 3 e2e specs all clean afterwards.
+Round 3: `vitest.config.mts` now includes `tests/unit/**/*.test.{ts,tsx}`. The suite's first
+  component test (`tests/unit/ui/field.test.tsx`) renders `Field` with `renderToStaticMarkup` and
+  parses the markup into tags before asserting — no jsdom, no testing-library, and no substring
+  matching on HTML. The `DATABASE_URL`-unset property is unaffected: `field.tsx` imports only
+  `@/lib/cn`.
+Round 3: DEFERRED, unchanged — the 7 hand-rolled link-styled-as-button copies. Counted, not
+  taken on trust: `text-accent-ink` outside `ui/button.tsx` appears in `site-header.tsx`,
+  `hero.tsx`, `listings/page.tsx`, `buyers/page.tsx`, `buyer-dashboard.tsx`,
+  `seller-dashboard.tsx` and `gated-section.tsx` — seven `Link`s wearing a hand-copied button
+  skin (an eighth hit, `locale-switcher.tsx`, is an active-toggle style, not this). Real
+  duplication, but the fix is a `Button`-as-`Link` variant with `asChild`-style prop forwarding,
+  which is a refactor with its own review, not a leftover.
+Round 3: NOT touched, as instructed — the specificity-0 "Strong match · 100/100" badge (open
+  ruling for the user), `LANDING_RECENT_LIMIT <= PAGE_SIZE` by comment, `pnpm db:reset`,
+  `getViewer()` twice per request, the action-level existence oracles, and raw `locale` in the
+  six older `revalidatePath` sites.

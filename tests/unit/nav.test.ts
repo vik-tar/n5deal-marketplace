@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { HERO_CTA_ORDER, heroCtaKeys, navKeysFor } from '@/lib/nav'
+import { HERO_CTA_ORDER, activeNavKey, heroCtaKeys, navKeysFor } from '@/lib/nav'
 
 describe('navKeysFor', () => {
   it('shows only the catalog to an anonymous visitor', () => {
@@ -216,5 +216,74 @@ describe('heroCtaKeys', () => {
       }
     }
     expect([...selectable].sort()).toEqual([...HERO_CTA_ORDER].sort())
+  })
+})
+
+describe('activeNavKey', () => {
+  const manager = navKeysFor('MANAGER', { buyer: false, seller: false })
+  const seller = navKeysFor('SELLER', { buyer: false, seller: true })
+
+  it('marks the item whose page the viewer is on', () => {
+    expect(activeNavKey('/listings', seller)).toBe('listings')
+    expect(activeNavKey('/buyers', seller)).toBe('buyers')
+    expect(activeNavKey('/admin', manager)).toBe('admin')
+  })
+
+  it('marks the parent item on a page beneath it', () => {
+    expect(activeNavKey('/listings/cm0abc123', seller)).toBe('listings')
+    expect(activeNavKey('/listings/cm0abc123/edit', seller)).toBe('listings')
+    expect(activeNavKey('/inbox/cm0thread1', navKeysFor('BUYER'))).toBe('inbox')
+  })
+
+  /**
+   * `/listings/new` is beneath `/listings` and is also its own nav item.
+   * Announcing two current pages in one nav is worse than announcing none,
+   * so the longest matching target wins — the rule a router would apply.
+   */
+  it('prefers the most specific item when two targets match', () => {
+    expect(activeNavKey('/listings/new', seller)).toBe('newListing')
+  })
+
+  it('marks nothing on a page that is no nav item', () => {
+    expect(activeNavKey('/', seller)).toBeNull()
+    expect(activeNavKey('/login', navKeysFor(null))).toBeNull()
+    expect(activeNavKey('/suspended', navKeysFor(null))).toBeNull()
+  })
+
+  /**
+   * A prefix match must respect the path separator: `/listings-archive`
+   * is not a page beneath `/listings`.
+   */
+  it('does not match a sibling path that merely starts with a target', () => {
+    expect(activeNavKey('/listingsomething', seller)).toBeNull()
+  })
+
+  it('treats a trailing slash as the same page', () => {
+    expect(activeNavKey('/listings/', seller)).toBe('listings')
+  })
+
+  /**
+   * The caller passes the keys `navKeysFor` gave it, so a viewer standing on
+   * a URL they typed by hand cannot light up an item that is not rendered.
+   */
+  it('never returns a key the viewer was not offered', () => {
+    expect(activeNavKey('/admin', navKeysFor('BUYER'))).toBeNull()
+    expect(activeNavKey('/dashboard', navKeysFor(null))).toBeNull()
+  })
+
+  it('marks at most one item, for every offered key set', () => {
+    const paths = ['/', '/listings', '/listings/new', '/listings/x', '/buyers', '/dashboard',
+      '/inbox', '/inbox/x', '/profile', '/admin', '/login']
+    for (const role of [null, 'BUYER', 'SELLER', 'MANAGER']) {
+      for (const buyer of [false, true]) {
+        for (const seller_ of [false, true]) {
+          const keys = navKeysFor(role, { buyer, seller: seller_ })
+          for (const path of paths) {
+            const key = activeNavKey(path, keys)
+            if (key !== null) expect(keys, `${role} ${path}`).toContain(key)
+          }
+        }
+      }
+    }
   })
 })

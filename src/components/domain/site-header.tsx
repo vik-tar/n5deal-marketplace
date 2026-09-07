@@ -3,7 +3,8 @@ import { useTranslations } from 'next-intl'
 import { Link } from '@/i18n/navigation'
 import { Button } from '@/components/ui/button'
 import { LocaleSwitcher } from '@/components/domain/locale-switcher'
-import { NAV_HREF, SIGN_IN_HREF, navKeysFor } from '@/lib/nav'
+import { SiteNav } from '@/components/domain/site-nav'
+import { SIGN_IN_HREF, navKeysFor } from '@/lib/nav'
 import { FOCUS_RING, cn } from '@/lib/cn'
 import { isActive, type Viewer } from '@/lib/authz'
 import { signOutAction } from '@/server/actions/auth'
@@ -56,25 +57,16 @@ export function SiteHeader({ viewer, locale }: { viewer: Viewer | null; locale: 
           {t('common.appName')}
         </Link>
 
-        {/* The negative margins give the scroll container enough padding for a
-            child's focus ring — `overflow-x-auto` clips at the padding box. */}
-        <nav
-          aria-label={t('header.primaryNav')}
-          className="-mx-1 -my-2 flex min-w-0 items-center gap-1 overflow-x-auto px-1 py-2"
-        >
-          {navKeys.map((key) => (
-            <Link
-              key={key}
-              href={NAV_HREF[key]}
-              className={cn(
-                'rounded-sm px-2 py-1 text-sm whitespace-nowrap text-ink-muted transition hover:text-ink',
-                FOCUS_RING,
-              )}
-            >
-              {t(`nav.${key}`)}
-            </Link>
-          ))}
-        </nav>
+        {/* The nav itself is a client component: the current page is not
+            readable from a server component in this Next.js version, and a
+            value read once here would go stale the moment the router moved
+            between two pages sharing this layout. `SiteNav` explains both
+            halves. Everything crossing the boundary is already-translated
+            text plus the key set this component decided above. */}
+        <SiteNav
+          ariaLabel={t('header.primaryNav')}
+          items={navKeys.map((key) => ({ key, label: t(`nav.${key}`) }))}
+        />
 
         <div className="ml-auto flex shrink-0 items-center gap-3">
           {/* Both of the switcher's hooks read request-time URL data. */}

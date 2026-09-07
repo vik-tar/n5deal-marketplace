@@ -99,6 +99,41 @@ export function navKeysFor(role: string | null, profiles: NavProfiles = NO_PROFI
 }
 
 /**
+ * Which nav item, if any, the current pathname belongs to — the one that
+ * earns `aria-current="page"`.
+ *
+ * `pathname` is the locale-stripped path `usePathname` (`@/i18n/navigation`)
+ * returns, so it is compared against `NAV_HREF` unprefixed. A page counts as
+ * belonging to an item when it *is* that item's target or lives beneath it, so
+ * a listing detail page marks "Listings" current rather than nothing at all.
+ *
+ * Exactly one key can ever come back, and it is the most specific match:
+ * `/listings/new` is beneath `/listings` *and* is `/listings/new`, and
+ * announcing two current pages in one nav is worse than announcing none. The
+ * longest matching target wins, which is the same rule a router would apply.
+ *
+ * `null` for a page that is no nav item's — the landing page, `/login`,
+ * `/suspended` — and for a target the viewer is not offered: the caller passes
+ * the keys `navKeysFor` gave it, so a buyer standing on a URL they typed by
+ * hand cannot light up a nav item that is not rendered.
+ *
+ * Pure, and here rather than in the component, for the reason the whole module
+ * is: this is a rule with edge cases, and edge cases belong in a unit test.
+ */
+export function activeNavKey(pathname: string, keys: readonly NavKey[]): NavKey | null {
+  // `/listings/` and `/listings` are the same page; `/` is left alone, since
+  // stripping it would leave the empty string and match nothing.
+  const path = pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname
+  let best: NavKey | null = null
+  for (const key of keys) {
+    const href = NAV_HREF[key]
+    if (path !== href && !path.startsWith(`${href}/`)) continue
+    if (best === null || href.length > NAV_HREF[best].length) best = key
+  }
+  return best
+}
+
+/**
  * Which entry points the landing hero offers a signed-in viewer, most
  * specific first — the first is rendered as the primary button, the second as
  * the secondary one.
