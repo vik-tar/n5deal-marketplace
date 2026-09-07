@@ -9,36 +9,31 @@ Written 2026-09-04, mid-execution, so work can resume after a shutdown.
 - **Spec:** `docs/superpowers/specs/2026-09-04-n5deal-marketplace-design.md`.
 - **Full execution ledger:** `docs/superpowers/EXECUTION-LEDGER.md` — every ruling, every deferred minor, every interface fact, in order. This is the file to read first on resume. A live copy also sits at `.superpowers/sdd/2026-09-04-n5deal-marketplace/progress.md`, which is git-ignored scratch and will be destroyed by `git clean -fdx`; the committed copy is the durable one.
 
-## Status: 23 of 23 complete — all tasks done
+## Status: 23 of 23 complete, and the whole-branch review is done
 
-**355 unit tests pass with `DATABASE_URL` set and unset; 3 Playwright specs pass.** typecheck,
-lint and build are clean. The database is left in the seeded state. Nothing has been pushed and no
-remote exists.
+**398 unit tests pass with `DATABASE_URL` set and unset; 3 Playwright specs pass.** typecheck, lint
+and build are clean. The database is left seeded. Nothing has been pushed and no remote exists.
 
-## Task 23 is complete
+The whole-branch review ran as three parallel read-only passes (deferred triage, security,
+consistency) followed by three fix rounds — `508c07d`, `d3df631`, `8d6a104`. Its full record is at
+the end of `docs/superpowers/EXECUTION-LEDGER.md`.
 
-`e12edf8`. The README is a full rewrite — twelve sections, with the four appendix sections earlier
-tasks had bolted on absorbed into where they belong, and a "What is not built" section placed third
-so a reader meets the gaps before the decision prose.
-
-It also caught a hazard the brief itself introduced: `postinstall: prisma generate` would have
-**broken `pnpm i` for everyone**, because `prisma.config.ts` used Prisma's `env()` helper, which
-resolves at config-load time and throws before `generate` runs. On a fresh clone, before anyone has
-written a `.env`, the install would have failed. Proven both ways on a real scratch clone.
+**Security verdict: no Critical, no High.** One finding was live and the controller reproduced it
+before and after: three Server Actions had no authorization check, and an anonymous POST to one of
+them returned real data.
 
 ## What is left
 
-1. **A whole-branch review**, including a triage of the deferred minor findings recorded throughout
-   the ledger — 34 entries are marked `minor (deferred)` and several list more than one item. Three
-   known-stale items to strike rather than act on are recorded in the Task 23 ledger entries.
-2. **The branch has never been merged to `master`**, which still holds only the two design commits.
-3. **Deployment** — the only thing in the whole plan that needs the user: Neon and Vercel accounts
-   reachable through a browser. Instructions are written and a URL placeholder is in the README.
-
-## One open ruling for the user
-
-On the seller dashboard's top-3 matched buyers, a buyer whose mandate constrains nothing is badged
-"Strong match · 100/100". See the Task 18 ledger entry for the two options. Blocks nothing.
+1. **The branch has never been merged to `master`** — 68 commits here, two design commits there.
+2. **Deployment** — the only thing that needs the user: Neon and Vercel accounts reachable through a
+   browser. Instructions are written, `postinstall` is verified on a fresh clone, and the README
+   holds a URL placeholder.
+3. **One open ruling for the user:** on the seller dashboard's top-3 matched buyers, a buyer whose
+   mandate constrains nothing is badged "Strong match · 100/100". Two options are recorded in the
+   Task 18 ledger entry. Blocks nothing.
+4. **A maintainer's backlog**, recorded rather than forgotten: the link-styled-as-button primitive
+   (7 hand-rolled copies), the `MatchReason` comparanda finding, the unreachable `included` error
+   branch, and a short discretionary tail. All in the ledger with their reasoning.
 
 ## Restarting the environment
 
@@ -46,7 +41,7 @@ On the seller dashboard's top-3 matched buyers, a buyer whose mandate constrains
 open -a Docker                  # the daemon does not survive a reboot
 docker start n5deal-pg          # Postgres 16, port 55432; data persists in the container
 pnpm install                    # if node_modules is stale
-pnpm test                       # expect 355 passing
+pnpm test                       # expect 398 passing
 pnpm dev
 ```
 

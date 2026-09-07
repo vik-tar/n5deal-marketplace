@@ -1377,3 +1377,68 @@ Round 3: NOT touched, as instructed — the specificity-0 "Strong match · 100/1
   ruling for the user), `LANDING_RECENT_LIMIT <= PAGE_SIZE` by comment, `pnpm db:reset`,
   `getViewer()` twice per request, the action-level existence oracles, and raw `locale` in the
   six older `revalidatePath` sites.
+
+## WHOLE-BRANCH REVIEW (2026-09-07) — three parallel read-only passes, three fix rounds
+
+Passes: deferred-findings triage, security, consistency-and-drift. All read-only; the controller ran
+every live verification himself so the three could not collide over port 3000 or the database.
+
+Security verdict: NO Critical, NO High. No path was found by which an unauthorized caller reaches
+legalName, revenueCents, ebitdaCents, clientCount, dataRoomUrl, confidentialNotes or a seller's
+companyName. The pass traced every surface including the RSC flight payload, and confirmed the
+allowlist partition in dto/asset.ts is asserted against Prisma.AssetScalarFieldEnum, so a new
+confidential column cannot be silently forgotten.
+
+REPRODUCED BY THE CONTROLLER, not taken on report: an anonymous POST with no cookie to
+countMandateMatches returned {"matchCount":34,"totalListings":34,"specificity":1}. Three Server
+Actions had no authorization check at all, and two had their ids published in PUBLIC client chunks.
+ai.ts justified itself with "this action is only ever invoked once that trigger exists" — client-side
+reasoning about a network endpoint, the exact assumption this codebase rejects everywhere else.
+Fixed in round 1 and re-verified with the SAME action id: now x-action-redirect to /login, no
+matchCount in the body.
+
+Round 1 (508c07d) also closed: the untested load-bearing conjunct in canViewFullAsset (dead code at
+one call site, the ENTIRE gate on the seller's identity in message threads at the other — deleting
+it left all 355 tests green; two assertions now go red instead, proven both ways); four places the
+UI offered what the server refuses, a defect class this codebase names in its own comments and both
+admin tables deliberately avoid; z.url() accepting javascript: and data:; and the absence of any
+security headers on a console whose Suspend and Remove are one-click submits.
+
+Round 1 PUSHED BACK on the controller's specification and was right: gating explainMatchAction on
+canBrowseBuyers, as instructed, would have silently disabled the explanation under a buyer's own
+dashboard recommendations — this defect class inverted rather than fixed. It used isActive instead.
+It also corrected the controller's relayed claim that a non-array `categories` throws a 500: strings
+have .length and .includes, so it silently returned a WRONG ANSWER, which is worse than a crash.
+Both AI gates were proven to discriminate without any external traffic, via a second server pointed
+at a dead port where any call reaching the SDK logs.
+
+Round 2 (d3df631): eleven drifted comments and eight duplications. The worst comment was contradicted
+by its own file seventy lines below; another asserted a verification the ledger's own Task 11 entry
+records as NOT reproduced, and cited a report file that does not exist in a clone (.superpowers is
+git-ignored). The fixer SETTLED that one by measurement rather than argument — stripped the
+annotations, deleted tsbuildinfo, node_modules/.cache and .next, and got exit 0 with zero output,
+confirmed a third way through pnpm build. It also proved the widget-bounds fix by perturbing four
+schema constants and reading the rendered attributes: exactly those four widgets moved.
+
+Round 3 (8d6a104): the accessibility gap — Field's own doc instructed every caller to associate the
+error with the control and NOT ONE of 26 error-carrying call sites did, so a screen-reader user got
+the label and the input but never the reason. Fixed so a caller CANNOT forget: Field owns the
+association itself. DOM verification caught a bug the unit test missed (a Field whose children are an
+array was silently skipped) — the second time on this branch that reading the rendered DOM beat
+reading the source. Also aria-current on the primary nav, where the fixer established from
+node_modules/next/dist/docs that a server-side pathname read does not exist in this version AND
+would have been wrong anyway, since the locale layout is not re-rendered between sibling pages.
+
+Round 3 corrected the review twice more: "abc" is not the reproducer for the ticketMaxCents mapping
+(a number input sanitises letters to empty), the reachable value is -5 or 1.005; and listing-form
+does not share the shape at all, having no .refine().
+
+CONTROLLER ERROR, corrected in 492a8b2: the Task 23 entry above instructed a maintainer to strike the
+Task 5 MatchReason minor as stale. It is not stale — the type never changed, the note was about
+comparanda — and the finding got WORSE when Task 17 made MatchBadge a client component. Striking a
+finding is a write to the record and deserves the same verification as a fix.
+
+Still deferred, deliberately and recorded rather than forgotten: the link-styled-as-button primitive
+(counted, 7 hand-rolled copies, a design-token change is a 7-file edit with no compiler help); the
+MatchReason comparanda finding; the unreachable `included` error branch in listing-form; and a short
+discretionary tail. 398 unit tests pass with DATABASE_URL set and unset; 3 e2e specs pass.
