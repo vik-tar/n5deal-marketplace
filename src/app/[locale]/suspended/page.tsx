@@ -1,21 +1,10 @@
 import { getTranslations } from 'next-intl/server'
-import { redirect } from '@/i18n/navigation'
-import { getViewer } from '@/server/session'
+import { getViewer, redirectNow } from '@/server/session'
 import { signOutAction } from '@/server/actions/auth'
 import { prisma } from '@/server/db'
 import { Button } from '@/components/ui/button'
 import { Card, CardBody, CardHeader } from '@/components/ui/card'
 import { StatusPill } from '@/components/domain/status-pill'
-
-/**
- * `redirect()`'s declared return type is `never`, but that does not survive
- * far enough through `createNavigation`'s generics for `tsc` to treat a bare
- * call to it as unreachable — see the identical helper in `@/server/session`.
- */
-function redirectNow(href: '/login' | '/', locale: string): never {
-  redirect({ href, locale })
-  throw new Error('unreachable: redirect() always throws')
-}
 
 export default async function SuspendedPage({
   params,
@@ -26,6 +15,16 @@ export default async function SuspendedPage({
 
   // Not signed in at all: nothing to explain, go sign in. Signed in and
   // active: this screen is not for you, go to the app.
+  //
+  // Both redirects go through the shared `redirectNow` (`@/server/session`)
+  // since Task 20. This page used to carry its own copy, written before that
+  // one was exported, and the copy passed `locale` straight to `redirect()`
+  // — which the shared version stopped doing when `toAppLocale`
+  // (`@/i18n/locale`) landed. It was not exploitable here (this `locale` is
+  // the route segment, and `src/app/[locale]/layout.tsx` `notFound()`s on
+  // anything that is not a configured locale before this page renders), but a
+  // second copy of a security-relevant helper is a second place to forget the
+  // rule, which is exactly how `auth.ts` was missed once already.
   const viewer = await getViewer()
   if (!viewer) redirectNow('/login', locale)
   if (viewer.status === 'ACTIVE') redirectNow('/', locale)
@@ -46,6 +45,13 @@ export default async function SuspendedPage({
           <StatusPill status={viewer.status} />
         </CardHeader>
         <CardBody className="flex flex-col gap-4">
+          {/* `suspended.body` used to say "you cannot access listings", which
+              is not true and never was: `/listings` and every teaser stay open
+              to a suspended viewer, exactly as they are to an anonymous one
+              (`statusAllowsAuthenticatedSurfaces`, `@/lib/authz`, and Task 13's
+              widening of `canViewAsset`). Corrected in Task 20 alongside that
+              predicate's rename — measured first: a suspended seller's session
+              answers 200 on `/en/listings` and on a listing detail page. */}
           <p className="text-sm text-ink-muted">{t('suspended.body')}</p>
 
           <div>

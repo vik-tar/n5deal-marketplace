@@ -54,7 +54,7 @@
   },
   "suspended": {
     "title": "Account suspended",
-    "body": "A marketplace manager has suspended this account. You cannot access listings, messages or your dashboard until it is reinstated.",
+    "body": "A marketplace manager has suspended this account. You can still browse the public catalog, but you cannot message anyone, act on access requests, or open your dashboard until it is reinstated.",
     "reasonLabel": "Reason",
     "noReason": "No reason was recorded for this suspension."
   },
@@ -553,6 +553,142 @@
       "openInbox": "Open inbox",
       "none": "Nothing unread.",
       "unread": "{count, plural, one {# unread message} other {# unread messages}}"
+    }
+  },
+  "admin": {
+    "title": "Manager console",
+    "subtitle": "Every participant, every listing, and every moderation decision on record.",
+    "tabs": {
+      "participants": "Participants",
+      "assets": "Listings",
+      "assetsWithQueue": "Listings ({count} in review)",
+      "log": "Moderation log",
+      "ariaLabel": "Console sections"
+    },
+    "role": {
+      "BUYER": "Buyer",
+      "SELLER": "Seller",
+      "MANAGER": "Manager"
+    },
+    "action": {
+      "SUSPEND": "Suspended",
+      "REINSTATE": "Reinstated",
+      "REMOVE": "Removed",
+      "APPROVE_LISTING": "Listing approved",
+      "REJECT_LISTING": "Listing rejected"
+    },
+    "target": {
+      "USER": "Account {value}",
+      "ASSET": "Listing {value}"
+    },
+    "dialog": {
+      "reasonLabel": "Reason for the record",
+      "reasonHint": "At least {min} characters. It is stored permanently in the moderation log, and a suspended account is shown it."
+    },
+    "error": {
+      "FORBIDDEN": "This is no longer possible — the record has changed since this page loaded.",
+      "NOT_FOUND": "That record no longer exists.",
+      "ALREADY_REQUESTED": "That decision has already been taken.",
+      "INVALID": "Write a longer reason before confirming."
+    },
+    "participants": {
+      "filterRole": "Role",
+      "filterRoleToggle": "Filter by role: {value}",
+      "filterStatus": "Status",
+      "filterStatusToggle": "Filter by status: {value}",
+      "searchPlaceholder": "Search by email or name",
+      "searchSubmit": "Search",
+      "count": "{count, plural, one {# account} other {# accounts}}",
+      "empty": "No accounts match these filters.",
+      "columns": {
+        "account": "Account",
+        "role": "Role",
+        "status": "Status",
+        "verified": "Verified",
+        "activity": "Activity",
+        "actions": "Actions"
+      },
+      "verified": {
+        "yes": "Verified",
+        "no": "Not verified",
+        "none": "No profile"
+      },
+      "activity": {
+        "listings": "{count, plural, one {# listing} other {# listings}}",
+        "published": "{count} in the catalog",
+        "requests": "{count, plural, one {# access request} other {# access requests}}",
+        "none": "Nothing yet"
+      },
+      "actions": {
+        "self": "This is your own account."
+      },
+      "suspend": {
+        "trigger": "Suspend",
+        "title": "Suspend {name}?",
+        "consequence": "{count, plural, =0 {{name} has nothing in the catalog to hide, but from their next request they cannot message anyone or act on access requests, and they land on the suspension notice with your reason on it.} one {# listing by {name} is hidden from the catalog immediately. From their next request they cannot message anyone or act on access requests, and they land on the suspension notice with your reason on it.} other {# listings by {name} are hidden from the catalog immediately. From their next request they cannot message anyone or act on access requests, and they land on the suspension notice with your reason on it.}}",
+        "confirm": "Suspend account",
+        "pending": "Suspending..."
+      },
+      "reinstate": {
+        "trigger": "Reinstate",
+        "title": "Reinstate {name}?",
+        "consequence": "{count, plural, =0 {{name} can use the marketplace again. Nothing was deleted while they were away.} one {{name} can use the marketplace again, and their # listing returns to the catalog with the status it already had.} other {{name} can use the marketplace again, and their # listings return to the catalog with the statuses they already had.}}",
+        "confirm": "Reinstate account",
+        "pending": "Reinstating..."
+      },
+      "remove": {
+        "trigger": "Remove",
+        "title": "Remove {name}?",
+        "consequence": "{name} is signed out on their next request and disappears from the marketplace, but nothing is deleted: the conversations and access requests they are part of stay whole for the people on the other side of them. You can reinstate the account later.",
+        "confirm": "Remove account",
+        "pending": "Removing..."
+      }
+    },
+    "assets": {
+      "filterStatus": "Status",
+      "filterStatusToggle": "Filter by status: {value}",
+      "count": "{count, plural, one {# listing} other {# listings}}",
+      "empty": "No listings match these filters.",
+      "columns": {
+        "listing": "Listing",
+        "status": "Status",
+        "seller": "Seller",
+        "category": "Category",
+        "price": "Asking price",
+        "actions": "Actions"
+      },
+      "rejectionReason": "Rejected: {reason}",
+      "ownerNotActive": "Owner not active, so hidden from the catalog",
+      "actions": {
+        "none": "Nothing to decide"
+      },
+      "approve": {
+        "trigger": "Approve",
+        "title": "Publish {ref}?",
+        "consequence": "The listing goes into the public catalog immediately and buyers can start requesting its confidential pack. Your note goes to the moderation log, not to the seller.",
+        "confirm": "Publish listing",
+        "pending": "Publishing..."
+      },
+      "reject": {
+        "trigger": "Reject",
+        "title": "Reject {ref}?",
+        "consequence": "The listing stays off the catalog and goes back to the seller, who reads your reason word for word on their dashboard. Write it for them.",
+        "confirm": "Reject listing",
+        "pending": "Rejecting..."
+      },
+      "suspend": {
+        "trigger": "Suspend",
+        "title": "Suspend {ref}?",
+        "consequence": "The listing leaves the public catalog immediately. The seller sees the new status but not your reason, which only the moderation log holds.",
+        "confirm": "Suspend listing",
+        "pending": "Suspending..."
+      }
+    },
+    "log": {
+      "empty": "Nothing has been moderated yet.",
+      "count": "{count, plural, one {# entry} other {# entries}}",
+      "actor": "By {email}",
+      "truncated": "Only the {limit} most recent entries are shown."
     }
   }
 }

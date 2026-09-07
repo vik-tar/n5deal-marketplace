@@ -8,8 +8,35 @@ export function isActive(viewer: MaybeViewer): viewer is Viewer {
   return viewer !== null && viewer.status === 'ACTIVE'
 }
 
-/** Anonymous visitors may browse; suspended and removed accounts may not. */
-export function canAccessApp(viewer: MaybeViewer): boolean {
+/**
+ * Whether this viewer's **account status** bars them from the app's
+ * **authenticated surfaces** — the dashboards, the inbox, `/profile`, the
+ * manager console — as opposed to the public pages anybody may open.
+ *
+ * Renamed from `canAccessApp` in Task 20, and the rename is not cosmetic.
+ * The old name asserted "a non-`ACTIVE` viewer may not access the app", which
+ * is not what this codebase does and never was: `/listings`, a listing teaser
+ * and the landing page are public, and a suspended viewer who opens one is
+ * served exactly what an anonymous visitor is served. Suspension means you
+ * may not transact, not that you may not look — `canViewAsset` below was
+ * deliberately widened in Task 13 to stop denying non-`ACTIVE` viewers for
+ * precisely this reason, and redirecting a public URL for a signed-in-but-
+ * suspended user is worse for them than the nav gate and the `/suspended`
+ * page they already get. Semantics settled in Task 12; behaviour unchanged
+ * here.
+ *
+ * It is `statusAllows…` rather than `canAccess…` because `null` — an
+ * anonymous visitor — returns `true`, and an anonymous visitor plainly cannot
+ * open a dashboard. What this answers is narrower than the whole admission
+ * decision: *nothing about this viewer's status* bars them. Being signed out
+ * bars them too, under a different rule. `viewerGate` below is the predicate
+ * that makes the whole decision, splitting exactly those two cases into
+ * `REQUIRE_LOGIN` and `SUSPENDED`, and it — not this — is what `requireViewer`
+ * (`@/server/session`) actually dispatches on. This one states the status half
+ * of the rule on its own, for a caller that has already established the viewer
+ * is signed in.
+ */
+export function statusAllowsAuthenticatedSurfaces(viewer: MaybeViewer): boolean {
   return viewer === null || viewer.status === 'ACTIVE'
 }
 
@@ -43,6 +70,41 @@ export function isOwner(viewer: MaybeViewer, asset: AssetRef): boolean {
 
 export function canModerate(viewer: MaybeViewer): boolean {
   return isActive(viewer) && viewer.role === 'MANAGER'
+}
+
+/**
+ * Whether this manager may act on this *account*. `canModerate`, minus
+ * yourself.
+ *
+ * The self-check is the whole reason this predicate exists rather than a bare
+ * `canModerate` call in `@/server/actions/moderation`. Suspending or removing
+ * your own account is a one-click, self-inflicted lockout: `getViewer`
+ * (`@/server/session`) re-reads `status` on every request, so the very next
+ * navigation sends a self-suspended manager to `/suspended`, and a
+ * self-removed one is collapsed to `null` and signed out. On a deployment
+ * whose only manager is `manager@n5deal.demo` there is then nobody left who
+ * can undo it — the console is the only surface that writes `UserStatus`, and
+ * reaching it requires the account that just locked itself out.
+ *
+ * A predicate rather than an `if` inside the action so it is unit-testable:
+ * a guard against an irreversible action is exactly the kind that must fail
+ * in a test rather than only in production. Listings need no equivalent — a
+ * `MANAGER` holds no `SellerProfile`, so `isOwner` is false for every asset
+ * and there is no "my own listing" to guard against.
+ *
+ * Takes the target's user id in an object rather than bare, matching
+ * `canMessage` below: both answer "may I act on this *other party*", and a
+ * bare second `string` next to a `Viewer` is the argument order this codebase
+ * would eventually pass backwards.
+ */
+export function canModerateUser(viewer: MaybeViewer, target: { userId: string }): boolean {
+  // `canModerate` returns a plain `boolean`, not a type predicate, so `tsc`
+  // does not narrow `viewer` past it — hence the null check, which is
+  // unreachable at runtime (`canModerate` is false for `null`) and there only
+  // to reach `viewer.userId`. Widening `canModerate`'s own return type to
+  // `viewer is Viewer` would remove it and would be sound, but it changes a
+  // signature nine other call sites read, to save one line here.
+  return canModerate(viewer) && viewer !== null && viewer.userId !== target.userId
 }
 
 /**

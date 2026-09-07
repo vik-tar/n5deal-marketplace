@@ -39,8 +39,16 @@ export async function getViewer(): Promise<Viewer | null> {
   }
 }
 
-/** The locale-agnostic targets anything in this app redirects a viewer to. */
-export type RedirectHref = '/login' | '/suspended' | '/admin'
+/**
+ * The locale-agnostic targets anything in this app redirects a viewer to.
+ *
+ * `'/'` joined the union in Task 20, when `/suspended` stopped carrying its
+ * own private copy of `redirectNow` and started calling this one: that page
+ * sends an account that is no longer suspended back to the landing page.
+ * Keeping the union closed is the point — it is what stops a caller from
+ * handing `redirect()` a path it built from anything but a literal.
+ */
+export type RedirectHref = '/login' | '/suspended' | '/admin' | '/'
 
 /**
  * `redirect()`'s declared return type is `never` — it always throws — but

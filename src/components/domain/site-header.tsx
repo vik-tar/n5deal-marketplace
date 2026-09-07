@@ -11,12 +11,14 @@ import { signOutAction } from '@/server/actions/auth'
 export function SiteHeader({ viewer, locale }: { viewer: Viewer | null; locale: string }) {
   const t = useTranslations()
   // A suspended viewer keeps a session — they can still see their email and
-  // sign out below — but `canAccessApp` (`@/lib/authz/rules.ts`) already says
-  // a non-ACTIVE viewer may not use the app, so the nav should show exactly
-  // what an anonymous visitor sees. That is expressed here, by passing `null`
-  // and no profiles, rather than by teaching `navKeysFor` about `status`:
-  // account status is this component's business, key visibility is that
-  // function's.
+  // sign out below — but `statusAllowsAuthenticatedSurfaces`
+  // (`@/lib/authz/rules.ts`) already says a non-ACTIVE viewer may not reach
+  // an authenticated surface, so the nav should offer exactly what an
+  // anonymous visitor is offered. The public pages stay open to them; the
+  // dashboard, the inbox and the profile do not. That is expressed here, by
+  // passing `null` and no profiles, rather than by teaching `navKeysFor` about
+  // `status`: account status is this component's business, key visibility is
+  // that function's.
   //
   // Task 18 added the two role-specific entry points (`/listings/new`,
   // `/profile`), which depend on whether the viewer holds the matching

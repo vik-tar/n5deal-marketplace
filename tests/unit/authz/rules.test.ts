@@ -1,16 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import {
-  canAccessApp,
   canBrowseBuyers,
   canDecideAccess,
   canEditAsset,
   canMessage,
   canModerate,
+  canModerateUser,
   canPublishListing,
   canRequestAccess,
   canRevokeAccess,
   canViewAsset,
   canViewFullAsset,
+  statusAllowsAuthenticatedSurfaces,
   viewerGate,
 } from '@/lib/authz'
 import type { AssetRef, Viewer } from '@/lib/authz'
@@ -202,18 +203,26 @@ describe('canRevokeAccess', () => {
   })
 })
 
-describe('canAccessApp', () => {
-  it('lets anonymous visitors browse', () => {
-    expect(canAccessApp(null)).toBe(true)
+/**
+ * Renamed from `canAccessApp` in Task 20. The behaviour is unchanged and
+ * these assertions are the originals; only the name and what it claims moved
+ * (see the predicate's own doc comment). `null` returning `true` is the
+ * reason it is `statusAllows…` and not `canAccess…`: an anonymous visitor is
+ * barred from a dashboard by `viewerGate`'s `REQUIRE_LOGIN`, not by anything
+ * about their account status.
+ */
+describe('statusAllowsAuthenticatedSurfaces', () => {
+  it('does not bar an anonymous visitor on status grounds', () => {
+    expect(statusAllowsAuthenticatedSurfaces(null)).toBe(true)
   })
 
   it('lets active accounts in', () => {
-    expect(canAccessApp(buyer)).toBe(true)
+    expect(statusAllowsAuthenticatedSurfaces(buyer)).toBe(true)
   })
 
   it('locks out suspended and removed accounts', () => {
-    expect(canAccessApp({ ...buyer, status: 'SUSPENDED' })).toBe(false)
-    expect(canAccessApp({ ...buyer, status: 'REMOVED' })).toBe(false)
+    expect(statusAllowsAuthenticatedSurfaces({ ...buyer, status: 'SUSPENDED' })).toBe(false)
+    expect(statusAllowsAuthenticatedSurfaces({ ...buyer, status: 'REMOVED' })).toBe(false)
   })
 })
 
@@ -246,12 +255,34 @@ describe('canBrowseBuyers', () => {
   })
 })
 
-describe('canModerate and canMessage', () => {
+describe('canModerate, canModerateUser and canMessage', () => {
   it('restricts moderation to active managers', () => {
     expect(canModerate(manager)).toBe(true)
     expect(canModerate({ ...manager, status: 'SUSPENDED' })).toBe(false)
     expect(canModerate(seller)).toBe(false)
     expect(canModerate(null)).toBe(false)
+  })
+
+  /**
+   * Task 20. The self-moderation guard: a manager who suspends or removes
+   * their own account locks themselves out of the only surface that could
+   * undo it, and on a single-manager deployment that is unrecoverable.
+   */
+  it('lets a manager act on any account but their own', () => {
+    expect(canModerateUser(manager, { userId: seller.userId })).toBe(true)
+    expect(canModerateUser(manager, { userId: buyer.userId })).toBe(true)
+    expect(canModerateUser(manager, { userId: manager.userId })).toBe(false)
+  })
+
+  it('never lets a non-manager moderate an account, their own included', () => {
+    for (const viewer of [null, buyer, seller, { ...manager, status: 'SUSPENDED' as const }]) {
+      expect(canModerateUser(viewer, { userId: 'u-anyone' })).toBe(false)
+    }
+    // A second manager account is the thing that makes moderating a manager
+    // legitimate at all — it is only *yourself* that is off limits.
+    expect(canModerateUser({ ...manager, userId: 'u-manager-2' }, { userId: manager.userId })).toBe(
+      true,
+    )
   })
 
   it('blocks messaging a suspended counterparty', () => {
