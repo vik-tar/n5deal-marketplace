@@ -263,9 +263,17 @@ describe('USER_TRANSITIONS', () => {
 })
 
 describe('LISTING_TRANSITIONS', () => {
-  it('approves and rejects out of the review queue', () => {
+  /**
+   * The membership is asserted exactly, the way `USER_TRANSITIONS.REINSTATE`
+   * above does it, rather than with a `toContain` per member: a `toContain`
+   * pair defends only the positive half of the rule. It stays green if
+   * `'DRAFT'` or `'SOLD'` is added to `APPROVE.from` — and "approve only out
+   * of the queue or out of a takedown" is a claim about what is *not* in that
+   * list at least as much as about what is.
+   */
+  it('approves out of the queue or a takedown, and rejects only out of the queue', () => {
     expect(LISTING_TRANSITIONS.APPROVE.to).toBe('PUBLISHED')
-    expect(LISTING_TRANSITIONS.APPROVE.from).toContain('PENDING_REVIEW')
+    expect([...LISTING_TRANSITIONS.APPROVE.from].sort()).toEqual(['PENDING_REVIEW', 'SUSPENDED'])
     expect(LISTING_TRANSITIONS.REJECT).toEqual({ from: ['PENDING_REVIEW'], to: 'REJECTED' })
   })
 

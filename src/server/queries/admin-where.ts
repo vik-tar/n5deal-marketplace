@@ -329,13 +329,25 @@ export const USER_TRANSITIONS: Record<UserModerationAction, StatusTransition<Use
  * listing could meanwhile be rejected or resubmitted. All three claims were
  * false, which is why the dead end went unnoticed.)
  *
- * `moderateListing` (`@/server/actions/moderation`) already handles the two
- * columns an approval touches correctly for this source status, with no
- * special case: `publishedAt` is stamped only when it is null, so a restored
- * listing keeps the date it first went live instead of floating to the top of
- * the catalog's `newest` sort, and `rejectionReason` is cleared — which for a
- * `SUSPENDED` listing is a no-op, since the only writer of that column sets
- * it on the way into `REJECTED`.
+ * The two columns an approval touches need no per-status branch in
+ * `moderateListing` (`@/server/actions/moderation`): `publishedAt` is stamped
+ * only when it is null, so a restored listing keeps the date it first went
+ * live instead of floating to the top of the catalog's `newest` sort, and
+ * `rejectionReason` is cleared — which for a `SUSPENDED` listing is a no-op,
+ * since the only writer of that column sets it on the way into `REJECTED`.
+ *
+ * **What adding this entry did require was tightening that action's write.**
+ * An earlier version of this comment asserted the opposite — that
+ * `moderateListing` already handled the new source status "with no special
+ * case" — and it was wrong in a way a `FOR UPDATE` lock made visible. The
+ * write used to be conditioned on this whole `from` array, so an approval
+ * that read `PENDING_REVIEW` (null `publishedAt`) and was overtaken by a
+ * concurrent publish-then-suspend matched on `SUSPENDED` and re-stamped a
+ * `publishedAt` that was already set. The action now pins the exact status it
+ * read, and its module doc carries the reproduction. Recorded here because
+ * this table is where the next widening will be written: a `from` list with
+ * more than one member is only safe for a write whose payload does not depend
+ * on which member matched.
  */
 export const LISTING_TRANSITIONS: Record<
   ListingModerationAction,

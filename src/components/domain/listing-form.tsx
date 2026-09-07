@@ -127,7 +127,9 @@ export function ListingForm({
   const [included, setIncluded] = useState<string[]>(initial?.included ?? [])
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [formError, setFormError] = useState<ActionError | 'CLIENT_INVALID' | null>(null)
-  const [notice, setNotice] = useState<'saved' | 'submitted' | 'unpublishedForReview' | null>(null)
+  const [notice, setNotice] = useState<
+    'saved' | 'submitted' | 'unpublishedForReview' | 'suspendedSentForReview' | null
+  >(null)
   const [isPending, startTransition] = useTransition()
 
   function addIncluded() {
@@ -167,15 +169,32 @@ export function ListingForm({
   }
 
   /**
-   * `saveDraft`'s own doc comment (`@/server/actions/assets`) explains why:
-   * an edit to a `'PUBLISHED'` listing pulls it back to `'PENDING_REVIEW'`,
-   * silently, from this component's point of view, unless it says otherwise
-   * — a demotion the seller did not explicitly ask for (they pressed "Save
-   * draft", not "unpublish") but must still see plainly, per the ruling that
-   * a silent unpublish would be worse than the gap it fixes.
+   * Which "your save also moved this listing" notice the save just earned, or
+   * `null` if it moved nothing.
+   *
+   * `saveDraft`'s own doc comment (`@/server/actions/assets`) explains the
+   * rule: an edit to a `'PUBLISHED'` **or** a `'SUSPENDED'` listing pulls it
+   * back to `'PENDING_REVIEW'`, silently from this component's point of view
+   * unless it says otherwise — a demotion the seller did not explicitly ask
+   * for (they pressed "Save draft", not "unpublish") but must still see
+   * plainly, per the ruling that a silent status change would be worse than
+   * the gap it fixes.
+   *
+   * The two sources get different copy because only one of them is a
+   * surprise about visibility: a `'PUBLISHED'` listing has just left the
+   * public catalog, while a `'SUSPENDED'` one was never in it — telling that
+   * seller their listing "is no longer publicly visible" would be false, and
+   * would bury the thing that did change, which is that it is now queued for
+   * a manager instead of sitting in a takedown.
    */
-  function wasUnpublishedForReview(previousStatus: AssetStatus | undefined, result: SaveDraftResult): boolean {
-    return previousStatus === 'PUBLISHED' && result.ok && result.status === 'PENDING_REVIEW'
+  function sentBackForReview(
+    previousStatus: AssetStatus | undefined,
+    result: SaveDraftResult,
+  ): 'unpublishedForReview' | 'suspendedSentForReview' | null {
+    if (!result.ok || result.status !== 'PENDING_REVIEW') return null
+    if (previousStatus === 'PUBLISHED') return 'unpublishedForReview'
+    if (previousStatus === 'SUSPENDED') return 'suspendedSentForReview'
+    return null
   }
 
   function handleSave() {
@@ -194,7 +213,7 @@ export function ListingForm({
         router.replace(`/listings/${result.assetId}/edit`)
         return
       }
-      setNotice(wasUnpublishedForReview(previousStatus, result) ? 'unpublishedForReview' : 'saved')
+      setNotice(sentBackForReview(previousStatus, result) ?? 'saved')
       router.refresh()
     })
   }
@@ -212,16 +231,18 @@ export function ListingForm({
         setNotice(null)
         return
       }
-      if (wasUnpublishedForReview(previousStatus, saved)) {
+      const demoted = sentBackForReview(previousStatus, saved)
+      if (demoted !== null) {
         // The save this button just performed already pulled the listing
         // back to `'PENDING_REVIEW'` — exactly the state "submit for
         // review" exists to reach. Calling `submitForReview` now would only
         // return `FORBIDDEN` (it accepts a `'DRAFT'`/`'REJECTED'` source
         // status, not `'PENDING_REVIEW'`) and that generic error would
-        // obscure the far more important fact that the listing just came
-        // off the public catalog.
+        // obscure what actually happened to the listing. This is also what
+        // makes the button honest on a `'SUSPENDED'` listing, where before
+        // the demotion it was offered and then refused.
         setFormError(null)
-        setNotice('unpublishedForReview')
+        setNotice(demoted)
         router.refresh()
         return
       }
@@ -547,6 +568,11 @@ export function ListingForm({
       {notice === 'unpublishedForReview' ? (
         <p role="alert" className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm text-ink">
           {t('unpublishedForReviewNotice')}
+        </p>
+      ) : null}
+      {notice === 'suspendedSentForReview' ? (
+        <p role="alert" className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm text-ink">
+          {t('suspendedSentForReviewNotice')}
         </p>
       ) : null}
     </form>

@@ -150,9 +150,24 @@ function AssetRowView({ row, locale }: { row: AdminAssetRow; locale: string }) {
  * is only complete if it records *why a listing went live*, not merely why
  * one did not. The dialog's own copy asks for review notes rather than a
  * justification.
+ *
+ * The approve dialog has two consequence strings and picks between them on
+ * `sellerUserStatus`, which the row already carries. "The listing goes into
+ * the public catalog immediately" is simply false when the owner is not
+ * `ACTIVE`: `VISIBILITY_FLOOR` (`@/server/queries/asset-where`) requires an
+ * `ACTIVE` owner *and* a `PUBLISHED` status, and this console can act on a
+ * suspended listing belonging to a suspended seller. The row already says as
+ * much next to the status pill; the dialog promising the opposite two
+ * columns away is the half that was wrong. Decided from data the row already
+ * holds rather than by asking the server again — a second query to re-derive
+ * visibility would buy nothing this row has not already read.
  */
 function RowActions({ row, locale }: { row: AdminAssetRow; locale: string }) {
   const t = useTranslations('admin.assets')
+  const approveConsequence =
+    row.sellerUserStatus === 'ACTIVE'
+      ? t('approve.consequence')
+      : t('approve.consequenceOwnerNotActive')
 
   if (row.status === 'PENDING_REVIEW') {
     return (
@@ -162,7 +177,7 @@ function RowActions({ row, locale }: { row: AdminAssetRow; locale: string }) {
           triggerVariant="primary"
           confirmVariant="primary"
           title={t('approve.title', { ref: row.publicRef })}
-          consequence={t('approve.consequence')}
+          consequence={approveConsequence}
           confirmLabel={t('approve.confirm')}
           pendingLabel={t('approve.pending')}
           onConfirm={(reason) =>
@@ -190,7 +205,7 @@ function RowActions({ row, locale }: { row: AdminAssetRow; locale: string }) {
         triggerVariant="primary"
         confirmVariant="primary"
         title={t('approve.title', { ref: row.publicRef })}
-        consequence={t('approve.consequence')}
+        consequence={approveConsequence}
         confirmLabel={t('approve.confirm')}
         pendingLabel={t('approve.pending')}
         onConfirm={(reason) =>

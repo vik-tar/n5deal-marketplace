@@ -356,6 +356,7 @@
     "savedNotice": "Draft saved.",
     "submittedNotice": "Submitted for review. A platform manager will decide whether to publish it.",
     "unpublishedForReviewNotice": "Your changes were saved, but this listing is no longer publicly visible: editing a published listing sends it back for review. A platform manager will decide whether to publish it again.",
+    "suspendedSentForReviewNotice": "Your changes were saved and this listing is now in the review queue. It was already out of the public catalog, and it stays out until a platform manager approves it again.",
     "errors": {
       "required": "This field cannot be empty.",
       "positiveMoney": "Enter an asking price greater than 0.",
@@ -667,6 +668,7 @@
         "trigger": "Approve",
         "title": "Publish {ref}?",
         "consequence": "The listing goes into the public catalog immediately and buyers can start requesting its confidential pack. Your note goes to the moderation log, not to the seller.",
+        "consequenceOwnerNotActive": "The listing is approved, but it stays out of the public catalog while its seller's account is not active: a listing needs both. Reinstate the seller on the Participants tab to make it visible. Your note goes to the moderation log, not to the seller.",
         "confirm": "Publish listing",
         "pending": "Publishing..."
       },

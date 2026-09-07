@@ -49,14 +49,36 @@ import type { ActionResult } from './types'
  * (`src/app/[locale]/suspended/page.tsx`) reads that very row to tell the
  * suspended user why. Two writes, one transaction, both or neither.
  *
- * **Every write is conditioned on the exact statuses the transition declares
- * legal**, via `updateMany` rather than `update` — the pattern `decideAccess`
- * established after Task 14's review showed that an unconditioned write
- * silently overwrites a concurrent one. Two managers acting on the same
- * account in the same instant both read `ACTIVE` and both pass every check
- * above; the database, not this function's own read, decides which one wins,
- * and the loser matches zero rows, writes no log entry, and returns
- * `FORBIDDEN`.
+ * **Every write is conditioned on a status, via `updateMany` rather than
+ * `update`** — the pattern `decideAccess` established after Task 14's review
+ * showed that an unconditioned write silently overwrites a concurrent one.
+ * Two managers acting on the same account in the same instant both read
+ * `ACTIVE` and both pass every check above; the database, not this function's
+ * own read, decides which one wins, and the loser matches zero rows, writes
+ * no log entry, and returns `FORBIDDEN`.
+ *
+ * **The two writes pin different things, and the difference is not
+ * cosmetic.** `applyUserModeration` pins the transition's whole legal set,
+ * which is sound only because its payload is `{ status: transition.to }` — a
+ * constant carrying nothing derived from the row it read.
+ * `moderateListing` pins the single status it actually read and validated
+ * (`where: { status: asset.status }`), the shape `saveDraft`
+ * (`@/server/actions/assets`) already documents, because its payload *is*
+ * derived from that row: an approval's `publishedAt` is computed from the
+ * value the read returned. An earlier version of this module pinned the
+ * legal set in both places, and the moment `APPROVE` came to accept
+ * `PENDING_REVIEW` **and** `SUSPENDED` that became a real defect —
+ * reproduced under a `FOR UPDATE` lock rather than argued: read the row as
+ * `PENDING_REVIEW` with a null `publishedAt`, let a concurrent session
+ * publish and then suspend it, and the blocked write re-evaluates its `WHERE`
+ * under READ COMMITTED, matches on `SUSPENDED`, and re-stamps a `publishedAt`
+ * that was already set — floating a year-old listing to the top of the
+ * catalog's `newest` sort, which is precisely what the stamp-only-when-null
+ * rule below exists to prevent. Pinning the exact status makes that
+ * interleaving match zero rows and answer `FORBIDDEN`, which is the honest
+ * answer: the row is no longer the one this manager decided about. (Widening
+ * a transition therefore does *not* leave this function alone, whatever the
+ * comment here used to claim.)
  *
  * The transitions themselves live in `@/server/queries/admin-where`
  * (`USER_TRANSITIONS`, `LISTING_TRANSITIONS`) rather than inline here, for
@@ -282,12 +304,21 @@ function logActionFor(decision: ListingModerationAction): ModAction {
  * fixed a typo. The rejected alternative — always stamping — would make
  * `publishedAt` mean "last approved", which nothing in the product asks for
  * and which silently rewrites the catalog's ordering. The same rule is what
- * lets `APPROVE` accept a `SUSPENDED` listing without a special case: that
- * listing was published once already, so its `publishedAt` is non-null and
- * survives the restoration untouched — a takedown and its reversal leave no
- * trace in the catalog's order, which is the correct outcome and is the
- * reason `LISTING_TRANSITIONS` (`@/server/queries/admin-where`) could add the
- * transition without touching this branch.
+ * lets `APPROVE` accept a `SUSPENDED` listing without a second branch here:
+ * that listing was published once already, so its `publishedAt` is non-null
+ * and survives the restoration untouched — a takedown and its reversal leave
+ * no trace in the catalog's order, which is the correct outcome.
+ *
+ * That payload is computed from the row read a few lines above, and that is
+ * exactly why the write is conditioned on `asset.status` — the one status
+ * this call validated — rather than on everything `LISTING_TRANSITIONS`
+ * (`@/server/queries/admin-where`) declares legal for the decision. Widening
+ * `APPROVE.from` to two statuses did **not** leave this branch alone, as an
+ * earlier version of this comment and of `LISTING_TRANSITIONS`'s own doc both
+ * claimed:
+ * a `publishedAt` read as null, plus a write that matches on `SUSPENDED`,
+ * re-stamps a listing that is already live. The module doc records the
+ * interleaving and how it was reproduced.
  *
  * **An approval clears `rejectionReason`.** The seller's dashboard renders
  * that string verbatim on a `REJECTED` listing; leaving a stale one on a
@@ -353,8 +384,13 @@ export async function moderateListing(input: ModerateListingInput): Promise<Acti
   }
 
   const result = await prisma.$transaction(async (tx) => {
+    // `status: asset.status`, not `{ in: [...transition.from] }`: `data`
+    // above carries a `publishedAt` derived from the row this function read,
+    // so a write that matched any *other* legal source status would apply a
+    // payload computed from a status that is no longer true. See the module
+    // doc for the interleaving that makes the difference observable.
     const updated = await tx.asset.updateMany({
-      where: { id: asset.id, status: { in: [...transition.from] } },
+      where: { id: asset.id, status: asset.status },
       data,
     })
     if (updated.count === 0) return { ok: false, error: 'FORBIDDEN' } as const

@@ -97,9 +97,9 @@ function toAssetWrite(data: AssetInput) {
  * owner, and only while it is not `'SOLD'`) — the same pair of predicates
  * `runTeaserReview` and `submitForReview` below use, never re-derived here.
  *
- * **An edit to a `'PUBLISHED'` listing pulls it back to `'PENDING_REVIEW'`**
- * (fix round 1 finding): `canEditAsset` allows editing any non-`'SOLD'`
- * asset, and nothing before this fix stopped a seller from rewriting a live
+ * **An edit to a `'PUBLISHED'` or a `'SUSPENDED'` listing pulls it back to
+ * `'PENDING_REVIEW'`**: `canEditAsset` allows editing any non-`'SOLD'`
+ * asset, and nothing before this stopped a seller from rewriting a live
  * listing's public teaser — including pasting back in the exact confidential
  * detail `runTeaserReview` exists to catch — with neither the AI check nor a
  * manager ever seeing the new text, since only the *first* publish went
@@ -110,15 +110,42 @@ function toAssetWrite(data: AssetInput) {
  * an edit (they are not live to begin with). `'PENDING_REVIEW'` is also left
  * untouched — it is already in the queue an edit would otherwise be trying
  * to re-enter, so re-writing the same status is a no-op, not a distinct
- * choice. `'SUSPENDED'` is likewise left untouched, for a different reason:
- * that status is a manager's call (`ModAction`), not the seller's — letting
- * a routine edit silently reinstate a suspended listing (by moving it to
- * `'PENDING_REVIEW'`, one step from public again) would let the seller
- * route around a moderation decision through the ordinary edit form.
- * `'SOLD'` never reaches this function at all (`canEditAsset` refuses it
- * above). This is why `write` composes an explicit conditional `status`
- * rather than always carrying one: only the `'PUBLISHED'` source status
- * produces a `status` key at all.
+ * choice. `'SOLD'` never reaches this function at all (`canEditAsset`
+ * refuses it above). This is why the update composes an explicit conditional
+ * `status` rather than always carrying one: only a source status that
+ * actually changes produces a `status` key.
+ *
+ * **`'SUSPENDED'` demotes for the same reason `'PUBLISHED'` does, and an
+ * earlier version of this comment had it backwards.** It used to argue that
+ * a suspension is a manager's call and that letting an edit move the listing
+ * to `'PENDING_REVIEW'` would put the seller one step from public again, so
+ * the status was left alone. That reasoning was written when nothing could
+ * move a `SUSPENDED` listing at all; once `LISTING_TRANSITIONS`
+ * (`@/server/queries/admin-where`) let `APPROVE` accept `SUSPENDED`, leaving
+ * the status alone became the *worse* of the two options — a seller could
+ * rewrite a suspended listing's teaser and a manager's restore would publish
+ * that new text straight to `'PUBLISHED'`, past both the queue and
+ * `runTeaserReview`, which is the exact hole the `'PUBLISHED'` demotion
+ * exists to close. The invariant worth protecting is that no content reaches
+ * `'PUBLISHED'` without a review pass. A seller fixing whatever got their
+ * listing taken down is the normal path, not an attack — but it must land in
+ * the queue rather than back in the catalog, and this is what puts it there.
+ * The manager's `APPROVE` out of `'SUSPENDED'` remains the separate "I took
+ * this down by mistake" path, which by definition involves no edited content;
+ * either way the takedown stays in the moderation log. It also removes a
+ * mismatch the edit page has carried since Task 15: the page offers "Submit
+ * for review" on every editable listing, and `submitForReview` below refuses
+ * a `'SUSPENDED'` source status — after this save the listing is
+ * `'PENDING_REVIEW'`, which is exactly where that button was trying to go.
+ *
+ * `runTeaserReview` is **not** invoked from here, on this path or on the
+ * `'PUBLISHED'` one — following what Task 15 established: the teaser check is
+ * a button the seller presses (`listing-form.tsx`'s "Check teaser"), reading
+ * the last *saved* row, never an implicit cost attached to saving. The
+ * demotion is what guarantees a human sees the new text; the AI check
+ * advises the seller before they get there and is disabled outright without
+ * an API key, so making it load-bearing on a write path is precisely what
+ * this codebase has refused to do since Task 9.
  *
  * `publicRef` allocation (ruling 2, Task 15): the next free `N5-<n>` is read
  * (via `nextPublicRef`) and the row inserted inside one `$transaction`, so the
@@ -155,11 +182,13 @@ export async function saveDraft(input: SaveDraftInput): Promise<SaveDraftResult>
   const write = toAssetWrite(parsed.data)
 
   if (ref !== null) {
-    // Only a `'PUBLISHED'` source status demotes; every other reachable
-    // status (`'DRAFT'`, `'REJECTED'`, `'PENDING_REVIEW'`, `'SUSPENDED'`) is
-    // left exactly where it was — see the doc comment above for why each of
-    // those four is a deliberate no-op, not an oversight.
-    const nextStatus: AssetStatus = ref.status === 'PUBLISHED' ? 'PENDING_REVIEW' : ref.status
+    // A `'PUBLISHED'` or a `'SUSPENDED'` source status demotes into the
+    // review queue; the other three reachable statuses (`'DRAFT'`,
+    // `'REJECTED'`, `'PENDING_REVIEW'`) are left exactly where they were —
+    // see the doc comment above for why each is a deliberate no-op, not an
+    // oversight.
+    const nextStatus: AssetStatus =
+      ref.status === 'PUBLISHED' || ref.status === 'SUSPENDED' ? 'PENDING_REVIEW' : ref.status
 
     // Conditioned on the *exact* status `canEditAsset` validated above (not
     // "not SOLD"), via `updateMany` rather than a read-then-write: an asset a
@@ -170,7 +199,7 @@ export async function saveDraft(input: SaveDraftInput): Promise<SaveDraftResult>
     // longer true).
     const updated = await prisma.asset.updateMany({
       where: { id: ref.id, status: ref.status },
-      data: ref.status === 'PUBLISHED' ? { ...write, status: nextStatus } : write,
+      data: nextStatus === ref.status ? write : { ...write, status: nextStatus },
     })
     if (updated.count === 0) return { ok: false, error: 'FORBIDDEN' }
 
