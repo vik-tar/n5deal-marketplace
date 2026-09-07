@@ -9,36 +9,35 @@ Written 2026-09-04, mid-execution, so work can resume after a shutdown.
 - **Spec:** `docs/superpowers/specs/2026-09-04-n5deal-marketplace-design.md`.
 - **Full execution ledger:** `docs/superpowers/EXECUTION-LEDGER.md` — every ruling, every deferred minor, every interface fact, in order. This is the file to read first on resume. A live copy also sits at `.superpowers/sdd/2026-09-04-n5deal-marketplace/progress.md`, which is git-ignored scratch and will be destroyed by `git clean -fdx`; the committed copy is the durable one.
 
-## Status: 20 of 23 complete and reviewed
+## Status: 21 of 23 complete and reviewed
 
-Complete and reviewed: 1-19 as before, plus 20 manager console and audited moderation.
+Complete and reviewed: 1-20 as before, plus 21 landing page.
 
-**343 tests pass, and the whole suite passes with `DATABASE_URL` unset** — no unit test depends on
+**355 tests pass, and the whole suite passes with `DATABASE_URL` unset** — no unit test depends on
 infrastructure. Keep that property.
 
-## Task 20 is complete and reviewed
+## Task 21 is complete and reviewed
 
-`7301ec6` implementer, `acc5a01` fix round 1, `504cfb0` fix round 2. Full cycle: implementer,
-review, fix, scoped re-review, fix. The review proved the audit invariant by installing a raising
-trigger on `ModerationLog` and watching the status change roll back with it; the re-review then
-found a bug fix round 1 had introduced and reproduced it with a row lock.
+`b45b80b` implementer, `48d6072` fix round. The page's figures agree with the catalog **by
+construction**: the count and the value are now two fields of one aggregate off one `where`
+binding, and the six recent listings are literally the catalog's first six rows.
 
-The lesson worth carrying: **a fix can open a hole while closing one.** Widening
-`LISTING_TRANSITIONS.APPROVE.from` to two statuses made the conditional write match a status its
-payload was not derived from. The idiom that prevents it — condition the write on the exact status
-you read and validated, not on the whole legal set — was already in `saveDraft`, documented, one
-file over.
+Two lessons from its review worth carrying:
 
-## Resume here: Task 21
+- **Headless Chromium lays out correctly down to 320px in this environment.** The implementer
+  reported otherwise and left the narrow band unmeasured; the review found a clipped hero eyebrow
+  at 390px in Russian sitting exactly there. Measure, do not reason from CSS.
+- **A silent clip does not move `scrollWidth`.** `overflow-hidden` on a section swallows an
+  over-wide child without producing horizontal page scroll, so the usual "does the page scroll
+  sideways" check passes while the first screen is visibly broken.
 
-Task 21 (landing page) is an **accelerated cycle**: implementer, task review, one fix round the
-controller verifies from the diff. Brief:
-`.superpowers/sdd/2026-09-04-n5deal-marketplace/task-21-brief.md`.
+## Resume here: Task 22
 
-Its one real failure mode is measured and written into the brief: the seeded database has **35**
-rows at `status='PUBLISHED'` but **34** pass the full `VISIBILITY_FLOOR`, because one belongs to a
-suspended seller. The hero must say 34, by importing the floor rather than restating it. Task 20
-shipped a bug of exactly this shape and had to be corrected for it.
+Task 22 (end-to-end tests) is an **accelerated cycle**. Brief:
+`.superpowers/sdd/2026-09-04-n5deal-marketplace/task-22-brief.md`.
+
+It is the first task that adds a dependency (`@playwright/test`) and the first whose own runtime
+mutates the seeded database on purpose. Both need care — see the brief.
 
 ## One open ruling for the user
 
@@ -51,7 +50,7 @@ On the seller dashboard's top-3 matched buyers, a buyer whose mandate constrains
 open -a Docker                  # the daemon does not survive a reboot
 docker start n5deal-pg          # Postgres 16, port 55432; data persists in the container
 pnpm install                    # if node_modules is stale
-pnpm test                       # expect 343 passing
+pnpm test                       # expect 355 passing
 pnpm dev
 ```
 
@@ -71,8 +70,7 @@ Demo logins: `buyer@n5deal.demo`, `seller@n5deal.demo`, `manager@n5deal.demo`, p
 
 | Task | | Cycle |
 |---|---|---|
-| 21 | Landing page | accelerated — **resume here** |
-| 22 | End-to-end tests | accelerated |
+| 22 | End-to-end tests | accelerated — **resume here** |
 | 23 | README and deployment | accelerated |
 
 Full cycle = implementer, task review, and a dispatched scoped re-review after every fix round.

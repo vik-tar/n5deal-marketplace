@@ -1100,3 +1100,48 @@ Task 20: NOT fixed, accepted — a manager cannot REJECT a suspended listing to 
   requestAccess's rethrow of non-P2002 errors; two managers can concurrently suspend each other, no
   single action produces it; SOLD is terminal.
 Task 20: complete (commits 7ae564c..504cfb0). 343 passing with and without DATABASE_URL.
+
+Task 21: implementer DONE (commit b45b80b). 347 passing with and without DATABASE_URL. The one
+  requirement this task could fail — that its figures agree with the catalog — holds by
+  construction, and the implementer found a second, independent confirmation of it: the 34-row
+  value sum renders €170.5M while the 35-row sum would render €171M, so the hero's money figure
+  witnesses the visibility floor's second half on its own. Controller verified live and
+  anonymously: hero 34, catalog header 34, no "35" in the DOM, and asset-735 (the suspended
+  seller's listing) appears 0 times in the RAW html including the flight payload.
+Task 21: Ruling: the category strip's counts ARE listAssets' facets, and the six recent listings
+  ARE items.slice(0, 6) off the same call — not a second query that happens to agree. A parallel
+  aggregate would have to be kept in step by hand.
+Task 21: the implementer extracted filter-sidebar's inline zero-fill+ordering rule into a pure
+  categoryCountsInOrder rather than copying it into the new strip. Reviewer proved the four new
+  tests discriminate by running them against three wrong implementations: a `return facets` stub
+  fails 3 of 4.
+Task 21: review = spec MET, quality "ship after one fix". It also CORRECTED the implementer's
+  excuse: headless Chromium lays out fine at 320px in this environment, and the band the
+  implementer declined to measure is exactly where the defect was.
+Task 21: fix round 1/1 (commit 48d6072), verified by the controller from the diff and from the
+  screenshots. (1) The hero eyebrow put a 47-character sentence in `Badge`, which hardcodes
+  whitespace-nowrap for its ~20 short-status call sites; intrinsic width was a constant 319px EN /
+  395px RU at every viewport and the hero's own overflow-hidden clipped it SILENTLY
+  (scrollWidth === clientWidth, so no horizontal scroll betrayed it). At 390px — iPhone 12-15 — in
+  Russian it read "...СДЕЛКИ БЕЗ ОГЛАСК", cut mid-word with the border gone, on the first screen of
+  the product in the user's own locale. Fixed at the call site, not in Badge. Measured at five
+  widths in both locales, before and after; the widths where it already fitted are byte-identical.
+  (2) h-full on AssetCard so the landing grid's cards stop leaving a ragged bottom edge; proven
+  inert on the single-column /listings by measuring row and card heights before and after.
+  (3) The hero's count and value were coupled by convention — two files independently calling
+  buildWhere(filters, false). The fixer rejected the shape I suggested, correctly: it would have
+  left listAssets.total as a second count the catalog header still prints, trading one convention
+  for another. Instead listAssets' existing count became one aggregate returning both _count and
+  _sum, so the two figures are fields of ONE result off ONE where binding and there is exactly one
+  count in the codebase. Zero extra queries.
+  (4) Both hero CTAs were dead for a signed-in viewer — reproduced by clicking, not read: sign-in
+  lands on /en, and /login bounces a signed-in viewer straight back, so the first screen every
+  signed-in user sees had two buttons that did nothing at all. Fixed without changing the
+  anonymous CTAs (the spec mandates /login) by not offering an anonymous call to action to a
+  signed-in viewer; heroCtaKeys filters through navKeysFor so no hero button can offer a page the
+  nav hides. All four viewer kinds clicked in a real browser; every click now navigates.
+Task 21: NOT fixed, accepted — LANDING_RECENT_LIMIT <= PAGE_SIZE is enforced by a doc comment
+  only (it can only shorten the section, never produce a wrong number, and the constant lives in a
+  module no unit test may import); the category tile splits the count from its unit; getViewer()
+  runs twice per request, pre-existing at all eight call sites in src/app.
+Task 21: complete (commits 068f94c..48d6072). 355 passing with and without DATABASE_URL.
