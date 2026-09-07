@@ -9,7 +9,12 @@ refresh and survives being opened from a different browser. The stack is Next.js
 React Server Components, Server Actions), Prisma 7 on Postgres, Auth.js v5, Tailwind 4 and
 `next-intl` for English and Spanish.
 
-**Deployed at:** _(not deployed yet — see [Deploying it](#deploying-it); the URL goes here)_
+**Deployed at:** <https://n5deal-marketplace-viktars-projects-ac7edcf5.vercel.app>
+
+The three demo buttons on the sign-in page work there, and the catalog is served from a Neon
+Postgres seeded with the same fixtures as a local run — 34 listings, not 40, because the visibility
+floor is `PUBLISHED` **and** an `ACTIVE` owner and one published listing belongs to the suspended
+seller.
 
 **Demo logins** (the sign-in page has a one-click button for each, so nothing needs typing):
 
@@ -712,7 +717,7 @@ caveat.
 
 ## Deploying it
 
-Not yet done — these are the instructions, not a record.
+Done — this is the record, and the instructions to repeat it.
 
 1. **Create a Postgres database.** Neon's free tier is the intended target. Copy its pooled
    connection string; it already carries `sslmode=require`.
@@ -752,6 +757,18 @@ Not yet done — these are the instructions, not a record.
      there. This is the point of choosing a real database over browser storage, and it is the one
      check that would fail for a prototype that had cheated on persistence.
 6. **Put the URL at the top of this file.**
+
+**What actually happened, in case it helps.** The GitHub import in Vercel's web UI answered "Could
+not access the repository" for a repository that was public and anonymously clonable; `vercel link`
+from the CLI connected the same repository on its first try and created the project. Deployment
+Protection is on by default and returns `302` to `vercel.com/sso-api` for *every* route, production
+included — a reviewer without access to the Vercel account sees a login form rather than the
+marketplace, so it has to be switched off under **Settings → Deployment Protection → Vercel
+Authentication → Disabled**. Verified after the fact against https://n5deal-marketplace-viktars-projects-ac7edcf5.vercel.app: `/en`, `/es`, `/en/listings`,
+`/es/listings`, `/en/login` and `/en/register` all `200`; `/` redirects to `/en`; `/en/buyers` and
+`/en/dashboard` send an anonymous visitor to sign in; both locales' 404s render the branded page;
+the catalog reports 34 listings in both languages; and the confidential fields of a gated listing
+are absent from the HTML served to an anonymous visitor.
 
 ---
 
