@@ -5,6 +5,7 @@ import { CategoryStrip } from '@/components/domain/category-strip'
 import { Hero } from '@/components/domain/hero'
 import { getMarketplaceSummary } from '@/server/queries/assets'
 import { getViewer } from '@/server/session'
+import { heroCtaKeys } from '@/lib/nav'
 import { FOCUS_RING, cn } from '@/lib/cn'
 
 /**
@@ -26,9 +27,27 @@ import { FOCUS_RING, cn } from '@/lib/cn'
  * anonymous visitor here sees exactly what an anonymous visitor at
  * `/listings` sees.
  *
- * `viewer` is read for one reason only: to hand it to the same query the
- * catalog calls, so both surfaces answer the same question for the same
- * person. The page renders identically for everyone today.
+ * `viewer` is read for two reasons. The first is to hand it to the same query
+ * the catalog calls, so both surfaces answer the same question for the same
+ * person — that part does not change what renders, because the visibility
+ * floor is viewer-independent, and every figure on this page is identical for
+ * everyone.
+ *
+ * The second is the hero's pair of buttons, and **that part does differ by
+ * viewer**. `signInAction` (`@/server/actions/auth`) sends a signed-in viewer
+ * to `/`, which makes this the first screen after every sign-in; the spec's
+ * "Start Buying" / "Start Selling" both point at `/login`, and `/login`
+ * redirects an active viewer straight back here. So the majority audience
+ * arrived at a hero whose only two controls did nothing at all when clicked.
+ * `heroCtaKeys` (`@/lib/nav`) answers that with entry points the viewer can
+ * actually use, filtered through the same `navKeysFor` the header uses, so no
+ * button here can offer a page the nav hides.
+ *
+ * This introduces no caching question. The route is already uncacheable for
+ * every viewer — `LocaleLayout` (`./layout.tsx`) calls `getViewer()` on every
+ * request, and the responses carry `Cache-Control: private, no-cache,
+ * no-store` — so a viewer-dependent hero cannot be served to the wrong person
+ * out of a shared cache.
  */
 export default async function HomePage({
   params,
@@ -43,11 +62,26 @@ export default async function HomePage({
     getTranslations('home'),
   ])
 
+  // A non-`ACTIVE` viewer is offered exactly what an anonymous visitor is
+  // offered, the same trade `SiteHeader` makes and for the same reason
+  // (`@/components/domain/site-header`): `/dashboard` and `/listings/new`
+  // would both bounce a suspended account onwards, and `/login` at least ends
+  // at `/suspended`, which explains itself. Only the two booleans travel into
+  // `heroCtaKeys`, never the cuids — `@/lib/nav` is pure by construction and
+  // takes no `Viewer`, which is why this four-line adaptation lives at the
+  // call site rather than inside it.
+  const activeViewer = viewer?.status === 'ACTIVE' ? viewer : null
+  const ctaKeys = heroCtaKeys(activeViewer?.role ?? null, {
+    buyer: activeViewer?.buyerProfileId != null,
+    seller: activeViewer?.sellerProfileId != null,
+  })
+
   return (
     <main>
       <Hero
         listingCount={summary.listingCount}
         totalValueCents={summary.totalValueCents}
+        ctaKeys={ctaKeys}
         locale={locale}
       />
 

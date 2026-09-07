@@ -12,14 +12,27 @@ import type { TeaserAsset } from '@/lib/dto/asset'
  * line, the teaser title, a row of small-caps facts, the "included" chips,
  * the view count, and the asking price set larger to the right. The whole
  * card is one link to the detail page (`/listings/[id]`, Task 13).
+ *
+ * `h-full` on both the anchor and the `Card` is what lets the card fill a
+ * container that is taller than its own content. In the catalog's
+ * single-column list every row is exactly as tall as its card, so this is
+ * inert there — a percentage height against a parent whose own height is
+ * `auto` resolves to `auto`. It matters in Task 21's two-column landing grid,
+ * where the grid stretches each `<li>` to its row's height but the card
+ * inside it kept its content height, leaving a ragged bottom edge in every
+ * row (measured `<li>` `[303,303,275,275,324,324]` against card
+ * `[303,275,275,275,275,324]`). The fix belongs here rather than on the
+ * landing page's `<li>`, because "a card fills the space it is given" is a
+ * property of the card, and the next grid to hold one would otherwise have to
+ * rediscover it.
  */
 export function AssetCard({ asset, locale }: { asset: TeaserAsset; locale: string }) {
   const t = useTranslations('assets')
   const flag = codeToFlag(asset.country)
 
   return (
-    <Link href={`/listings/${asset.id}`} className={cn('block rounded-card', FOCUS_RING)}>
-      <Card className="transition hover:border-accent/60">
+    <Link href={`/listings/${asset.id}`} className={cn('block h-full rounded-card', FOCUS_RING)}>
+      <Card className="h-full transition hover:border-accent/60">
         <CardBody className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex min-w-0 flex-col gap-2">
             <div className="flex items-center gap-2 text-sm text-ink-muted">

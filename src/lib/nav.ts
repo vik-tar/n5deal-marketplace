@@ -97,3 +97,63 @@ export function navKeysFor(role: string | null, profiles: NavProfiles = NO_PROFI
   if (role === 'MANAGER') keys.push('admin')
   return keys
 }
+
+/**
+ * Which entry points the landing hero offers a signed-in viewer, most
+ * specific first — the first is rendered as the primary button, the second as
+ * the secondary one.
+ *
+ * The hero's two buttons are "Start Buying" and "Start Selling", both
+ * pointing at `/login` (`SIGN_IN_HREF`) as the spec requires. That is right
+ * for the audience the page was written for and wrong for the audience it
+ * actually gets first: `signInAction` sends a signed-in viewer to `/`, and
+ * `/login` bounces an active viewer straight back — so for every signed-in
+ * user, the first screen after sign-in has two buttons that do nothing at
+ * all. Retargeting the buttons would be a spec deviation; offering a
+ * signed-in viewer a different pair is not, because the spec's pair is a call
+ * to action for an anonymous visitor and a signed-in viewer is not one.
+ *
+ * The keys are filtered through `navKeysFor` rather than re-derived, so this
+ * function cannot offer a destination the header hides — `/listings/new`
+ * needs an active `SELLER` *with* a `SellerProfile`, and every reason that
+ * rule looks the way it does is written above, once. A hero button and a nav
+ * item pointing at the same page under two different rules is the
+ * inconsistency Task 13 removed between the catalog and the detail page.
+ *
+ * An anonymous visitor gets an empty list and the hero renders the spec's
+ * pair. `role === null` short-circuits before `navKeysFor` for the same
+ * reason that function short-circuits internally: its anonymous answer is
+ * `['listings']`, and "Browse listings" alone is not a hero.
+ */
+export const HERO_CTA_ORDER: readonly NavKey[] = ['newListing', 'dashboard', 'listings']
+
+/**
+ * `HERO_CTA_ORDER` deliberately stops at three keys. `profile` and `inbox`
+ * are both reachable destinations for some viewers, but `listings` is
+ * unconditional for every non-null role in `navKeysFor`, so any key ordered
+ * after it could never be selected — and this codebase has already deleted
+ * one guard that could not fail (`listAssets`' per-row `canViewAsset`,
+ * Task 12) precisely because a rule that cannot change an outcome reads to
+ * the next maintainer as a rule that is doing something. Anything added here
+ * must go *before* `listings` to mean anything.
+ *
+ * Every non-null role therefore yields exactly two keys: `dashboard` and
+ * `listings` are both unconditional above, so the slice is never short.
+ *
+ * A manager's `dashboard` button lands on `/admin` rather than `/dashboard`,
+ * because `/dashboard` redirects a manager to the console (Task 18, see
+ * `redirectNow`'s doc in `@/server/session`). That is not a mismatch to fix
+ * here: the header's own `Dashboard` item has behaved that way since Task 18,
+ * and teaching this function about the redirect would be a second copy of a
+ * rule the destination page already owns.
+ *
+ * A suspended viewer is the caller's problem, exactly as with `navKeysFor` —
+ * the landing page passes `null` for one, which is correct twice over, since
+ * `/dashboard` would only bounce them to `/suspended` and `/login` at least
+ * tells them why.
+ */
+export function heroCtaKeys(role: string | null, profiles: NavProfiles = NO_PROFILES): NavKey[] {
+  if (role === null) return []
+  const allowed = new Set(navKeysFor(role, profiles))
+  return HERO_CTA_ORDER.filter((key) => allowed.has(key)).slice(0, 2)
+}

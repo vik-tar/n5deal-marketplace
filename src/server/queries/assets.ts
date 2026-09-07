@@ -60,12 +60,30 @@ export type CategoryFacet = CategoryCount
 export interface ListAssetsResult {
   items: TeaserAsset[]
   total: number
+  /**
+   * Summed asking prices across the *same* matching set `total` counts, in
+   * cents, already narrowed from Prisma's `bigint` (see `toTeaserAsset`,
+   * `@/lib/dto/asset`, for the same narrowing on a row). `0` for an empty
+   * result, never `null`.
+   *
+   * Only the landing page reads it, and that is deliberate rather than
+   * accidental scope creep. The hero prints a count and a combined value
+   * side by side, and those two figures have to describe one set or the page
+   * is stating two facts about two different marketplaces. Returning the sum
+   * from here — off the one `where` this function built, in the one
+   * `$transaction` it already runs — is what makes that true by
+   * construction. It costs nothing: the sum rides along on the aggregate
+   * that replaced the standalone `count`, so the catalog issues exactly as
+   * many statements as before.
+   */
+  totalValueCents: number
   facets: CategoryFacet[]
 }
 
 /**
  * The public catalog: one page of teasers, the total matching count for
- * pagination, and per-category counts for the sidebar.
+ * pagination, the summed asking price across that same count, and
+ * per-category counts for the sidebar.
  *
  * `viewer` is part of the signature for parity with every other query that
  * makes a visibility decision, and because Tasks 18/21 call this function
@@ -104,14 +122,27 @@ export async function listAssets(
     _count: true,
   } satisfies Prisma.AssetGroupByArgs
 
-  const [rows, total, facetRows] = await prisma.$transaction([
+  // One `aggregate` rather than a `count` plus a separate `aggregate`: the
+  // row count and the summed asking price come back as two fields of a
+  // single result, off a single `where` binding, so no future edit can leave
+  // them describing different sets. The landing hero prints both next to
+  // each other and that is the invariant it depends on — see
+  // `totalValueCents` above and `getMarketplaceSummary` below. A pair of
+  // statements in the same `$transaction` would already share a snapshot,
+  // but it would also be two places for a `where` to drift; one statement
+  // removes the question instead of answering it.
+  const [rows, totals, facetRows] = await prisma.$transaction([
     prisma.asset.findMany({
       where,
       orderBy: SORT_ORDER[filters.sort],
       skip,
       take: PAGE_SIZE,
     }),
-    prisma.asset.count({ where }),
+    prisma.asset.aggregate({
+      where,
+      _count: { _all: true },
+      _sum: { askingPriceCents: true },
+    }),
     prisma.asset.groupBy(facetArgs),
   ])
 
@@ -125,7 +156,19 @@ export async function listAssets(
   // above and `tests/unit/queries/asset-where.test.ts`).
   const items = rows.map(toTeaserAsset)
 
-  return { items, total, facets }
+  return {
+    items,
+    total: totals._count._all,
+    // `bigint` → `number` at the read, in this module, so nothing downstream
+    // has to know the column is a `bigint`: React cannot serialise one across
+    // the server/client boundary, and `Number.MAX_SAFE_INTEGER` is €90
+    // trillion in cents. `null` is what Prisma returns for a sum over zero
+    // rows, not an error. The fallback is the `number` `0` rather than the
+    // `bigint` `0n` because this project's `tsconfig` target predates BigInt
+    // literals — `Number()` takes either.
+    totalValueCents: Number(totals._sum.askingPriceCents ?? 0),
+    facets,
+  }
 }
 
 /**
@@ -148,11 +191,13 @@ export interface MarketplaceSummary {
    */
   listingCount: number
   /**
-   * Summed asking prices across the same set, in cents, already narrowed from
-   * Prisma's `bigint` (see `toTeaserAsset`, `@/lib/dto/asset`, for the same
-   * narrowing on a row). `0` for an empty catalog, never `null` — the hero
-   * formats this with `formatCents` and "€0" is a sane thing to render where
-   * `NaN` is not.
+   * Summed asking prices across the same set `listingCount` counts, in cents.
+   * `0` for an empty catalog, never `null` — the hero formats this with
+   * `formatCents` and "€0" is a sane thing to render where `NaN` is not.
+   *
+   * "The same set" is guaranteed here, not asserted: both fields are copied
+   * out of one `ListAssetsResult`, which produced them from one `where` in
+   * one `aggregate`. See `ListAssetsResult.totalValueCents`.
    */
   totalValueCents: number
   /** All five categories, in the product's order, zero-filled. */
@@ -195,14 +240,29 @@ export interface MarketplaceSummary {
  *   free and — more importantly — guarantees these are literally the six the
  *   catalog shows at the top of its list, rather than six rows a second
  *   `findMany` ordered by a comparator someone has to keep identical.
- * - **The value sum is the one thing `listAssets` does not return**, so it is
- *   a second read — but of `buildWhere(filters, false)`, the *same* predicate
- *   object the count came from, not of a re-stated `where`. The two reads are
- *   not in one transaction snapshot, so a listing published between them
- *   could be counted in one and not the other; on a figure rendered as
- *   "€170.5M" that is invisible, and paying for a snapshot would mean either
- *   duplicating `listAssets`' transaction here or widening its return type for
- *   a number only this page wants.
+ * - **The count and the value are one database result, not two agreeing
+ *   ones.** The hero prints them side by side ("34 licensed institutions for
+ *   sale" / "€170.5M combined asking price"), so if they ever described
+ *   different sets the page would be stating two facts about two different
+ *   marketplaces — the exact failure this function exists to prevent, only
+ *   inside the hero rather than between the hero and the catalog. An earlier
+ *   version of this code took the count from `listAssets` and ran its own
+ *   `prisma.asset.aggregate` here against `buildWhere(filters, false)`. Both
+ *   sides called the same builder, so they agreed — but only by convention:
+ *   `listAssets`' own doc comment anticipates a viewer-dependent future, and
+ *   the day it narrowed or widened its `where` after calling `buildWhere`,
+ *   the count would have moved and the value would not. The sum therefore
+ *   moved into `listAssets`, onto the aggregate that already produces
+ *   `total`. Widening `ListAssetsResult` "for a number only this page wants"
+ *   is the price, and it is the right price: it is what turns the agreement
+ *   into something a refactor cannot break.
+ *
+ * There is consequently exactly one count in play. `listAssets` returns
+ * `total` and this function copies it into `listingCount`; the catalog header
+ * prints the same field from the same function. No second count exists to
+ * drift out of step with either the value beside it or the catalog it links
+ * to — which is why the invariant below can be stated as a fact rather than
+ * as a rule someone has to keep.
  *
  * `viewer` is threaded through to `listAssets` rather than hardcoded to
  * `null`. Today that query provably ignores it — the floor is
@@ -214,26 +274,11 @@ export interface MarketplaceSummary {
 export async function getMarketplaceSummary(
   viewer: MaybeViewer,
 ): Promise<MarketplaceSummary> {
-  const filters = parseAssetFilters({})
-
-  const [catalog, value] = await Promise.all([
-    listAssets(filters, viewer),
-    prisma.asset.aggregate({
-      where: buildWhere(filters, false),
-      _sum: { askingPriceCents: true },
-    }),
-  ])
+  const catalog = await listAssets(parseAssetFilters({}), viewer)
 
   return {
     listingCount: catalog.total,
-    // `bigint` → `number` at the read, in this module, so nothing downstream
-    // has to know the column is a `bigint`: React cannot serialise one across
-    // the server/client boundary, and `Number.MAX_SAFE_INTEGER` is €90
-    // trillion in cents. `null` is what Prisma returns for a sum over zero
-    // rows, not an error. The fallback is the `number` `0` rather than the
-    // `bigint` `0n` because this project's `tsconfig` target predates BigInt
-    // literals — `Number()` takes either.
-    totalValueCents: Number(value._sum.askingPriceCents ?? 0),
+    totalValueCents: catalog.totalValueCents,
     categories: categoryCountsInOrder(catalog.facets),
     recent: catalog.items.slice(0, LANDING_RECENT_LIMIT),
   }

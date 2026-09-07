@@ -65,6 +65,11 @@
       "body": "N5Deal is where banks, e-money and payment institutions, fintechs and crypto businesses change hands in Europe. Every listing is an anonymous teaser until its seller approves your access request — so a company can be for sale without the market finding out.",
       "ctaBuy": "Start Buying",
       "ctaSell": "Start Selling",
+      "cta": {
+        "listings": "Browse the catalog",
+        "dashboard": "Go to your dashboard",
+        "newListing": "List a business"
+      },
       "stats": {
         "listings": "{count, plural, one {licensed institution for sale} other {licensed institutions for sale}}",
         "combinedValue": "Combined asking price"
