@@ -1183,3 +1183,41 @@ Task 22: config decisions beyond the brief — `workers: 1` as well as `fullyPar
 Task 22: NOT covered, stated rather than implied — the `ru` locale, messaging/inbox, both
   dashboards, /buyers, the AI-enabled paths, and any responsive/viewport claim.
 Task 22: complete (commit 885b345).
+
+Task 23: implementer DONE (commit e12edf8). 355 unit tests with and without DATABASE_URL, 3 e2e
+  specs, typecheck/lint/build clean, database left seeded, nothing pushed, no remote created.
+  README rewritten from 129 lines of create-next-app boilerplate plus four bolted-on appendices to
+  676 lines in twelve sections, with the four appendices absorbed where they belong.
+Task 23: the brief's own postinstall instruction WOULD HAVE BROKEN `pnpm i` FOR EVERYONE, and the
+  implementer caught it. `prisma generate` exits 1 with no DATABASE_URL — not because generate
+  needs a database (it has not since Prisma 7.2) but because `prisma.config.ts` used Prisma's
+  `env()` helper, which enforces resolution at config-load time before any command runs. On a
+  fresh `git clone && pnpm i`, before anyone has written a `.env`, postinstall would have failed
+  the install. Proven BOTH ways on a real scratch clone with no `.env` and no node_modules: with
+  `env()` exit 1 and `PrismaConfigEnvError`, with `process.env.DATABASE_URL` exit 0 and a generated
+  client. One file beyond the brief's list (`prisma.config.ts`), correctly. Controller confirmed
+  `prisma generate` exits 0 with the variable unset — though note that check ran with a `.env` on
+  disk, which `prisma.config.ts` loads via dotenv, so it was NOT the fresh-clone condition; the
+  implementer's scratch-clone test is the one that proves it.
+Task 23: five inaccuracies found in the brief, the plan or the spec, none a bug:
+  (1) the postinstall hazard above; (2) the viewCount mechanism is a per-render increment in
+  getAssetDetail that a Server Action's revalidatePath re-triggers, not a rule about actions —
+  reasoned from code, not measured; (3) spec §10 says one PENDING_REVIEW listing, there are two;
+  (4) spec §12 documents `pnpm db:push`, a script that does not exist (it is `pnpm db:migrate`);
+  (5) spec assumption 2 says the MANAGER role is seeded-only, but grep finds no route, action or
+  code path anywhere in src/ that creates a User — no role is self-registerable. The assumption was
+  kept verbatim as required and the wider truth disclosed in "What is not built".
+Task 23: `AUTH_TRUST_HOST` was measured rather than repeated. On a non-default port without it the
+  app does NOT fail loudly: pages return 200 and look correct, and only the server log shows
+  repeated UntrustedHost on /api/auth/session — so nobody can ever sign in. Earlier handovers said
+  "fails Auth.js", which reads harder than the real, quieter failure. README states the real one.
+Task 23: three more stale things found while writing up, left for the whole-branch triage:
+  dashboard/page.tsx still says /admin "does not exist yet — the redirect lands on a 404 until that
+  task ships" (Task 20 shipped it; behaviour correct, comment false); the Task 5 deferred minor
+  claiming MatchReason "carries no comparanda" is stale, since the shipped type carries weight and
+  earned — strike it rather than act on it; and `pnpm db:reset` is still in package.json and is
+  exactly the command Prisma refuses for an agent, which is why the e2e helper avoids it.
+Task 23: Step 2 (deploy) NOT done and correctly not attempted — it needs Neon and Vercel accounts
+  reachable through a browser, which only the user can create. Instructions written, deployed-URL
+  placeholder left, no account created, no remote, no push.
+Task 23: complete (commit e12edf8). ALL 23 TASKS COMPLETE.

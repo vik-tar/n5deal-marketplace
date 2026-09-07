@@ -9,42 +9,31 @@ Written 2026-09-04, mid-execution, so work can resume after a shutdown.
 - **Spec:** `docs/superpowers/specs/2026-09-04-n5deal-marketplace-design.md`.
 - **Full execution ledger:** `docs/superpowers/EXECUTION-LEDGER.md` — every ruling, every deferred minor, every interface fact, in order. This is the file to read first on resume. A live copy also sits at `.superpowers/sdd/2026-09-04-n5deal-marketplace/progress.md`, which is git-ignored scratch and will be destroyed by `git clean -fdx`; the committed copy is the durable one.
 
-## Status: 22 of 23 complete and reviewed
+## Status: 23 of 23 complete — all tasks done
 
-Complete and reviewed: 1-21 as before, plus 22 end-to-end tests.
+**355 unit tests pass with `DATABASE_URL` set and unset; 3 Playwright specs pass.** typecheck,
+lint and build are clean. The database is left in the seeded state. Nothing has been pushed and no
+remote exists.
 
-**355 unit tests pass with `DATABASE_URL` set and unset**, and **3 Playwright specs pass** in ~29s.
-Keep the first property: `vitest.config.mts` includes only `tests/unit/**`, so the e2e specs stay
-out of the unit run.
+## Task 23 is complete
 
-## Task 22 is complete and reviewed
+`e12edf8`. The README is a full rewrite — twelve sections, with the four appendix sections earlier
+tasks had bolted on absorbed into where they belong, and a "What is not built" section placed third
+so a reader meets the gaps before the decision prose.
 
-`885b345`. Every spec was proven able to fail — four deliberate breaks, each red on the right line.
-The controller independently reproduced one of them by hand (broke `canViewFullAsset` to ignore the
-grant; the buyer spec went red on "confidential heading absent"; restored; green).
+It also caught a hazard the brief itself introduced: `postinstall: prisma generate` would have
+**broken `pnpm i` for everyone**, because `prisma.config.ts` used Prisma's `env()` helper, which
+resolves at config-load time and throws before `generate` runs. On a fresh clone, before anyone has
+written a `.env`, the install would have failed. Proven both ways on a real scratch clone.
 
-Two facts worth carrying:
+## What is left
 
-- **`prisma migrate reset` refuses to run for an AI agent** (Prisma 7.10) and demands a consent
-  variable carrying the user's own words. `resetDb()` therefore runs `pnpm db:seed` alone. That is
-  sufficient, and verified twice: all ten models in the schema have a matching `deleteMany` in
-  `prisma/seed.ts` before any write, so the seed *is* a full data reset. A developer whose schema
-  has drifted must run `pnpm db:migrate` themselves.
-- **`pnpm test:e2e` reseeds before and after**, so it is destructive to local demo data by design
-  and leaves the database exactly seeded.
-
-## Resume here: Task 23 — the last one
-
-Task 23 (README and deployment) is an **accelerated cycle**. Brief:
-`.superpowers/sdd/2026-09-04-n5deal-marketplace/task-23-brief.md`.
-
-**Its Step 2 (deploy to Vercel + Neon) is the only thing in the whole plan that needs the user.**
-The README, `.env.example` and the deployment instructions can and should be finished without it.
-
-## After Task 23
-
-A final whole-branch review still owes a triage of the ~40 deferred minor findings recorded
-throughout this ledger, and the branch has never been merged to `master`.
+1. **A whole-branch review**, including a triage of the deferred minor findings recorded throughout
+   the ledger — 34 entries are marked `minor (deferred)` and several list more than one item. Three
+   known-stale items to strike rather than act on are recorded in the Task 23 ledger entries.
+2. **The branch has never been merged to `master`**, which still holds only the two design commits.
+3. **Deployment** — the only thing in the whole plan that needs the user: Neon and Vercel accounts
+   reachable through a browser. Instructions are written and a URL placeholder is in the README.
 
 ## One open ruling for the user
 
@@ -77,7 +66,6 @@ Demo logins: `buyer@n5deal.demo`, `seller@n5deal.demo`, `manager@n5deal.demo`, p
 
 | Task | | Cycle |
 |---|---|---|
-| 23 | README and deployment | accelerated — **resume here** |
 
 Full cycle = implementer, task review, and a dispatched scoped re-review after every fix round.
 Accelerated = implementer, task review, and one fix round the controller verifies directly from
