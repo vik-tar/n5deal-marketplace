@@ -9,46 +9,41 @@ Written 2026-09-04, mid-execution, so work can resume after a shutdown.
 - **Spec:** `docs/superpowers/specs/2026-09-04-n5deal-marketplace-design.md`.
 - **Full execution ledger:** `docs/superpowers/EXECUTION-LEDGER.md` — every ruling, every deferred minor, every interface fact, in order. This is the file to read first on resume. A live copy also sits at `.superpowers/sdd/2026-09-04-n5deal-marketplace/progress.md`, which is git-ignored scratch and will be destroyed by `git clean -fdx`; the committed copy is the durable one.
 
-## Status: 19 of 23 complete and reviewed
+## Status: 20 of 23 complete and reviewed
 
-Complete and reviewed: 1-18 as before, plus 19 messaging and inbox.
+Complete and reviewed: 1-19 as before, plus 20 manager console and audited moderation.
 
-**297 tests pass, and the whole suite passes with `DATABASE_URL` unset** — no unit test depends on
+**343 tests pass, and the whole suite passes with `DATABASE_URL` unset** — no unit test depends on
 infrastructure. Keep that property.
 
-## Task 19 is complete and reviewed
+## Task 20 is complete and reviewed
 
-`606af73` implementer, `94e6196` fix round 1 (four review findings), `b089bcf` a controller
-follow-up the root fix had missed, `f9f1349` fix round 2 (five re-review findings). Full cycle:
-implementer, review, fix, scoped re-review, fix. Review verdict was spec MET / no Critical / no
-authorization hole, and it independently probed every thread with three real sessions.
+`7301ec6` implementer, `acc5a01` fix round 1, `504cfb0` fix round 2. Full cycle: implementer,
+review, fix, scoped re-review, fix. The review proved the audit invariant by installing a raising
+trigger on `ModerationLog` and watching the status change roll back with it; the re-review then
+found a bug fix round 1 had introduced and reproduced it with a row lock.
 
-Two things the reviews established that outlive the task:
+The lesson worth carrying: **a fix can open a hole while closing one.** Widening
+`LISTING_TRANSITIONS.APPROVE.from` to two statuses made the conditional write match a status its
+payload was not derived from. The idiom that prevents it — condition the write on the exact status
+you read and validated, not on the whole legal set — was already in `saveDraft`, documented, one
+file over.
 
-- **`startConversation` is a check-then-write with a real race window**, not the native upsert its
-  comment claimed. Prisma 7 + `PrismaPg` emits `SELECT` then plain `INSERT`; the reviewer captured
-  the unique-constraint violation in the Postgres log during a 12-way burst. The
-  `catch (P2002) → re-read` branch is the primary mechanism. It works — 12 concurrent calls, one
-  row, one id.
-- **A fix can be correct while its stated reason is wrong.** The controller's `auth.ts` locale fix
-  was necessary, but justified by the wrong branch: `redirectTo` was already safe (Auth.js
-  re-bases off-origin targets), while the `AuthError` path — which calls next-intl's `redirect()`
-  directly — was the genuine protocol-relative open redirect. Only the measurement separated them.
+## Resume here: Task 21
 
-## Resume here: Task 20
+Task 21 (landing page) is an **accelerated cycle**: implementer, task review, one fix round the
+controller verifies from the diff. Brief:
+`.superpowers/sdd/2026-09-04-n5deal-marketplace/task-21-brief.md`.
 
-Task 20 (manager console and moderation) is a **full cycle**. Brief:
-`.superpowers/sdd/2026-09-04-n5deal-marketplace/task-20-brief.md`, which carries four standing
-rulings and the traps earlier tasks already paid for.
-
-It closes three things that are currently visible holes: `/admin` 404s while the dashboard
-redirects managers to it, a user can only be suspended by a hand-written SQL `UPDATE`, and
-`rejectionReason` is written by nothing but the seed.
+Its one real failure mode is measured and written into the brief: the seeded database has **35**
+rows at `status='PUBLISHED'` but **34** pass the full `VISIBILITY_FLOOR`, because one belongs to a
+suspended seller. The hero must say 34, by importing the floor rather than restating it. Task 20
+shipped a bug of exactly this shape and had to be corrected for it.
 
 ## One open ruling for the user
 
 On the seller dashboard's top-3 matched buyers, a buyer whose mandate constrains nothing is badged
-"Strong match · 100/100". See the Task 18 ledger entry for the two options. Does not block anything.
+"Strong match · 100/100". See the Task 18 ledger entry for the two options. Blocks nothing.
 
 ## Restarting the environment
 
@@ -56,7 +51,7 @@ On the seller dashboard's top-3 matched buyers, a buyer whose mandate constrains
 open -a Docker                  # the daemon does not survive a reboot
 docker start n5deal-pg          # Postgres 16, port 55432; data persists in the container
 pnpm install                    # if node_modules is stale
-pnpm test                       # expect 297 passing
+pnpm test                       # expect 343 passing
 pnpm dev
 ```
 
@@ -76,8 +71,7 @@ Demo logins: `buyer@n5deal.demo`, `seller@n5deal.demo`, `manager@n5deal.demo`, p
 
 | Task | | Cycle |
 |---|---|---|
-| 20 | Manager console and moderation | **full cycle** — **resume here** |
-| 21 | Landing page | accelerated |
+| 21 | Landing page | accelerated — **resume here** |
 | 22 | End-to-end tests | accelerated |
 | 23 | README and deployment | accelerated |
 

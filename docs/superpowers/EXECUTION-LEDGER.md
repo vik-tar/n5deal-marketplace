@@ -1031,3 +1031,72 @@ Task 19: re-review confirmed the two-stage sort has no `take`/`skip` interaction
   enumerated every locale-prefixed URL builder in the app; the two page-level ones are unreachable
   with a bad locale because the router validates `[locale]` first (proven live).
 Task 19: complete (commits 606af73..HEAD).
+
+Task 20: implementer DONE (commit 7301ec6). 342 passing with and without DATABASE_URL; typecheck,
+  lint, build clean; seeded DB restored per-row. Controller re-ran all five independently.
+Task 20: Ruling: the admin queries THROW FORBIDDEN while the page 404s, deliberately unlike
+  listBuyers/getAssetRequestQueue, which refuse by returning nothing. A buyer may legitimately
+  reach /buyers and needs an empty state; nothing but a manager should ever get an /admin page at
+  all, and an empty result there would ship a blank console instead of an error. Unlike the per-row
+  check removed from listAssets, this guard CAN fail and is tested against five viewer shapes.
+Task 20: Ruling: canAccessApp renamed to statusAllowsAuthenticatedSurfaces. Reviewer confirmed the
+  rename is pure — the predicate had ZERO call sites, body byte-identical. The old name asserted
+  something this codebase never did: /listings and a teaser are public, and a suspended viewer is
+  served exactly what an anonymous one is (settled Task 12, widened in canViewAsset in Task 13).
+  `statusAllows…` rather than `canAccess…` because it returns true for null, and an anonymous
+  visitor cannot open a dashboard — it answers only the status half; viewerGate makes the whole
+  decision.
+Task 20: the implementer also corrected `suspended.body`, which claimed "You cannot access
+  listings" while a suspended session measurably answers 200 on /en/listings, /en/buyers and /en,
+  and 307 only on the four authenticated surfaces. Reviewer measured both and judged the new copy
+  accurate on all three clauses. Renaming a predicate for accuracy while leaving the user-facing
+  copy stating the old, wrong rule would have been half the job.
+Task 20: review = spec MET, quality "needs one fix". The audit invariant was PROVEN, not assumed:
+  the reviewer installed a BEFORE INSERT trigger on ModerationLog that raises, ran suspendUser, and
+  the status change rolled back with the log write. A second pass locked the whole log table and
+  got the same result after an 18s timeout. moderation.ts is also the ONLY writer of User.status in
+  the application, so the invariant is complete rather than merely covered on the console's paths.
+  8 concurrent approvals of one listing produced exactly one status change and one log row.
+Task 20: fix round 1 (commit acc5a01) — the review's one Important finding was that a SUSPENDED
+  listing was a one-way door, and its comment named two exits that do not exist (REJECT.from is
+  PENDING_REVIEW only; submitForReview takes DRAFT/REJECTED only; editing leaves the status alone;
+  there is no delete path). Task 20's own doing: before it, nothing could produce SUSPENDED at all.
+  The task that argued at length for making removeUser reversible shipped the listing equivalent as
+  a dead end. Fixed by adding SUSPENDED to LISTING_TRANSITIONS.APPROVE.from — no migration, it logs
+  as APPROVE_LISTING. Plus: authz moved above the findUnique to close an existence oracle any
+  signed-in user could query; a second string for "N published, hidden while this account is not
+  active" (the count itself left alone, because the reinstate dialog reads it correctly); and
+  aria-pressed replaced with aria-current on a link.
+Task 20: scoped re-review of the fix round FOUND A BUG THE FIX INTRODUCED, and reproduced it.
+  Widening APPROVE.from to two statuses made the conditional write match a status the payload was
+  not derived from: `publishedAt` is computed as `asset.publishedAt ?? new Date()` from the row
+  read earlier, so a row read as PENDING_REVIEW (publishedAt null) and written while SUSPENDED
+  re-stamps a publishedAt another manager had already set. Proven with a FOR UPDATE lock widening
+  the window. It falsified three comments that were in the tree as fact, including one promising
+  that "a row a concurrent action already moved matches zero rows instead of being silently
+  overwritten". The re-review also enumerated every AssetStatus and confirmed nothing became
+  over-reachable (APPROVE on DRAFT/REJECTED/SOLD/PUBLISHED all FORBIDDEN, probed live), and re-ran
+  the concurrency check on the newly reachable path (6 simultaneous approvals of a SUSPENDED
+  listing: 1 succeeded, 5 FORBIDDEN, 1 log row).
+Task 20: fix round 2 (commit 504cfb0), verified by the controller. moderateListing's write is now
+  conditioned on `status: asset.status` — the exact status it read and validated — the idiom
+  saveDraft already documents one file over. Proven BOTH ways on the same interleaving: pre-fix
+  {"ok":true} with publishedAt overwritten, post-fix {"ok":false,"error":"FORBIDDEN"} with
+  publishedAt intact and no log row. applyUserModeration deliberately keeps the legal-set
+  condition — its payload is a constant carrying nothing from its read — and the module doc now
+  states that distinction as the criterion for future widenings.
+Task 20: Ruling: an edit to a SUSPENDED listing now demotes it to PENDING_REVIEW, exactly as an
+  edit to a PUBLISHED one does. Fix round 1 had opened a real gap: a seller could rewrite a
+  suspended listing (the edit page returns 200 for its owner) and the new APPROVE would publish
+  that text straight to PUBLISHED, bypassing the review pass Task 15's demotion ruling exists to
+  guarantee. Reachability reproduced. The invariant worth protecting is that no content reaches
+  PUBLISHED without a human seeing it; a seller fixing what got their listing taken down is the
+  normal path, but it must land in the queue. runTeaserReview is NOT invoked on this path, for the
+  same reason it is not invoked on the PUBLISHED demotion: it is a seller-pressed button reading
+  the last saved row and returns null with no API key, and this codebase has refused to make an AI
+  call load-bearing on a write path since Task 9.
+Task 20: NOT fixed, accepted — a manager cannot REJECT a suspended listing to send it back with a
+  reason (SUSPENDED's only exit is APPROVE); a P2028 transaction timeout escapes as a 500, matching
+  requestAccess's rethrow of non-P2002 errors; two managers can concurrently suspend each other, no
+  single action produces it; SOLD is terminal.
+Task 20: complete (commits 7ae564c..504cfb0). 343 passing with and without DATABASE_URL.
