@@ -11,9 +11,11 @@ describe('formatCents', () => {
   })
 
   it('localises grouping', () => {
-    // Intl.NumberFormat('ru', ...) groups with U+00A0 (non-breaking space),
-    // not a regular space, and places the currency symbol after the number.
-    expect(formatCents(250_000_00, 'ru')).toBe('250 000 €')
+    // Spanish groups with a full stop where English uses a comma, and puts
+    // the symbol after the number separated by U+00A0 (a non-breaking space),
+    // not a regular one. Written as an explicit escape so the difference
+    // cannot be lost to an editor that normalises whitespace.
+    expect(formatCents(250_000_00, 'es')).toBe('250.000\u00A0€')
   })
 })
 

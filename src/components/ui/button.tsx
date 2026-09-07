@@ -15,6 +15,27 @@ const sizes: Record<Size, string> = {
   md: 'h-10 px-4 text-sm',
 }
 
+/**
+ * The `Button` skin as a bare class string, for the places that must be a
+ * `Link` and still look like a button — a navigation target is an `<a>`, not a
+ * `<button>`, and wrapping one in the other is the accessibility bug this
+ * avoids. `Button` below is this function plus the element.
+ */
+export function buttonClassName(
+  variant: Variant = 'primary',
+  size: Size = 'md',
+  className?: string,
+): string {
+  return cn(
+    'inline-flex items-center justify-center rounded-md font-medium transition',
+    'disabled:opacity-50 disabled:pointer-events-none',
+    FOCUS_RING,
+    variants[variant],
+    sizes[size],
+    className,
+  )
+}
+
 export function Button({
   variant = 'primary',
   size = 'md',
@@ -24,19 +45,7 @@ export function Button({
   variant?: Variant
   size?: Size
 }) {
-  return (
-    <button
-      className={cn(
-        'inline-flex items-center justify-center rounded-md font-medium transition',
-        'disabled:opacity-50 disabled:pointer-events-none',
-        FOCUS_RING,
-        variants[variant],
-        sizes[size],
-        className,
-      )}
-      {...props}
-    />
-  )
+  return <button className={buttonClassName(variant, size, className)} {...props} />
 }
 
 export type ButtonVariant = Variant

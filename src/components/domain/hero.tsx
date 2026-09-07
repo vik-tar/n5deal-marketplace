@@ -80,13 +80,17 @@ export function Hero({
       <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
         {/* `whitespace-normal` overrides `Badge`'s own `whitespace-nowrap`,
             and `max-w-full` keeps the pill inside the hero's padding box.
-            Without both, this 47-character sentence had a constant intrinsic
-            width — 319px in English, 395px in Russian — at *every* viewport,
-            and the section's `overflow-hidden` above cut it off in silence:
+            Without both, this sentence has a constant intrinsic width at
+            *every* viewport — measured 319px in English and 408px in Spanish,
+            the longer of the two at 53 characters — and the section's
+            `overflow-hidden` above cut it off in silence:
             `scrollWidth === clientWidth`, so no scrollbar and no sideways
-            page. Measured clipped at 320 in both locales and at 320/360/390
-            in Russian, where an iPhone 12–15 read "ЛИЦЕНЗИРОВАННЫЕ
-            ОРГАНИЗАЦИИ, СДЕЛКИ БЕЗ ОГЛАСК" with the right border gone.
+            page, just a missing right edge on a phone.
+
+            With the override, measured across 320/360/390/414/430/768 in both
+            locales: nothing clips anywhere. The wrap is what does it, and it
+            is the Spanish string that needs it — two lines from 320 all the
+            way to 430, where English only wraps at 320.
 
             `Badge` itself is deliberately untouched. `whitespace-nowrap` is
             load-bearing at its twenty-odd other call sites, which are short
@@ -98,17 +102,9 @@ export function Hero({
             second copy of this override.
 
             `text-balance` because the wrap it now permits is what the reader
-            sees: without it the Russian eyebrow breaks after "БЕЗ" and
-            leaves "ОГЛАСКИ" alone on line two, with it after the comma. The
-            `h1` below uses it for the same reason.
-
-            Rejected: dropping `Badge` here and rendering the eyebrow as
-            plain `meta-label` text. Measured equally clip-free, but it
-            removes the accent pill from the reviewed hero at every width in
-            order to fix a bug that only exists below 414px — a design change
-            wearing a bug fix's clothes. Wherever the sentence already fitted
-            (English from 360 up, Russian from 430 up) the markup above still
-            renders exactly what shipped. */}
+            sees: it splits the two clauses at the comma rather than leaving
+            one short word alone on the second line. The `h1` below uses it
+            for the same reason. */}
         <Badge tone="accent" className="max-w-full text-balance whitespace-normal">
           {t('hero.eyebrow')}
         </Badge>
@@ -183,10 +179,14 @@ export function Hero({
  *
  * `order` rather than markup order, because a `<dl>` wants the `<dt>` first
  * and the design wants the `<dd>` on top. `mt-auto` then pins the label to
- * the bottom of the panel, which is what keeps the pair aligned when one
- * label wraps and the other does not — visible in Russian, where "combined
- * asking price" is one line and "licensed institutions for sale" is two, and
- * a naive `flex-col-reverse` left the two big numbers at different heights.
+ * the bottom of the panel, which is what keeps the two big numbers on one
+ * line when one label wraps and the other does not; a naive
+ * `flex-col-reverse` puts them at different heights instead.
+ *
+ * Defensive rather than demonstrated: measured at 360/640/700/768/1024 in
+ * both locales, neither label wraps today. It is one class name standing
+ * between the current copy and a longer translation of either label, which is
+ * a cheaper insurance than re-deriving the layout when one arrives.
  */
 function Stat({ value, label }: { value: string; label: string }) {
   return (

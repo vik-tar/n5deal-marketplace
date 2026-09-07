@@ -64,14 +64,45 @@ function priceReason(
 
 /**
  * Counts the criteria the mandate actually constrains, 0-5. Exported (not just
- * an internal step of `scoreMatch`) because Task 16's profile page needs it on
- * its own, independent of any one asset: the same number that tells a
+ * an internal step of `scoreMatch`) because the profile page needs it on its
+ * own, independent of any one asset: the same number that tells a
  * consumer of `MatchResult` "don't rank on this score alone" is also what the
  * mandate-editing form itself must show the buyer, on the mandate that is
  * about to become every future match's input — re-deriving this count inline
  * there would duplicate the one definition of "constrains nothing" this
  * module exists to own.
  */
+/**
+ * A stable identity for the facets that change a match, and nothing else.
+ *
+ * The profile form recounts a buyer's matches as they edit, which costs a full
+ * catalogue scan server-side, so it must ask exactly two questions: has
+ * anything *scoreable* changed, and has it changed since the number on screen
+ * was computed. This answers the first.
+ *
+ * The membership of this key is the rule worth protecting. A mandate also
+ * carries `timelineMonths` and `notes`, which `scoreMatch` never reads — typing
+ * a note must not spend a request. And a criterion left *out* by mistake is the
+ * quieter bug: toggling it would leave the count silently stale, with nothing
+ * on screen to say so. `tests/unit/matching/score.test.ts` asserts the key
+ * responds to every key of `MandateCriteria`, derived from the object rather
+ * than from a list a future criterion could be missing from.
+ *
+ * Built from parsed criteria rather than from raw form text on purpose:
+ * "1000000" and "1000000.00" are the same mandate, and re-scoring the whole
+ * catalogue to prove it is waste.
+ */
+export function mandateCriteriaKey(mandate: MandateCriteria): string {
+  return JSON.stringify([
+    mandate.categories,
+    mandate.countries,
+    mandate.licenceTypes,
+    mandate.businessStatuses,
+    mandate.ticketMinCents,
+    mandate.ticketMaxCents,
+  ])
+}
+
 export function mandateSpecificity(mandate: MandateCriteria): number {
   return (
     (mandate.categories.length > 0 ? 1 : 0) +
@@ -93,8 +124,8 @@ export function mandateSpecificity(mandate: MandateCriteria): number {
  * are all a strong match when nothing was ever compared.
  *
  * Lives here, next to `mandateSpecificity`, rather than as an inline
- * `specificity === 0` test at each call site: Task 18's rule is enforced in
- * two places that must not drift — `getRecommendedAssets`
+ * `specificity === 0` test at each call site: the rule is enforced in two
+ * places that must not drift — `getRecommendedAssets`
  * (`@/server/queries/assets`) declines to build the ranking at all, and
  * `BuyerDashboard` renders the "complete your mandate" prompt in its place —
  * and one definition of "rankable" is what keeps a future change to one from

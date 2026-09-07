@@ -11,8 +11,8 @@ import { buildThreadKey } from '@/lib/thread-key'
 import type { ActionResult } from './types'
 
 /**
- * Every action below follows the identical shape ruling 3 (Task 14) lays
- * out: `requireViewer` first, then load the row the mutation targets and
+ * Every action below follows the identical shape laid out
+ * below: `requireViewer` first, then load the row the mutation targets and
  * build the `AssetRef` the `@/lib/authz` predicates expect, then call the
  * matching predicate and bail out with `FORBIDDEN` before anything is
  * validated or written. The predicate call is never skipped and never
@@ -27,17 +27,16 @@ import type { ActionResult } from './types'
  * have accepted, or to distinguish a well-formed refusal from a malformed
  * one.
  *
- * It does **not** hide whether a given id exists, and an earlier version of
- * this paragraph claimed that it did — the `NOT_FOUND` two lines into each
- * action below is returned before any predicate runs, so a caller holding an
- * id can tell "this row exists and is not yours" (`FORBIDDEN`) from "no such
- * row" (`NOT_FOUND`). That is a deliberate exception to the brief's "hidden
- * and non-existent look identical" rule, ruled twice and left standing:
- * every id here is a cuid and non-enumerable, the *pages* honour the rule
- * with byte-identical 404s on both cases, and closing it would cost a second
- * query to conceal something only a caller who already holds the id could
- * observe. `@/server/actions/messages` and `@/server/actions/assets` share
- * the shape and the ruling.
+ * It does **not** hide whether a given id exists. The `NOT_FOUND` two lines
+ * into each action below is returned before any predicate runs, so a caller
+ * holding an id can tell "this row exists and is not yours" (`FORBIDDEN`)
+ * from "no such row" (`NOT_FOUND`). That is a deliberate exception to the
+ * "hidden and non-existent look identical" rule the pages keep: every id here
+ * is a cuid and non-enumerable, the *pages* honour the rule with
+ * byte-identical 404s on both cases, and closing it would cost a second query
+ * to conceal something only a caller who already holds the id could observe.
+ * `@/server/actions/messages` and `@/server/actions/assets` share the shape
+ * and the decision.
  */
 
 // ---------------------------------------------------------------------------
@@ -123,7 +122,7 @@ export async function requestAccess(input: RequestAccessInput): Promise<ActionRe
   }
 
   revalidatePath(`/${input.locale}/listings/${ref.id}`)
-  // Task 18: `/dashboard` reads these same rows — the seller's catalogue-wide
+  // `/dashboard` reads these same rows — the seller's catalogue-wide
   // request queue and the buyer's own list of asks — and the seller decides
   // requests from there as well as from the listing page. `/dashboard` is
   // dynamic (it reads the session) and so is never served from a cache, so
@@ -264,7 +263,7 @@ export async function decideAccess(input: DecideAccessInput): Promise<ActionResu
   if (!result.ok) return result
 
   revalidatePath(`/${input.locale}/listings/${ref.id}`)
-  // Task 18: `/dashboard` reads these same rows — the seller's catalogue-wide
+  // `/dashboard` reads these same rows — the seller's catalogue-wide
   // request queue and the buyer's own list of asks — and the seller decides
   // requests from there as well as from the listing page. `/dashboard` is
   // dynamic (it reads the session) and so is never served from a cache, so
@@ -340,7 +339,7 @@ export async function revokeAccess(input: RevokeAccessInput): Promise<ActionResu
   }
 
   revalidatePath(`/${input.locale}/listings/${ref.id}`)
-  // Task 18: `/dashboard` reads these same rows — the seller's catalogue-wide
+  // `/dashboard` reads these same rows — the seller's catalogue-wide
   // request queue and the buyer's own list of asks — and the seller decides
   // requests from there as well as from the listing page. `/dashboard` is
   // dynamic (it reads the session) and so is never served from a cache, so

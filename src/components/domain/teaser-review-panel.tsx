@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { Card, CardBody, CardHeader } from '@/components/ui/card'
+import { AiUnavailableNote } from '@/components/ui/ai-unavailable-note'
 import { runTeaserReview } from '@/server/actions/assets'
 import type { TeaserReview } from '@/lib/ai/teaser-review'
 import type { Translator } from '@/i18n/translator'
@@ -11,7 +12,7 @@ import type { Translator } from '@/i18n/translator'
 /**
  * The one feature in this project where AI guards the confidentiality
  * boundary rather than decorating the interface. Renders nothing at all when
- * `aiEnabled` is false (ruling 5, Task 15) — not a disabled button, not an
+ * `aiEnabled` is false — not a disabled button, not an
  * error toast, because there is no dead control to render in the first
  * place: `isAiEnabled()` is read server-side (`@/lib/ai/client`) and passed
  * down, since a client component cannot read `process.env` itself
@@ -25,7 +26,7 @@ import type { Translator } from '@/i18n/translator'
  * (`keepQuotedLeaks`, `@/lib/ai/teaser-review`) — this component quotes and
  * highlights it as evidence without re-checking that itself.
  *
- * The findings are advisory (ruling 6): the seller may submit the listing
+ * The findings are advisory: the seller may submit the listing
  * regardless of what this panel finds, and it says so plainly, whether or
  * not it has been run yet.
  */
@@ -39,15 +40,44 @@ export function TeaserReviewPanel({
   aiEnabled: boolean
 }) {
   const t = useTranslations('listingForm.review')
+  const tCommon = useTranslations('common')
   const [isPending, startTransition] = useTransition()
   const [result, setResult] = useState<TeaserReview | null>(null)
   const [hasRun, setHasRun] = useState(false)
 
-  if (!aiEnabled) return null
+  // Was `return null`. Rendering nothing hid the *existence* of the one
+  // feature this project points at — an AI check that guards the NDA boundary
+  // rather than decorating the interface — from anyone evaluating it with the
+  // key unset, which is how this ships. The card now states what the check
+  // does and that it is switched off; it offers no control, so there is still
+  // nothing dead to press.
+  if (!aiEnabled) {
+    return (
+      <Card>
+        <CardHeader className="flex-col items-start gap-1">
+          <h2 className="text-base font-semibold text-ink">{t('title')}</h2>
+          <p className="text-sm text-ink-muted">{t('intro')}</p>
+        </CardHeader>
+        <CardBody>
+          <AiUnavailableNote text={tCommon('aiDisabled')} />
+        </CardBody>
+      </Card>
+    )
+  }
 
   function handleCheck() {
     startTransition(async () => {
-      const review = await runTeaserReview({ assetId, locale })
+      // `runTeaserReview` already collapses every *server-side* failure to
+      // `null` — no API key, a refusal, a truncated response, an unauthorized
+      // caller. What it cannot collapse is the call not completing at all, and
+      // a rejected transition here would take the whole listing form to the
+      // error boundary over an advisory check the seller can simply skip. A
+      // failed round trip is folded into the same `null` the disabled-AI path
+      // already renders as "unavailable".
+      const review = await runTeaserReview({ assetId, locale }).catch((error: unknown) => {
+        console.error('[teaser-review]', error)
+        return null
+      })
       setResult(review)
       setHasRun(true)
     })

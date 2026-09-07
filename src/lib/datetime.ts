@@ -1,7 +1,7 @@
 /**
  * The two date formats this application renders, named once.
  *
- * Money has had exactly one formatter since Task 6 (`formatCents`,
+ * Money has exactly one formatter (`formatCents`,
  * `@/lib/money`); dates had six inline `new Intl.DateTimeFormat(...)` calls
  * across the inbox, the admin log, the buyer dashboard, the request queue and
  * the access gate, each re-choosing its own option bag. Two option sets were

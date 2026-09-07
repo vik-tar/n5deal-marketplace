@@ -5,27 +5,28 @@ import { Button } from '@/components/ui/button'
 import { Card, CardBody } from '@/components/ui/card'
 import { Field } from '@/components/ui/field'
 import { DemoLogin } from './demo-login'
+import { Link } from '@/i18n/navigation'
+import { FOCUS_RING, cn } from '@/lib/cn'
 
 export default async function LoginPage({
   params,
   searchParams,
 }: {
   params: Promise<{ locale: string }>
-  searchParams: Promise<{ error?: string }>
+  searchParams: Promise<{ error?: string; registered?: string }>
 }) {
   const { locale } = await params
-  const { error } = await searchParams
+  const { error, registered } = await searchParams
 
   // Already signed in: an active viewer has nothing to do here, and a
   // suspended one belongs on `/suspended`, not back at the sign-in form.
   //
   // Through `redirectNow` (`@/server/session`) for consistency with
-  // `/suspended`, which stopped carrying its own copy of this in Task 20 —
-  // not as a fix. The open-redirect hypothesis was tested against this line
-  // and **refuted**: `[locale]` is a route segment the router has already
-  // matched against the configured locales, so a crafted value 404s before
-  // this page runs. What the shared helper buys is that no future edit here
-  // has to know that.
+  // `/suspended`, not as a fix. The open-redirect hypothesis was tested
+  // against this line and **refuted**: `[locale]` is a route segment the
+  // router has already matched against the configured locales, so a crafted
+  // value 404s before this page runs. What the shared helper buys is that no
+  // future edit here has to know that.
   const viewer = await getViewer()
   if (viewer) redirectNow(viewer.status === 'ACTIVE' ? '/' : '/suspended', locale)
 
@@ -38,6 +39,12 @@ export default async function LoginPage({
         <h1 className="text-xl font-semibold text-ink">{t('title')}</h1>
         <p className="text-sm text-ink-muted">{t('subtitle')}</p>
       </div>
+
+      {registered ? (
+        <p role="status" className="text-sm text-success">
+          {t('registeredNotice')}
+        </p>
+      ) : null}
 
       <Card>
         <CardBody>
@@ -73,6 +80,16 @@ export default async function LoginPage({
       </Card>
 
       <DemoLogin locale={locale} />
+
+      <p className="text-sm text-ink-muted">
+        {t('noAccount')}{' '}
+        <Link
+          href="/register"
+          className={cn('rounded-sm font-medium text-accent underline', FOCUS_RING)}
+        >
+          {t('registerLink')}
+        </Link>
+      </p>
     </main>
   )
 }

@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { requestAccess } from '@/server/actions/access-requests'
 import type { ActionResult } from '@/server/actions/types'
+import { attempt } from '@/lib/action-result'
 
 /** Disables the button and swaps its label while its own form is submitting. */
 function SubmitButton({ label, pendingLabel }: { label: string; pendingLabel: string }) {
@@ -18,16 +19,15 @@ function SubmitButton({ label, pendingLabel }: { label: string; pendingLabel: st
 }
 
 /**
- * The Requestable state's real control (Task 14), replacing the disabled
- * placeholder button Task 13 left in `GatedSection`. This is the one client
+ * The Requestable state's real control, in place of a disabled placeholder
+ * button in `GatedSection`. This is the one client
  * island inside an otherwise server-rendered gate — mirroring how
  * `demo-login.tsx` is the one client piece of the otherwise server-rendered
  * login page.
  *
  * The form's action is a plain client wrapper around the real
- * `requestAccess` Server Action, not `requestAccess` bound directly: ruling
- * 2 (Task 14) has every action take `locale` as part of a single typed input
- * object, which does not match the `(formData: FormData)` shape a `<form
+ * `requestAccess` Server Action, not `requestAccess` bound directly: every
+ * action in this app takes `locale` as part of a single typed input object, which does not match the `(formData: FormData)` shape a `<form
  * action>` calls directly. The wrapper builds that exact payload from the
  * one form field (`message`) plus the props already in scope (`assetId`,
  * `locale`) and calls the real action — the server-side authorization check
@@ -39,7 +39,7 @@ export function RequestAccessForm({ assetId, locale }: { assetId: string; locale
 
   const [state, formAction] = useActionState<ActionResult | null, FormData>(async (_prevState, formData) => {
     const message = String(formData.get('message') ?? '')
-    return requestAccess({ assetId, message, locale })
+    return attempt('request-access', requestAccess({ assetId, message, locale }))
   }, null)
 
   return (

@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { HERO_CTA_ORDER, activeNavKey, heroCtaKeys, navKeysFor } from '@/lib/nav'
+import type { Role } from '@/generated/prisma/client'
+import {
+  HERO_CTA_ORDER,
+  MAX_BADGE_COUNT,
+  activeNavKey,
+  heroCtaKeys,
+  navKeysFor,
+  unreadBadgeLabel,
+} from '@/lib/nav'
+
+/** Every role, for the exhaustive sweeps below. */
+const ROLES = ['BUYER', 'SELLER', 'MANAGER'] as const satisfies readonly Role[]
+const ROLES_AND_ANONYMOUS = [null, ...ROLES] as const
 
 describe('navKeysFor', () => {
   it('shows only the catalog to an anonymous visitor', () => {
@@ -19,9 +31,9 @@ describe('navKeysFor', () => {
     ])
   })
 
-  // "Everything a role alone unlocks" — the profile-gated keys Task 18 added
-  // (`newListing`, `profile`) are deliberately absent here, because this
-  // asserts the default no-profiles call. Their own cases are below.
+  // "Everything a role alone unlocks" — the profile-gated keys (`newListing`,
+  // `profile`) are deliberately absent here, because this asserts the default
+  // no-profiles call. Their own cases are below.
   it('gives a manager every role-gated key, including admin', () => {
     expect(navKeysFor('MANAGER')).toEqual([
       'listings',
@@ -32,7 +44,7 @@ describe('navKeysFor', () => {
   })
 
   /**
-   * Task 19: a manager is a party to no conversation — they hold neither
+   * a manager is a party to no conversation — they hold neither
    * profile row, so `listConversations` returns them nothing and
    * `getConversation` refuses them every thread by design. A nav item that
    * can only ever lead to an empty page is the same inconsistency the
@@ -49,17 +61,16 @@ describe('navKeysFor', () => {
   })
 
   it('never exposes admin to a non-manager', () => {
-    for (const role of [null, 'BUYER', 'SELLER']) {
+    for (const role of [null, 'BUYER', 'SELLER'] as const) {
       expect(navKeysFor(role)).not.toContain('admin')
     }
   })
 })
 
 /**
- * Task 18's handoff 3: `/profile` (Task 16) and `/listings/new` (Task 15)
- * shipped finished but unreachable from any UI. These assert the two new
- * entry points appear for exactly the viewers whose own pages would let them
- * in, and for nobody else.
+ * The two role-specific entry points, `/profile` and `/listings/new`. These
+ * assert that each appears for exactly the viewers whose own page would let
+ * them in, and for nobody else.
  */
 describe('navKeysFor — role-specific entry points', () => {
   it('shows /profile to a buyer who has a buyer profile', () => {
@@ -118,7 +129,7 @@ describe('navKeysFor — role-specific entry points', () => {
 })
 
 /**
- * Task 21's fix: the landing hero's two buttons.
+ * The landing hero's two buttons.
  *
  * `signInAction` sends a signed-in viewer to `/`, so the landing page is the
  * first screen after every sign-in — and the spec's "Start Buying" / "Start
@@ -170,7 +181,7 @@ describe('heroCtaKeys', () => {
    * non-null role, so the slice can never come up short.
    */
   it('returns exactly two keys for every signed-in viewer', () => {
-    for (const role of ['BUYER', 'SELLER', 'MANAGER']) {
+    for (const role of ROLES) {
       for (const buyer of [false, true]) {
         for (const seller of [false, true]) {
           expect(heroCtaKeys(role, { buyer, seller }), `${role} ${buyer} ${seller}`).toHaveLength(2)
@@ -185,7 +196,7 @@ describe('heroCtaKeys', () => {
    * viewer.
    */
   it('never offers a key navKeysFor withholds', () => {
-    for (const role of [null, 'BUYER', 'SELLER', 'MANAGER']) {
+    for (const role of ROLES_AND_ANONYMOUS) {
       for (const buyer of [false, true]) {
         for (const seller of [false, true]) {
           const profiles = { buyer, seller }
@@ -202,13 +213,13 @@ describe('heroCtaKeys', () => {
    * `HERO_CTA_ORDER` must not grow a key after `listings`: that one is
    * unconditional for every non-null role, so anything ordered behind it
    * could never be selected, and this codebase has already deleted one guard
-   * that could not fail (Task 12's per-row `canViewAsset`) rather than leave
+   * that could not fail (`listAssets`' per-row `canViewAsset`) rather than leave
    * it reading as a rule that does something.
    */
   it('keeps every candidate reachable, with listings last', () => {
     expect(HERO_CTA_ORDER[HERO_CTA_ORDER.length - 1]).toBe('listings')
     const selectable = new Set<string>()
-    for (const role of ['BUYER', 'SELLER', 'MANAGER']) {
+    for (const role of ROLES) {
       for (const buyer of [false, true]) {
         for (const seller of [false, true]) {
           for (const key of heroCtaKeys(role, { buyer, seller })) selectable.add(key)
@@ -274,7 +285,7 @@ describe('activeNavKey', () => {
   it('marks at most one item, for every offered key set', () => {
     const paths = ['/', '/listings', '/listings/new', '/listings/x', '/buyers', '/dashboard',
       '/inbox', '/inbox/x', '/profile', '/admin', '/login']
-    for (const role of [null, 'BUYER', 'SELLER', 'MANAGER']) {
+    for (const role of ROLES_AND_ANONYMOUS) {
       for (const buyer of [false, true]) {
         for (const seller_ of [false, true]) {
           const keys = navKeysFor(role, { buyer, seller: seller_ })
@@ -285,5 +296,38 @@ describe('activeNavKey', () => {
         }
       }
     }
+  })
+})
+
+/**
+ * The header's unread badge. Every case here is a boundary the browser makes
+ * hard to see and a unit test makes trivial: a circled `0` on a header that
+ * should carry no badge at all, or `NaN`/`-1` printed on every page of the app
+ * the day a count arrives from somewhere that can produce one.
+ */
+describe('unreadBadgeLabel', () => {
+  it('renders nothing at zero — an empty inbox gets no circle', () => {
+    expect(unreadBadgeLabel(0)).toBeNull()
+  })
+
+  it('renders the count itself up to the cap', () => {
+    expect(unreadBadgeLabel(1)).toBe('1')
+    expect(unreadBadgeLabel(2)).toBe('2')
+    expect(unreadBadgeLabel(MAX_BADGE_COUNT)).toBe(String(MAX_BADGE_COUNT))
+  })
+
+  it('stops counting past the cap rather than widening the circle', () => {
+    expect(unreadBadgeLabel(MAX_BADGE_COUNT + 1)).toBe(`${MAX_BADGE_COUNT}+`)
+    expect(unreadBadgeLabel(100_000)).toBe(`${MAX_BADGE_COUNT}+`)
+  })
+
+  it('renders nothing for a count no query should ever produce', () => {
+    for (const count of [-1, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+      expect(unreadBadgeLabel(count), String(count)).toBeNull()
+    }
+  })
+
+  it('never prints a fraction', () => {
+    expect(unreadBadgeLabel(2.7)).toBe('2')
   })
 })

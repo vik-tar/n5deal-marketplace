@@ -17,14 +17,13 @@ export default async function SuspendedPage({
   // active: this screen is not for you, go to the app.
   //
   // Both redirects go through the shared `redirectNow` (`@/server/session`)
-  // since Task 20. This page used to carry its own copy, written before that
-  // one was exported, and the copy passed `locale` straight to `redirect()`
-  // — which the shared version stopped doing when `toAppLocale`
-  // (`@/i18n/locale`) landed. It was not exploitable here (this `locale` is
-  // the route segment, and `src/app/[locale]/layout.tsx` `notFound()`s on
-  // anything that is not a configured locale before this page renders), but a
-  // second copy of a security-relevant helper is a second place to forget the
-  // rule, which is exactly how `auth.ts` was missed once already.
+  // rather than calling next-intl's `redirect()` here. Nothing is exploitable
+  // either way — this `locale` is the route segment, and
+  // `src/app/[locale]/layout.tsx` `notFound()`s on anything that is not a
+  // configured locale before this page renders — but a second copy of a
+  // security-relevant helper is a second place to forget that it must run
+  // `locale` through `toAppLocale` (`@/i18n/locale`), which is exactly how
+  // `@/server/actions/auth` was missed once already.
   const viewer = await getViewer()
   if (!viewer) redirectNow('/login', locale)
   if (viewer.status === 'ACTIVE') redirectNow('/', locale)
@@ -48,10 +47,9 @@ export default async function SuspendedPage({
           {/* `suspended.body` used to say "you cannot access listings", which
               is not true and never was: `/listings` and every teaser stay open
               to a suspended viewer, exactly as they are to an anonymous one
-              (`statusAllowsAuthenticatedSurfaces`, `@/lib/authz`, and Task 13's
-              widening of `canViewAsset`). Corrected in Task 20 alongside that
-              predicate's rename — measured first: a suspended seller's session
-              answers 200 on `/en/listings` and on a listing detail page. */}
+              (`statusAllowsAuthenticatedSurfaces` and `canViewAsset`,
+              `@/lib/authz`). Measured: a suspended seller's session answers
+              200 on `/en/listings` and on a listing detail page. */}
           <p className="text-sm text-ink-muted">{t('suspended.body')}</p>
 
           <div>

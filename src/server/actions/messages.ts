@@ -11,7 +11,7 @@ import { unreadForViewerWhere } from '@/server/queries/conversation-where'
 import type { ActionError, ActionResult } from './types'
 
 /**
- * Messaging's three mutations. All three follow the shape Task 14's
+ * Messaging's three mutations. All three follow the shape
  * `access-requests.ts` documents: `requireViewer` first, then load the row
  * the mutation targets, then call the `@/lib/authz` predicate and bail out
  * with `FORBIDDEN` before anything is validated or written — so an
@@ -25,7 +25,7 @@ import type { ActionError, ActionResult } from './types'
  * matching what `getViewer` (`@/server/session`) already guarantees for the
  * sender's own side.
  *
- * `canMessage` is settled and tested (Task 6, `@/lib/authz`): cold contact is
+ * `canMessage` (`@/lib/authz`) is settled and tested: cold contact is
  * allowed — no approved grant, no shared listing, no prior relationship —
  * both parties must be `ACTIVE`, they must be two different people, and a
  * `MANAGER` may never message. Nothing here widens or narrows it.
@@ -35,8 +35,8 @@ const messageBodySchema = z.string().trim().min(1).max(4000)
 
 /**
  * Every write below bumps the same three surfaces, and every one of them is
- * load-bearing (Task 18 proved the dashboard case by replaying the real
- * Server Action POST): `/inbox` shows the thread list with its unread dots,
+ * load-bearing — the dashboard case was verified by replaying the real
+ * Server Action POST: `/inbox` shows the thread list with its unread dots,
  * `/inbox/[id]` shows the thread itself, and `/dashboard` renders the unread
  * *count* on both the buyer's and the seller's side. All three are dynamic
  * — they read the session, so nothing is served from a cache — and what the
@@ -301,9 +301,9 @@ export interface MarkReadInput {
  *
  * A missing thread returns `NOT_FOUND` and a thread that is not the viewer's
  * returns `FORBIDDEN`, which is the shape every action in this codebase uses
- * (`decideAccess` does the same). Task 14 accepted the residual leak: a
- * caller can tell "this id exists" from "it does not", which against
- * non-enumerable cuids says nothing about content.
+ * (`decideAccess` does the same). The residual leak is accepted: a caller
+ * can tell "this id exists" from "it does not", which against non-enumerable
+ * cuids says nothing about content.
  */
 type ParticipationResult =
   | { ok: true; counterparty: { userId: string; status: UserStatus } }

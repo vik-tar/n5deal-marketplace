@@ -1,12 +1,14 @@
 'use client'
 
-import { useRef, useState, useTransition } from 'react'
+import { useEffect, useId, useRef, useState, useTransition } from 'react'
 import { useTranslations } from 'next-intl'
 import { useRouter } from '@/i18n/navigation'
 import type { AssetCategory, AssetStatus, BusinessStatus } from '@/generated/prisma/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardBody, CardHeader } from '@/components/ui/card'
 import { Field } from '@/components/ui/field'
+import { UnsavedMarker } from '@/components/ui/unsaved-marker'
+import { useUnsavedChanges } from '@/components/domain/use-unsaved-changes'
 import { StatusPill } from '@/components/domain/status-pill'
 import { TeaserReviewPanel } from '@/components/domain/teaser-review-panel'
 import { ASSET_CATEGORIES, BUSINESS_STATUSES } from '@/lib/filters/asset-filters'
@@ -25,10 +27,11 @@ import {
 import { COUNTRY_CODE_LENGTH } from '@/lib/validation/primitives'
 import { saveDraft, submitForReview, type SaveDraftResult } from '@/server/actions/assets'
 import type { ActionError } from '@/server/actions/types'
+import { attempt } from '@/lib/action-result'
 
 /** Everything the edit page (`@/app/[locale]/listings/[id]/edit/page.tsx`) already
  * loaded and narrowed — every `bigint` money column converted to `number`
- * before it ever reaches this client component (ruling 1, Task 15). Absent on
+ * before it ever reaches this client component. Absent on
  * the "new listing" page: that is exactly what tells this component it is
  * creating rather than editing (see the doc comment on `ListingForm` below).
  */
@@ -62,6 +65,38 @@ const FIELD_ERROR_KEY: Record<keyof AssetInput, string> = {
 }
 
 type FieldErrors = Partial<Record<keyof AssetInput, string>>
+
+/**
+ * `JSON.stringify` cannot represent `NaN`, which `readFormValues` returns for
+ * every untouched number field — every one of them would serialise to `null`
+ * and compare equal to every other. Replaced with a marker first so an empty
+ * price and an empty client count stay distinguishable from each other and
+ * from a real value.
+ */
+/**
+ * The saved state as a comparable string, or `null` for a listing that has
+ * never been saved.
+ *
+ * Run through the schema rather than stringified directly, and that is the
+ * whole point. `ListingFormInitial` carries four fields the schema does not —
+ * `assetId`, `publicRef`, `status`, `rejectionReason` — and arrives in the
+ * page's key order rather than the schema's, so comparing it raw against
+ * parsed form values never matched: a field edited and put back left the
+ * marker showing, and trailing whitespace read as a change. Parsing both sides
+ * makes the comparison one between two projections of the same shape, which is
+ * also what makes `  MT  ` and `MT` the same listing.
+ */
+function savedFingerprintOf(values: AssetInput | null): string | null {
+  if (values === null) return null
+  const parsed = assetInputSchema.safeParse(values)
+  return parsed.success ? JSON.stringify(parsed.data) : null
+}
+
+function fingerprint(values: Record<string, unknown>): string {
+  return JSON.stringify(values, (_key, value) =>
+    typeof value === 'number' && Number.isNaN(value) ? '\u0000NaN' : value,
+  )
+}
 
 /**
  * Reads the plain fields off the uncontrolled `<form>` (mirroring
@@ -119,8 +154,8 @@ function readFormValues(form: HTMLFormElement, included: string[]): Record<strin
  * created, exactly the way `smart-search.tsx` and `filter-sidebar.tsx`
  * navigate via `useRouter()` rather than a native form GET. `initial` present
  * means "editing": both further buttons appear, and `TeaserReviewPanel`
- * (Task 15, Step 4) becomes reachable — it renders its own "Check teaser"
- * button only when `aiEnabled`, per ruling 5.
+ * becomes reachable — it renders its own "Check teaser"
+ * button only when `aiEnabled`, for the same reason.
  */
 export function ListingForm({
   initial,
@@ -142,15 +177,89 @@ export function ListingForm({
     'saved' | 'submitted' | 'unpublishedForReview' | 'suspendedSentForReview' | null
   >(null)
   const [isPending, startTransition] = useTransition()
+  const unsavedId = useId()
 
+  /**
+   * The listing as last written, or `null` for one that has never been saved.
+   * The baseline the unsaved marker compares against.
+   */
+  const [savedFingerprint, setSavedFingerprint] = useState<string | null>(() =>
+    savedFingerprintOf(initial ?? null),
+  )
+  const [isDirty, setIsDirty] = useState(false)
+
+  /**
+   * The form exactly as it first rendered, captured once.
+   *
+   * A listing that has never been saved has no stored baseline, and "nothing
+   * has been typed" cannot be read off the values either: `category` and
+   * `businessStatus` are `<select>` elements, so they always report their
+   * default and the form is never literally empty. Measured — the first
+   * attempt compared against all-empty and the marker never cleared, because
+   * it never could.
+   *
+   * A ref written in an effect rather than state: nothing renders from it, and
+   * it must not itself trigger a render.
+   */
+  const pristine = useRef<string | null>(null)
+  useEffect(() => {
+    if (pristine.current !== null) return
+    const form = formRef.current
+    if (form) pristine.current = fingerprint(readFormValues(form, initial?.included ?? []))
+  }, [initial])
+
+  /**
+   * Whether this form holds work that would be lost.
+   *
+   * The same rule the buyer's profile uses, and for a much larger form: twenty
+   * fields, six of them confidential, against that form's five. Compares
+   * *parsed* values so a cosmetic edit the schema normalises — `mt` over `MT`,
+   * padding around a name — is not counted as a change; input the schema
+   * rejects counts as dirty by definition, since it cannot be what was saved.
+   *
+   * Handler-driven rather than derived during render because these inputs are
+   * uncontrolled: their values live in the DOM and are read through
+   * `FormData`, and reading the DOM during render is what React forbids.
+   * `nextIncluded` is passed explicitly by the three `included` handlers, whose
+   * `setIncluded` has not landed yet at the moment they call this.
+   */
+  function recomputeDirty(nextIncluded: string[] = included): void {
+    const form = formRef.current
+    if (!form) return
+    const values = readFormValues(form, nextIncluded)
+
+    if (savedFingerprint === null) {
+      // Never saved: the question is whether anything differs from how the
+      // page arrived, so a seller who types a character and deletes it again
+      // is back to having nothing to lose.
+      setIsDirty(pristine.current !== null && fingerprint(values) !== pristine.current)
+      return
+    }
+
+    const parsed = assetInputSchema.safeParse(values)
+    setIsDirty(!parsed.success || JSON.stringify(parsed.data) !== savedFingerprint)
+  }
+
+  useUnsavedChanges('seller-listing-form', isDirty)
+
+  // `included` is React state rather than a DOM field, so the form-wide
+  // `onInput` below cannot see it change. Each of these computes the next
+  // array explicitly and hands it to `recomputeDirty`, which would otherwise
+  // read the pre-update value.
   function addIncluded() {
-    setIncluded((prev) => (prev.length >= MAX_INCLUDED_ITEMS ? prev : [...prev, '']))
+    const next = included.length >= MAX_INCLUDED_ITEMS ? included : [...included, '']
+    setIncluded(next)
+    recomputeDirty(next)
   }
   function updateIncluded(index: number, value: string) {
-    setIncluded((prev) => prev.map((item, i) => (i === index ? value : item)))
+    const next = included.map((item, i) => (i === index ? value : item))
+    setIncluded(next)
+    recomputeDirty(next)
   }
   function removeIncluded(index: number) {
-    setIncluded((prev) => prev.filter((_, i) => i !== index))
+    const next = included.filter((_, i) => i !== index)
+    setIncluded(next)
+    recomputeDirty(next)
   }
 
   /** Runs the shared schema against the current form state; on failure, sets
@@ -213,7 +322,7 @@ export function ListingForm({
     if (!data) return
     const previousStatus = initial?.status
     startTransition(async () => {
-      const result = await saveDraft({ ...data, assetId: initial?.assetId, locale })
+      const result = await attempt('save-draft', saveDraft({ ...data, assetId: initial?.assetId, locale }))
       if (!result.ok) {
         setFormError(result.error)
         setNotice(null)
@@ -221,9 +330,16 @@ export function ListingForm({
       }
       setFormError(null)
       if (!initial) {
+        // The create navigates to the edit page, where this component remounts
+        // with `initial` set — the new baseline arrives with it. Clearing the
+        // flag here stops the navigation guard from asking about work that has
+        // just been written.
+        setIsDirty(false)
         router.replace(`/listings/${result.assetId}/edit`)
         return
       }
+      setSavedFingerprint(JSON.stringify(data))
+      setIsDirty(false)
       setNotice(sentBackForReview(previousStatus, result) ?? 'saved')
       router.refresh()
     })
@@ -242,12 +358,14 @@ export function ListingForm({
     const assetId = initial.assetId
     const previousStatus = initial.status
     startTransition(async () => {
-      const saved = await saveDraft({ ...data, assetId, locale })
+      const saved = await attempt('save-draft', saveDraft({ ...data, assetId, locale }))
       if (!saved.ok) {
         setFormError(saved.error)
         setNotice(null)
         return
       }
+      setSavedFingerprint(JSON.stringify(data))
+      setIsDirty(false)
       const demoted = sentBackForReview(previousStatus, saved)
       if (demoted !== null) {
         // The save this button just performed already pulled the listing
@@ -263,7 +381,7 @@ export function ListingForm({
         router.refresh()
         return
       }
-      const submitted = await submitForReview({ assetId, locale })
+      const submitted = await attempt('submit-for-review', submitForReview({ assetId, locale }))
       if (!submitted.ok) {
         setFormError(submitted.error)
         setNotice(null)
@@ -276,7 +394,14 @@ export function ListingForm({
   }
 
   return (
-    <form ref={formRef} className="flex flex-col gap-6" onSubmit={(event) => event.preventDefault()}>
+    <form
+      ref={formRef}
+      className="flex flex-col gap-6"
+      noValidate
+      // Bubbles, so one handler covers every control in a twenty-field form.
+      onInput={() => recomputeDirty()}
+      onSubmit={(event) => event.preventDefault()}
+    >
       {initial ? (
         <div className="flex flex-wrap items-center gap-2">
           <StatusPill status={initial.status} />
@@ -561,7 +686,13 @@ export function ListingForm({
       </Card>
 
       <div className="flex flex-wrap items-center gap-3">
-        <Button type="button" variant="secondary" disabled={isPending} onClick={handleSave}>
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={isPending}
+          aria-describedby={isDirty ? unsavedId : undefined}
+          onClick={handleSave}
+        >
           {isPending ? t('actions.saving') : t('actions.saveDraft')}
         </Button>
         {/* Offered on every editable listing except one already in the
@@ -581,6 +712,7 @@ export function ListingForm({
             {isPending ? t('actions.submitting') : t('actions.submitForReview')}
           </Button>
         ) : null}
+        {isDirty ? <UnsavedMarker id={unsavedId} label={t('actions.unsaved')} /> : null}
       </div>
 
       {initial?.status === 'PENDING_REVIEW' ? (

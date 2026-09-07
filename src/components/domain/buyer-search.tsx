@@ -12,13 +12,13 @@ const BUYERS_PATH = '/buyers' as const
  * Plain free-text search for the buyer catalog — the mirror of
  * `SmartSearch` (`@/components/domain/smart-search`) minus the AI
  * natural-language button: `explainMatch` is the only AI surface this
- * catalog needs (ruling 4, Task 17), and `parseSearchQuery`
+ * catalog needs, and `parseSearchQuery`
  * (`@/lib/ai/search`) is shaped for `AssetFilters`, not `BuyerFilters` —
  * there is no natural-language parse to offer here, so this is deliberately
  * a plain form, not a scaled-down `SmartSearch`.
  *
  * Submitting always sets `q` and navigates, resetting `page` to 1 like every
- * other control on this page (ruling 7). `forAssetId`, when set, is
+ * other control on this page. `forAssetId`, when set, is
  * re-appended so a scored view stays scored while the seller searches
  * within it — the same pattern `BuyerFilterSidebar` and `BuyerAssetSelector`
  * already follow for the identical reason.

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import en from '../../messages/en.json'
-import ru from '../../messages/ru.json'
+import es from '../../messages/es.json'
 import { routing } from '@/i18n/routing'
 
 type Catalogue = { [key: string]: string | Catalogue }
@@ -24,7 +24,7 @@ function leafValues(node: Catalogue): Array<[string, string]> {
     .sort()
 }
 
-const catalogues: Record<string, Catalogue> = { en, ru }
+const catalogues: Record<string, Catalogue> = { en, es }
 
 describe('message catalogues', () => {
   it('covers every configured locale', () => {
@@ -32,7 +32,7 @@ describe('message catalogues', () => {
   })
 
   it('has identical key structure across locales', () => {
-    expect(keyPaths(ru)).toEqual(keyPaths(en))
+    expect(keyPaths(es)).toEqual(keyPaths(en))
   })
 
   it('has no empty strings', () => {
@@ -43,25 +43,25 @@ describe('message catalogues', () => {
     }
   })
 
-  it('translates Russian copy rather than leaving English placeholders', () => {
+  it('translates the second locale rather than leaving English placeholders', () => {
     // Proper nouns, language endonyms, and untranslated financial acronyms
-    // are legitimately identical — Russian financial writing keeps "EBITDA"
-    // in Latin script rather than transliterating or translating it.
+    // are legitimately identical — Spanish financial writing keeps "EBITDA"
+    // and "data room" as they are rather than translating them.
     const sharedByDesign = new Set([
       'common.appName',
       'localeSwitcher.locale.en',
-      'localeSwitcher.locale.ru',
+      'localeSwitcher.locale.es',
       'gate.open.ebitda',
       'listingForm.fields.ebitdaLabel',
       'listingForm.fields.dataRoomUrlPlaceholder',
       // A URL example, not language-specific — same reasoning as
       // `listingForm.fields.dataRoomUrlPlaceholder` above.
       'profile.profileSection.fields.websiteUrlPlaceholder',
-      // Regulatory licence-type acronyms: Russian fintech/legal writing keeps
-      // these in Latin script too, the same reasoning as the `ebitda` entries
+      // Regulatory licence-type acronyms: Spanish fintech and legal writing
+      // keeps these unchanged too, the same reasoning as the `ebitda` entries
       // above. `profile.licenceType.Banking` is the one member of this fixed
       // universe that is an ordinary English word, not an acronym, and it is
-      // translated ("Банковская лицензия") rather than exempted here.
+      // translated ("Licencia bancaria") rather than exempted here.
       'profile.licenceType.PI',
       'profile.licenceType.EMI',
       'profile.licenceType.SEMI',
@@ -70,11 +70,17 @@ describe('message catalogues', () => {
       'profile.licenceType.CASP',
       // Pure template-and-punctuation strings with no language-specific word
       // in them at all — "{min} – {max}" and "{score}/100" render the same
-      // en-dash range notation and "/100" score suffix in Russian
-      // typography as in English, the same reasoning as the URL-example
-      // entries above.
+      // en-dash range notation and "/100" score suffix in Spanish typography
+      // as in English, the same reasoning as the URL-example entries above.
       'buyers.card.ticketRange',
       'matchBadge.scoreValue',
+      // English terms Spanish business writing uses unchanged, the same
+      // reasoning as the acronyms above: "fintech" is the ordinary word in
+      // Spanish, a "data room" is called a data room, and a family office is
+      // a family office. Translating any of them would read as a coinage.
+      'assets.category.FINTECH',
+      'gate.open.dataRoomLabel',
+      'profile.buyerType.FAMILY_OFFICE',
     ])
     const identical = keyPaths(en).filter((path) => {
       if (sharedByDesign.has(path)) return false
@@ -82,7 +88,7 @@ describe('message catalogues', () => {
         path
           .split('.')
           .reduce<string | Catalogue>((acc, part) => (acc as Catalogue)[part]!, c)
-      return read(en) === read(ru)
+      return read(en) === read(es)
     })
     expect(identical).toEqual([])
   })

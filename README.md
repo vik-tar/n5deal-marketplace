@@ -7,7 +7,7 @@ EBITDA figures, the client count and the data-room link are released only after 
 a named buyer's access request. Everything a role does writes to Postgres, so state survives a
 refresh and survives being opened from a different browser. The stack is Next.js 16 (App Router,
 React Server Components, Server Actions), Prisma 7 on Postgres, Auth.js v5, Tailwind 4 and
-`next-intl` for English and Russian.
+`next-intl` for English and Spanish.
 
 **Deployed at:** _(not deployed yet — see [Deploying it](#deploying-it); the URL goes here)_
 
@@ -19,8 +19,9 @@ React Server Components, Server Actions), Prisma 7 on Postgres, Auth.js v5, Tail
 | Seller | `seller@n5deal.demo` | `demo1234` |
 | Manager | `manager@n5deal.demo` | `demo1234` |
 
-There is no sign-up. The seed creates 19 accounts and those are the only ones that exist — see
-[What is not built](#what-is-not-built).
+Buyers and sellers can also **register at `/register`**; the seed's 19 accounts are the ones with
+data behind them, which is why the demo buttons exist. Platform managers are seeded only — see
+[D8](#d8--self-service-sign-up-for-two-roles-and-only-two).
 
 ---
 
@@ -66,6 +67,29 @@ Prisma's `env()` helper, which throws at config-load time when the variable is u
 | `ANTHROPIC_API_KEY` | no | Enables the three AI features. See below. |
 | `AUTH_TRUST_HOST` | only sometimes | Needed for a local **production** build on a host or port Auth.js did not infer. Not needed for `pnpm dev`, not needed on Vercel. |
 
+### Turning the AI features on
+
+They are off in the shipped configuration, and switching them on is two lines:
+
+```bash
+echo 'ANTHROPIC_API_KEY="sk-ant-..."' >> .env
+pnpm dev          # restart if it is already running — the key is read server-side
+```
+
+**Where to look once it is set** — the app gives no other clue, so this list is
+the map:
+
+| Feature | Where | What appears |
+|---|---|---|
+| Natural-language search | `/en/listings`, beside the search box | an **Ask AI** button; "EMI licence in Malta under 2M" becomes real filters, written into the URL so you can see and correct what it understood |
+| Match explanation | `/en/dashboard` as a buyer, or `/en/buyers` as a seller — open any match badge | a sentence under the list of reasons, phrasing the codes the scorer produced |
+| Confidentiality review | `/en/listings/<id>/edit` as the owning seller | a **Check teaser** button that reads the saved row and reports where the public teaser leaks the confidential half |
+
+Without a key each of those places says so in one line instead of rendering
+nothing, so a reader can tell a feature that is switched off from one that was
+never built. Everything around them — match scores, match reasons, the NDA
+gate, moderation — is computed server-side and is unaffected either way.
+
 **`ANTHROPIC_API_KEY` is optional, and this project ships with it unset by decision.** With it empty:
 
 - The **"Ask AI"** button next to the catalog search box is not rendered. The search box itself
@@ -83,7 +107,7 @@ product, which is the whole point of the design (see [AI functionality](#ai-func
 **Other commands**
 
 ```bash
-pnpm test        # 355 unit tests, no database needed
+pnpm test        # 436 unit tests, no database needed
 pnpm test:e2e    # 3 Playwright specs — RESEEDS THE DATABASE, see Testing
 pnpm test:all    # both, in that order
 pnpm typecheck   # tsc --noEmit
@@ -109,9 +133,12 @@ Listed here rather than left to be discovered.
 - **Favourites have a table and no UI.** `Favorite` is in the Prisma schema and in the spec's
   screen list; there is no `/favorites` route, no action that writes one, and the seed creates zero
   rows. Nothing in `src/` outside the generated client mentions it.
-- **There is no sign-up.** No route, no Server Action and no code path anywhere in `src/` creates a
-  `User`. Only the 19 seeded accounts can sign in. The spec's assumption 2 says the *manager* is
-  seeded-only; in practice every role is.
+- **A new account starts empty, and nothing helps it fill up.** Registration creates the user and
+  their profile; a new buyer then has no mandate, a new seller no listings, and neither gets an
+  onboarding path beyond the forms already there. Fine for a prototype whose demo data lives on the
+  seeded accounts, and the first thing a real product would build next.
+- **No email verification and no password reset.** Both need a mail transport this prototype does
+  not have. An address is taken at face value.
 - **The three AI features have never run against the real API.** They are verified statically
   against the SDK's types and behaviourally on the no-key fallback path only. The project ships with
   `ANTHROPIC_API_KEY` unset by the user's decision, so that is the designed configuration rather
@@ -119,6 +146,8 @@ Listed here rather than left to be discovered.
   you set one, treat the first run of each as untested.
 - **The e2e suite covers `/en` only.** Not `ru`, not messaging or the inbox, not either dashboard,
   not `/buyers`, not the AI paths, and no responsive or viewport claim. Three specs, three flows.
+  The 404 and error boundaries ([D7](#d7--failure-has-exactly-two-shapes-and-both-are-rendered))
+  are verified by hand against a production build rather than by a spec.
 - **Neither table in the manager console paginates**, and several list queries sort in memory
   rather than in SQL: `/admin`'s participants and listings tables (their orderings are rankings over
   enum members, which Prisma cannot express as an `orderBy` without raw SQL), `/buyers` (reads every
@@ -142,10 +171,12 @@ Listed here rather than left to be discovered.
   counted twice. Known, deferred, and deliberate in one direction: a view counter that over-counts
   is a statistic, whereas the read receipt next door (`MarkReadOnView`) was built as an effect
   precisely because one that over-clears is a lie.
+- **No rate limiting anywhere.** Not on sign-in, not on the AI actions. Sign-in is covered by
+  assumption 1 below; the AI actions bound the *size* of what one call can send a model
+  (see [AI functionality](#ai-functionality)) but not the *number* of calls an authenticated
+  account can make. A real deployment needs a per-account limiter in front of both.
 - **The branch has never been merged to `master`.** `master` holds the two design commits;
-  everything else is on `feat/marketplace-prototype`. A whole-branch review still owes a triage of
-  the deferred minor findings recorded in `docs/superpowers/EXECUTION-LEDGER.md` — 34 entries are
-  marked `minor (deferred)` and several list more than one item, so the real count is around forty.
+  everything else is on `feat/marketplace-prototype`.
 
 Out of scope from the start, and recorded as such in the spec: payments, escrow, deal closing,
 document signing, file uploads (the data room is a URL field), broker/partner tenancy, websockets,
@@ -248,7 +279,7 @@ against hostile input including values that survive `isInteger` but not `isSafeI
 `canModerate`, `canMessage`, `canRequestAccess`, `canDecideAccess`, `canRevokeAccess` and a handful
 more. Both the UI (what to render) and the server (what to return, whether to accept a mutation)
 call the same functions. Rules are unit-testable in isolation and cannot drift between the two
-layers, which is exactly how access-control bugs normally happen. 46 of the 355 unit tests are this
+layers, which is exactly how access-control bugs normally happen. 55 of the 436 unit tests are this
 module alone.
 
 ### D3 — Redaction happens on the server, in the data layer
@@ -279,6 +310,138 @@ No FX, no decimals-in-floats. The reference product displays EUR asking prices; 
 without real rates would be a lie. The columns are `BigInt`, not `Int`: Postgres `INTEGER` caps at
 €21.47M in cents and the seed goes to €25M. `bigint` is normalised to `number` at the same
 DTO boundary redaction already uses, so it never crosses into React.
+
+### D7 — Failure has exactly two shapes, and both are rendered
+
+A mutation in this app can fail in two unrelated ways, and they are handled in two different places
+on purpose.
+
+**Expected failures are return values, never throws.** Every Server Action answers
+`ActionResult` — `{ ok: true }` or `{ ok: false, error }` over a closed union of reasons
+(`src/server/actions/types.ts`). The component switches on `error` and renders a translated
+sentence inline, next to the control the user pressed. Nothing about a refused mutation reaches an
+error boundary, because a refused mutation is not an exception: it is the answer.
+
+**Unexpected failures are caught at the call site and folded into the same union.** A dropped
+connection, a Prisma error an action deliberately rethrows, a deploy landing mid-submit — those
+reject the promise rather than returning. Every client call goes through `attempt()`
+(`src/lib/action-result.ts`), which turns a rejection into `{ ok: false, error: 'UNEXPECTED' }`, so
+one form has one rendering path for every way it can fail and the button always comes back
+enabled. Left unhandled, these rejected inside `startTransition` and took the whole page to an
+error boundary — replacing a half-filled listing form with an error screen because one round trip
+failed.
+
+**What is left over gets a page, not a stack trace.** Three boundaries close the remainder:
+
+| File | Catches | Renders |
+|---|---|---|
+| `app/[locale]/not-found.tsx` | every `notFound()` — twelve call sites | the localized 404, inside the layout, with the header and links back |
+| `app/[locale]/[...rest]/page.tsx` | a URL matching no route at all | defers to the above; a boundary is not a route, so without this an unmatched URL got Next's built-in page |
+| `app/[locale]/error.tsx` | a render or action failure below the layout | localized copy plus `retry()` |
+| `app/global-error.tsx` | a failure in the layout itself (`getViewer()`, the database) | a self-contained document, inline styles, English only |
+
+`notFound()` here is not an exceptional path — it is the *ordinary* outcome of an authorization
+rule. A listing whose seller a manager just suspended, a thread the viewer is not a party to,
+`/admin` for a non-manager, `/profile` for a viewer with no `BuyerProfile`: all 404, all routine.
+A 404 that is a routine product state has to look like part of the product. Verified against the
+production build in both locales: `/en/does-not-exist`, `/es/does-not-exist`, `/en/listings/<bad
+id>` and `/en/a/b/c/d` all answer `404` and render the branded page with the site header.
+
+Next 16 passes `retry` to an error file, not `reset` — `retry()` re-fetches and re-renders the
+boundary's children, where `reset()` only clears the error state over the same failed subtree. See
+`node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/error.md`.
+
+### D8 — Self-service sign-up for two roles, and only two
+
+`/register` creates a `BUYER` or a `SELLER`, signs them straight in, and writes the `User` row and
+its profile row **in one transaction**. Half a registration is worse than none: a `User` with no
+`BuyerProfile` can sign in and is then refused by `/profile`, `/dashboard` and every buyer action,
+because `getViewer` hands back a viewer whose `buyerProfileId` is `null` and every predicate in
+`src/lib/authz` reads that as "not a buyer".
+
+**`MANAGER` cannot be self-assigned, and the protection is structural.** `registrationSchema`
+(`src/lib/validation/registration.ts`) is a discriminated union with two members, so no payload
+parses into a manager — there is no check to forget or edit out. This matters more than it sounds:
+the console is the only surface that writes `UserStatus`, so a visitor who made themselves a manager
+and suspended everyone would not be recoverable from inside the app. Verified by forging a Server
+Action POST past the form entirely, with `role: "MANAGER"` in the body; the action answered
+`{"ok":false,"error":"INVALID"}` and wrote nothing.
+
+**Two deliberate asymmetries with sign-in.** Registration says plainly that an address is already
+taken — that is address enumeration, and it is the better trade on a sign-up form, where the
+alternative leaves someone who forgot they had an account with no way to work out what is wrong.
+Sign-in keeps the opposite rule: `authorize` (`src/auth.ts`) compares against a dummy hash so a
+wrong address and a wrong password cost the same time and give the same answer. Neither decision is
+a precedent for the other.
+
+**Passwords are capped at 72 bytes rather than truncated.** bcrypt ignores everything past its 72nd
+byte, silently — measured on the installed `bcryptjs`, a hash of 72 characters verifies against
+those characters plus any tail at all. Without a ceiling a long passphrase would be half discarded
+and two different passwords sharing a prefix would both open the account. The limit is counted in
+bytes, not characters, because 72 Cyrillic characters are 144 of them. Pre-hashing with SHA-256 is
+what a production system should do; it changes how every seeded password verifies, which is more
+than this prototype should take on.
+
+### D9 — Work in progress is never lost silently
+
+Both long forms — the buyer's profile and mandate, and the seller's listing editor — mark themselves
+when they hold edits that have not been written, and both ask before a link throws that work away.
+The seller's form is where it matters most: twenty fields, six of them confidential, against the
+profile's five.
+
+Three pieces, each doing one thing. A per-section **marker** beside the save button, so the page says
+which card is unsaved rather than that something is. A **`beforeunload` listener**, attached only
+while dirty, for a reload or a closed tab. And an **`onNavigate` guard** on the header's links, since
+an in-app navigation unloads nothing and never reaches `beforeunload`; the two components that hold
+those links live in the layout and cannot see the form, so a small module-level registry
+(`src/lib/unsaved-changes.ts`) carries the one boolean between them. Keyed rather than counted —
+React's development double-invocation of effects would leave a counter stuck above zero and block
+every later navigation.
+
+**Dirty means "differs from what was saved", compared after parsing.** Retyping `mt` over `MT` or
+padding a name with spaces is not an edit: the schema normalises both to the same value, and a marker
+that lights up for a change the database cannot see is one people learn to ignore. Getting this wrong
+is easy and quiet — the first attempt compared the listing form against its `initial` prop, which
+carries four fields the schema does not and arrives in a different key order, so a field edited and
+put back kept the marker showing.
+
+**What it does not catch: the back button.** `onNavigate` fires for link clicks, not for `popstate`,
+and the App Router exposes no supported way to block a history pop. Guarding it would mean pushing a
+decoy entry and undoing it, which breaks the history stack in ways users notice more than the lost
+edit.
+
+### D10 — Two component folders, and a lint rule that keeps them two
+
+`src/components/ui` is the design system — `Button`, `Card`, `Field`, `Badge`,
+`Tabs` and two small notes. `src/components/domain` is this marketplace —
+`AssetCard`, `GatedSection`, `MandateForm`, `StatusPill` and twenty-six others.
+The line between them is not a naming convention:
+
+**Nothing in `ui/` knows what this product is, and nothing in it carries a word
+of copy.** Measured: those seven files import `@/lib/cn`, `react` and
+`@/i18n/navigation`, and nothing else — no `next-intl`, no Prisma types, no
+Server Action, no authorization rule. Every string arrives as an
+already-translated prop.
+
+`StatusPill` and the `Badge` it wraps are the pair that shows why. `Badge`
+knows five tones and nothing else. `StatusPill` maps twelve statuses from three
+Prisma enums onto those tones and reaches for `useTranslations('status')` — it
+is this product's vocabulary laid over a generic pill.
+
+Two things fall out of the split, both observable in this repository. Replacing
+the second locale (Russian to Spanish) rewrote 567 message keys and a dozen
+`domain/` components and touched **none** of the seven `ui/` files. And one
+`[aria-invalid]` rule in `globals.css` turned the invalid field red in the
+registration form, the profile form and the listing editor at once, because all
+three go through `Field`.
+
+The boundary now **fails the build** rather than relying on memory:
+`eslint.config.mjs` restricts imports under `src/components/ui/**`. The most
+important entry is `@/components/domain/*` — the others stop copy and product
+vocabulary leaking down, but that one keeps the dependency arrow pointing one
+way. `domain/` builds on `ui/` at 41 call sites; the reverse would make the two
+folders one folder with a slash in it. `@/i18n/navigation` stays allowed: `Tabs`
+renders a locale-aware `Link`, and a link is navigation, not copy.
 
 ### Authentication
 
@@ -443,9 +606,24 @@ authorization predicate; moderation is a state machine. The AI layer only *phras
   occur in the teaser. Unenforced model compliance would have meant a hallucinated quotation reaching
   the seller as evidence, in the one feature whose entire purpose is guarding confidentiality.
 
-**The degradation guarantee.** `isAiEnabled()` reads `ANTHROPIC_API_KEY`; with it empty the AI
-controls are not rendered at all — no disabled placeholder, no error text — and `callStructured`
-returns `null` without opening a client. `callStructured` never throws and never rejects: every
+**Every prompt is bounded before it is built.** A Server Action is a public HTTP endpoint, so the
+argument reaching an AI feature is whatever the caller posted — not whatever the component passed —
+and all three features `JSON.stringify` that argument into a prompt the operator pays for. Each one
+therefore bounds its own input before the model sees it: the catalog search truncates the phrase to
+200 characters (`buildSearchPrompt`), the confidentiality review reads the *persisted* row rather
+than the caller's claims about it, and the match explanation validates against
+`explainMatchInputSchema` (`src/lib/ai/explain.ts`) — reasons capped at the five criteria that
+exist, `code` and `kind` as enums over the real member lists, unknown keys stripped. Authentication
+alone bounds nothing here: every demo account is `isActive`, so without the cap one badge click's
+worth of authorization would buy an arbitrarily large prompt, and free text in a `code` field would
+be a caller writing into the model's context. Seven unit tests hold that line.
+
+**The degradation guarantee.** `isAiEnabled()` reads `ANTHROPIC_API_KEY`; with it empty no AI
+*control* is rendered — no disabled button, no error text, nothing to press that would fail — and
+`callStructured` returns `null` without opening a client. What each of those three places does
+render is a single line of prose saying the feature runs with a key configured, which is not a
+control and costs nothing: without it, a reader with no key cannot tell a feature that is switched
+off from one that was never built, and this project ships with the key unset. `callStructured` never throws and never rejects: every
 failure mode (no key, a network error, a refusal, a schema mismatch, a truncated response) collapses
 to `null`, and each caller has a defined fallback. Truncation is logged rather than swallowed
 silently, so it cannot be mistaken for "the feature is switched off". No write path in this codebase
@@ -459,10 +637,20 @@ the real API. See [What is not built](#what-is-not-built).
 ## Testing
 
 ```bash
-pnpm test        # 355 unit tests in 26 files — no database, no network
+pnpm test        # 436 unit tests in 31 files — no database, no network
 pnpm test:e2e    # 3 Playwright specs against a production build
 pnpm test:all    # both
 ```
+
+**Two things `tsc` cannot check, and one test each.** `Translator`
+(`src/i18n/translator.ts`) is typed `(key: string)` because this project does
+not generate a key union per namespace, so a mistyped translation key is a
+well-typed `string` that throws `MISSING_MESSAGE` at render time.
+`tests/unit/i18n/keys.test.ts` scans `src/` for literal `t('…')` calls,
+attributes each to the namespace of the binding it is called on, and asserts
+the key resolves — and resolves to a string rather than to a group. It found a
+real one on the buyer dashboard. Its companion `messages.test.ts` checks the
+catalogue against itself; neither test replaces the other.
 
 **The unit suite runs with `DATABASE_URL` unset**, deliberately and continuously verified. Nothing
 under `tests/unit` imports the Prisma singleton; when testing a query's `where` builder required it,
@@ -470,20 +658,26 @@ the builder was extracted into a module that imports only types rather than addi
 file. `vitest.config.mts` includes `tests/unit/**` only, so the Playwright specs can never be
 dragged into the unit run.
 
-What the 355 protect, by weight:
+What the 436 protect, by weight:
 
 | Area | Tests | What a failure would mean |
 |---|---|---|
-| `lib/authz` rules | 46 | Someone can see or do something they should not |
+| `lib/authz` rules | 55 | Someone can see or do something they should not |
 | Query `where` builders (`admin`, `asset`, `buyer`, `conversation`) | 84 | The visibility floor, the manager's no-floor console, or the manager's exclusion from the inbox has drifted |
 | URL filter parsing and serialisation | 68 | A hand-edited URL crashes a page or smuggles an unsafe number into a query |
-| `scoreMatch` | 20 | Two sides of the marketplace disagree about a match |
-| Form and action validation | 30 | Invalid input reaches the database |
-| Nav visibility | 22 | The header offers a page the viewer cannot open, or hides one they can |
+| Form and action validation | 56 | Invalid input reaches the database |
+| Nav visibility and the unread badge | 35 | The header offers a page the viewer cannot open, hides one they can, or circles a `0`/`NaN` beside Inbox |
+| Money, i18n, geo, grouping, thread keys | 34 | Formatting, locale validation or thread identity regressions |
+| AI fallbacks, prompts, quote containment and prompt-input bounds | 29 | A malformed model response throws instead of falling back, a hallucinated quote reaches a seller, or a caller writes their own text into a model prompt |
 | DTO redaction and the NDA gate state | 21 | A confidential field is serialized to a viewer without a grant |
-| AI fallbacks, prompts and quote containment | 17 | A malformed model response throws instead of falling back, or a hallucinated quote reaches a seller |
+| `scoreMatch` and the criteria key | 24 | Two sides of the marketplace disagree about a match, or an edited criterion silently stops recounting |
 | Seed-data invariants | 9 | The demo data stops exercising a filter (this caught a real bug: EMI never appeared as a licence type) |
-| Money, i18n, geo, grouping, thread keys | 38 | Formatting, locale validation or thread identity regressions |
+| `Field` error wiring | 8 | A failing control stops pointing at the message that explains it |
+| Unsaved-changes registry | 5 | A stale entry blocks every later navigation, or a lost one drops a user's edits silently |
+| Translation catalogue parity | 4 | A locale gains a key the other lacks, or Spanish copy silently falls back to English |
+| Translation keys used in source | 4 | The code asks for a key the catalogue does not have — a `MISSING_MESSAGE` thrown at render time, on a page `tsc` cannot check |
+
+The rows sum to 436; the counts come from the suite, not from an estimate.
 
 **The three e2e flows** each assert something no unit test can reach, because each spans several
 sessions, a Server Action, a revalidation and a second viewer's view of the result:
@@ -553,7 +747,7 @@ Not yet done — these are the instructions, not a record.
    - Run the **core flow** end to end: seller creates a listing → manager approves it → it appears
      in the public catalog → buyer requests access → seller approves → the confidential block
      unlocks for that buyer and a conversation opens.
-   - Check **both locales**: `/en` and `/ru` on the catalog, a listing and the dashboard.
+   - Check **both locales**: `/en` and `/es` on the catalog, a listing and the dashboard.
    - Open the URL **in a different browser** (or a private window) and confirm the same data is
      there. This is the point of choosing a real database over browser storage, and it is the one
      check that would fail for a prototype that had cheated on persistence.
@@ -569,7 +763,8 @@ Reproduced verbatim from section 13 of
 1. Passwords are demo-grade; hashing is real (bcrypt) but there is no verification, reset, or rate
    limiting.
 2. The Manager role is seeded only — it is not self-registerable, which is correct for a real
-   platform and avoids an admin-escalation hole in a public demo.
+   platform and avoids an admin-escalation hole in a public demo. Buyers and sellers register
+   themselves at `/register` (see [D8](#d8--self-service-sign-up-for-two-roles-and-only-two)).
 3. All amounts are EUR. No FX conversion.
 4. One investment mandate per buyer.
 5. The data room is a URL field; no file storage.
@@ -668,9 +863,15 @@ And, from what building it actually surfaced:
 - **A `MatchBadge` that renders a neutral "mandate not specified" chip at `specificity === 0`**
   instead of "Strong match · 100/100". The card already prints "This mandate constrains nothing"
   underneath and the tie-break already ranks specific buyers first, so nothing is hidden — but the
-  collapsed badge is the part a seller reads. Recorded as an open decision in the ledger, not an
-  oversight.
+  collapsed badge is the part a seller reads. Recorded as an open decision, not an oversight.
 - **A `viewCount` that counts distinct views**, or an explicit rename to what it actually measures.
 - **A manager path to reject a suspended listing** with a reason. Today `SUSPENDED`'s only exit is
   approval, so a manager cannot send one back.
-- **Triage of the deferred minor findings** in the ledger, and a merge to `master`.
+- **An e2e spec for the 404 and error boundaries**, which are currently verified by hand.
+- **A per-account rate limiter** in front of sign-in and the three AI actions. Their prompt *size*
+  is bounded; their *frequency* is not.
+- **A `select` on the two catalogue reads.** `listAssets` and `getRecommendedAssets` pull whole
+  `Asset` rows, confidential columns included, and drop them at the DTO boundary. The redaction is
+  what makes that safe, but naming the columns would mean the confidential half never leaves
+  Postgres at all — defence in depth rather than a single line to get wrong.
+- **A merge to `master`.**

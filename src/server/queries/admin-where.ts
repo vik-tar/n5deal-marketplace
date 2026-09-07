@@ -16,8 +16,8 @@ import type { AdminFilters } from '@/lib/filters/admin-filters'
  * legal status transitions as well as the where-clauses — because those are
  * exactly the rules of this feature that can fail, and a rule that can fail
  * and cannot be tested is the shape this codebase has twice found a
- * decorative guard hiding in (`listAssets`' per-row `canViewAsset`, Task 12;
- * `decideAccess`' `P2002` catch, Task 14).
+ * decorative guard hiding in (`listAssets`' per-row `canViewAsset`;
+ * `decideAccess`' `P2002` catch).
  */
 
 // ---------------------------------------------------------------------------
@@ -39,7 +39,7 @@ import type { AdminFilters } from '@/lib/filters/admin-filters'
  * passed the check.
  *
  * Unlike the per-row `canViewAsset` check this codebase removed from
- * `listAssets` (Task 12), this guard **can** fail: `canModerate` is called
+ * `listAssets`, this guard **can** fail: `canModerate` is called
  * with the real viewer, not a hardcoded stand-in, and every non-manager
  * viewer shape reaches the throw. `tests/unit/queries/admin-where.test.ts`
  * exercises all four of them — anonymous, buyer, seller, and a `MANAGER`
@@ -343,14 +343,11 @@ export const USER_TRANSITIONS: Record<UserModerationAction, StatusTransition<Use
  * `saveDraft` (`@/server/actions/assets`) demotes a `'PUBLISHED'` **or a
  * `'SUSPENDED'`** listing into `PENDING_REVIEW` when its owner edits it, so a
  * suspended seller-owned listing can also leave `SUSPENDED` by being edited
- * and re-queued for review. (An earlier version of this paragraph asserted
- * that `saveDraft` "leaves every non-`PUBLISHED` status exactly where it
- * found it" and that `APPROVE` was therefore the only exit at all. That was
- * true when it was written and stopped being true in Task 20's second fix
- * round, which added the `SUSPENDED` arm precisely so an edit cannot silently
- * republish a listing a manager took down. The two exits do different things
- * and both are wanted: `APPROVE` returns the listing to the catalog
- * unchanged, an edit returns it to the queue.)
+ * and re-queued for review — `saveDraft` (`@/server/actions/assets`) demotes
+ * a `SUSPENDED` listing to `PENDING_REVIEW` precisely so an edit cannot
+ * silently republish a listing a manager took down. The two exits do
+ * different things and both are wanted: `APPROVE` returns the listing to the
+ * catalog unchanged, an edit returns it to the queue.
  *
  * It needs no schema change. The restoration logs as `APPROVE_LISTING` —
  * `ModAction` has had that member all along and the log renders it as

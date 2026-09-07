@@ -117,8 +117,8 @@ function MandateSummary({
         </div>
         <p className="text-xs text-ink-muted">
           {mandate.specificity === 0
-            ? tBuyers('card.specificityUnconstrained')
-            : tBuyers('card.specificity', { count: mandate.specificity })}
+            ? tBuyers('specificityUnconstrained')
+            : tBuyers('specificity', { count: mandate.specificity })}
         </p>
       </CardBody>
     </Card>

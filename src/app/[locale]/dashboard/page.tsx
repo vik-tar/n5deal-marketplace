@@ -32,8 +32,7 @@ const MATCHED_BUYER_LIMIT = 3
  * they hold neither a `BuyerProfile` nor a `SellerProfile`, have no mandate,
  * no listings and no conversations (`canMessage` denies them by design), so
  * every section of both dashboards would be an empty state. Their console is
- * `/admin`, which shipped in Task 20 and refuses every non-manager viewer on
- * its own (`listParticipants` and its siblings throw `FORBIDDEN`; the page
+ * `/admin`, which refuses every non-manager viewer on its own (`listParticipants` and its siblings throw `FORBIDDEN`; the page
  * 404s independently), so this redirect is a convenience, not a gate.
  *
  * The redirect goes through `redirectNow` (`@/server/session`) rather than a

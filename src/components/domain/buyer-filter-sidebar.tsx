@@ -28,7 +28,7 @@ const checkboxClass = cn(
  * kept as a separate component rather than a shared generic one because the
  * two catalogs filter genuinely different shapes (`BuyerFilters` maps onto a
  * mandate, `AssetFilters` onto a listing) — but built to the identical
- * pattern (ruling 7, Task 17): a client component whose every control
+ * pattern: a client component whose every control
  * navigates via `useRouter()`, rebuilding the query string from the current
  * `filters` plus one changed field and resetting `page` to 1.
  *

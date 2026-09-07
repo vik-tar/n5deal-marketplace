@@ -34,7 +34,7 @@ export function ticketLabel(
 /**
  * One row of the mandate as a labelled chip group: a translated "Any X" chip
  * when the buyer set no preference on that criterion (an empty array is
- * meaningful — Task 16's ruling 2 — not an unfinished field), otherwise one
+ * meaningful, not an unfinished field), otherwise one
  * chip per value the mandate actually constrains. Exported for the same
  * reason as `ticketLabel` above: `/buyers/[id]/page.tsx` renders the same
  * mandate shape in full, not just this card's condensed version.
@@ -71,16 +71,16 @@ export function MandateGroup({
  * badge (when this list was scored against a listing — `buyer.match` is
  * `null` otherwise) and ticket size on the right. The card links to
  * `/buyers/[id]`, carrying `forAssetId` through the query string so the
- * detail page shows the identical scored view the card linked from —
- * ruling 3's "scored against" state is shareable the same way the asset
- * catalog's own filters are (ruling 7).
+ * detail page shows the identical scored view the card linked from: the
+ * "scored against" state is shareable the same way the asset catalog's own
+ * filters are.
  *
  * That link is a *stretched* link on the buyer's name, not a wrapper around
  * the whole card. The card contains `MatchBadge`, which renders a `<button>`:
  * HTML forbids interactive content inside an `<a>`, and in practice the
  * anchor took the click, so opening the match-reasons disclosure navigated
  * away instead — the deterministic reasons list and the AI explanation
- * underneath it (Task 9) were unreachable from this card entirely. The
+ * underneath it were unreachable from this card entirely. The
  * `after:absolute after:inset-0` overlay below restores the whole-card click
  * target without nesting anything inside the anchor, and the badge sits above
  * that overlay on `relative z-10`. The focus ring lands on the name rather

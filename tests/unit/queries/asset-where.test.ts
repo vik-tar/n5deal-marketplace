@@ -20,7 +20,7 @@ function makeFilters(overrides: Partial<AssetFilters> = {}): AssetFilters {
 /**
  * The floor `buildWhere` must always produce — asserted as a value, not
  * inferred from behaviour, so a future edit that touches this object is
- * checked against the literal shape Task 20's moderation cascade depends on.
+ * checked against the literal shape the moderation cascade depends on.
  */
 const FLOOR = {
   status: 'PUBLISHED',

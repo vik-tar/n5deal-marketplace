@@ -11,7 +11,7 @@ import type { AssetFilters, AssetSort } from '@/lib/filters/asset-filters'
  * the visibility floor, which should be testable as ordinary pure logic with
  * no database, no connection string, and no environment at all.
  *
- * Task 18 added the ranking and grouping rules below for the same reason
+ * The ranking and grouping rules below are here for the same reason
  * `buyer-where.ts` already holds `compareBuyersByRecency`/`compareBuyersByScore`
  * rather than burying them inside `listBuyers`: a sort comparator defined
  * inside a query function is a rule no test can reach.
@@ -20,8 +20,8 @@ import type { AssetFilters, AssetSort } from '@/lib/filters/asset-filters'
 /**
  * The floor every catalog query enforces, independent of who is asking:
  * published listings from sellers whose account is still active. Nothing in
- * this module — or in any caller — can widen it; Task 20's moderation
- * cascade (suspending a seller) depends on exactly this being unconditional.
+ * this module — or in any caller — can widen it; the moderation cascade
+ * (suspending a seller) depends on exactly this being unconditional.
  * Managers and the listing's own seller do not get a wider view here either —
  * moderation and the seller's own dashboard are separate query paths, not a
  * `viewer`-gated branch of the public catalog.
@@ -47,7 +47,7 @@ export const SORT_ORDER: Record<AssetSort, Prisma.AssetOrderByWithRelationInput[
  *
  * Exported so `tests/unit/queries/asset-where.test.ts` can assert the
  * visibility floor directly on the returned object — the highest-stakes
- * invariant in this module (Task 20's moderation cascade depends on it)
+ * invariant in this module (the moderation cascade depends on it)
  * should not be defended only by today's code being correct.
  */
 export function buildWhere(filters: AssetFilters, omitCategory: boolean): Prisma.AssetWhereInput {
@@ -81,7 +81,7 @@ export function buildWhere(filters: AssetFilters, omitCategory: boolean): Prisma
 }
 
 // ---------------------------------------------------------------------------
-// Task 18 — dashboard ordering and grouping rules
+// dashboard ordering and grouping rules
 // ---------------------------------------------------------------------------
 
 /**

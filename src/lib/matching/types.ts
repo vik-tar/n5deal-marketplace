@@ -19,14 +19,34 @@ export interface AssetCriteria {
   askingPriceCents: number
 }
 
-export type MatchReasonCode =
-  | 'CATEGORY'
-  | 'COUNTRY'
-  | 'PRICE'
-  | 'BUSINESS_STATUS'
-  | 'LICENCE_TYPE'
+/**
+ * The five criteria and the four verdicts, as runtime values with the types
+ * derived from them rather than the other way round.
+ *
+ * `explainMatchAction` (`@/server/actions/ai`) has to *validate* a
+ * `MatchReason[]` that arrived from a client — a Server Action is a public
+ * endpoint, so the reasons it forwards to the model are caller-supplied — and
+ * a zod `enum` needs its members at runtime, not only at compile time.
+ *
+ * Deriving the type from the array instead of declaring both keeps them from
+ * drifting: adding a
+ * criterion here widens `MatchReasonCode`, and `MATCH_WEIGHTS`
+ * (`@/lib/matching/score`) is a `Record` over it, so a new code without a
+ * weight is a compile error rather than a silently unscored criterion.
+ */
+export const MATCH_REASON_CODES = [
+  'CATEGORY',
+  'COUNTRY',
+  'PRICE',
+  'BUSINESS_STATUS',
+  'LICENCE_TYPE',
+] as const
 
-export type MatchReasonKind = 'MATCH' | 'PARTIAL' | 'MISMATCH' | 'NO_PREFERENCE'
+export type MatchReasonCode = (typeof MATCH_REASON_CODES)[number]
+
+export const MATCH_REASON_KINDS = ['MATCH', 'PARTIAL', 'MISMATCH', 'NO_PREFERENCE'] as const
+
+export type MatchReasonKind = (typeof MATCH_REASON_KINDS)[number]
 
 /** A translatable, machine-readable justification. Never a sentence. */
 export interface MatchReason {

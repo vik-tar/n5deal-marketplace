@@ -21,27 +21,27 @@ import {
 import type { ActionError, ActionResult } from './types'
 
 /**
- * Every action below follows Task 14/15's shape: `requireViewer(locale)`
+ * Every action below follows the shape the other actions use: `requireViewer(locale)`
  * first, then a check before anything is validated or written. That check is
- * ruling 2 (Task 16), and it is a hard refusal, not a role check: **anyone**
+ * for a `BuyerProfile`, and it is a hard refusal rather than a role check:
+ * **anyone**
  * whose `viewer.buyerProfileId` is `null` — a seller, a manager, even a
  * signed-in visitor whose account was somehow never given a buyer profile —
  * gets `FORBIDDEN`. Every write below is scoped to `viewer.buyerProfileId`
  * itself (never a caller-supplied id), so there is no separate "is this your
  * own profile" check to get wrong.
  *
- * `countMandateMatches` reads rather than writes and was, until the
- * whole-branch review, the one export here that skipped all of that. Its
- * only two callers are server-side — this module's own `saveMandate` and the
- * profile page's first render — which is precisely the reasoning that made
- * it look safe and precisely the reasoning this codebase rejects: a `'use
- * server'` export is a network endpoint whether or not any component calls
- * it, and its id ships in the build manifest. An anonymous POST carrying
- * that id was measured returning `{"matchCount":34,"totalListings":34,
- * "specificity":1}` off an unbounded `findMany` plus in-memory scoring. It
- * now takes the identical gate as the two writes, and the profile page pays
- * for a second `requireViewer` rather than reaching past it — the page is
- * not what makes the call safe.
+ * `countMandateMatches` reads rather than writes, and takes the identical
+ * gate anyway. Both of its callers are server-side — this module's own
+ * `saveMandate` and the profile page's first render — which is exactly the
+ * reasoning that makes an ungated read look safe and exactly the reasoning
+ * this codebase rejects: a `'use server'` export is a network endpoint
+ * whether or not any component calls it, and its id ships in the build
+ * manifest. Ungated, an anonymous POST carrying that id answered
+ * `{"matchCount":34,"totalListings":34,"specificity":1}` off an unbounded
+ * `findMany` plus in-memory scoring. The profile page pays for a second
+ * `requireViewer` rather than reaching past it — the page is not what makes
+ * the call safe.
  */
 
 // ---------------------------------------------------------------------------
@@ -92,7 +92,7 @@ export interface SaveMandateInput extends MandateInput {
 }
 
 /**
- * Ruling 4 (Task 16): how many currently published listings this mandate
+ * how many currently published listings this mandate
  * matches, and whether that count means anything at all. `specificity === 0`
  * is the vacuous case `@/lib/matching`'s own doc comment warns about — every
  * listing would score 100, so `matchCount` would equal `totalListings`
@@ -107,10 +107,10 @@ export interface MandateMatchSummary {
 
 /**
  * Neither mandate action can return the shared `ActionResult` (`./types`)
- * alone — ruling 4 requires the fresh match count on every successful save,
+ * alone — the product rule requires the fresh match count on every successful save,
  * and widening `ActionResult` itself would ripple into every other Task
  * 14-20 action that already destructures it. `SaveDraftResult`
- * (`@/server/actions/assets`, Task 15) sets the precedent for a sibling type
+ * (`@/server/actions/assets`) sets the precedent for a sibling type
  * with the identical tagged shape instead.
  */
 export type MandateMatchResult =
@@ -140,11 +140,11 @@ export interface CountMandateMatchesInput {
  * Scores `mandate` against every currently published listing from an active
  * seller — the same `VISIBILITY_FLOOR` (`@/server/queries/asset-where`) the
  * public catalog itself enforces, not a re-derived approximation of it. With
- * ~34 published assets this app's own Task 18 brief accepts scoring every row
- * in memory as correct and simple; a real deployment would move this to a
- * filtered query plus a background-computed score, exactly as that brief
- * notes for its own `getRecommendedAssets`. `askingPriceCents` is converted
- * from `bigint` to `number` right here, at the read (ruling 5) — the only
+ * ~34 published assets, scoring every row in memory is correct and simple;
+ * a real deployment would move this to a filtered query plus a
+ * background-computed score, exactly as the README notes for
+ * `getRecommendedAssets`. `askingPriceCents` is converted
+ * from `bigint` to `number` right here, at the read — the only
  * place in this function a money column is touched.
  */
 async function scoreMandateAgainstCatalog(mandate: MandateCriteria): Promise<MandateMatchSummary> {
@@ -212,11 +212,11 @@ export async function countMandateMatches(
 }
 
 /**
- * Upserts on `buyerProfileId` (ruling 2): a buyer who never had a `Mandate`
+ * Upserts on `buyerProfileId`: a buyer who never had a `Mandate`
  * row gets one on this first save, rather than this function requiring a
  * pre-existing row the way `saveBuyerProfile` above legitimately can.
  * `ticketMinCents`/`ticketMaxCents` are converted from `number` cents to
- * `bigint` right here, at the write (ruling 5) — the only two `BigInt(...)`
+ * `bigint` right here, at the write — the only two `BigInt(...)`
  * calls in this file.
  */
 export async function saveMandate(input: SaveMandateInput): Promise<SaveMandateResult> {

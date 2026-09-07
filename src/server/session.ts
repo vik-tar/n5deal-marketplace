@@ -42,11 +42,10 @@ export async function getViewer(): Promise<Viewer | null> {
 /**
  * The locale-agnostic targets anything in this app redirects a viewer to.
  *
- * `'/'` joined the union in Task 20, when `/suspended` stopped carrying its
- * own private copy of `redirectNow` and started calling this one: that page
- * sends an account that is no longer suspended back to the landing page.
  * Keeping the union closed is the point — it is what stops a caller from
- * handing `redirect()` a path it built from anything but a literal.
+ * handing `redirect()` a path it built from anything but a literal. `'/'` is
+ * in it because `/suspended` sends an account that is no longer suspended back
+ * to the landing page.
  */
 export type RedirectHref = '/login' | '/suspended' | '/admin' | '/'
 
@@ -57,12 +56,11 @@ export type RedirectHref = '/login' | '/suspended' | '/admin' | '/'
  * stay typed `Viewer | null` after the guard clauses. This wrapper's own
  * explicit `never` annotation fixes the narrowing without changing behaviour.
  *
- * Exported since Task 18: `/dashboard` sends a manager to `/admin` and then
- * dispatches on the viewer's profile rows, so without this wrapper `tsc`
- * would consider both dispatch branches reachable for a manager and the only
- * thing keeping them out would be the runtime `NEXT_REDIRECT` throw. A guard
- * that the type system cannot see is one stray `try`/`catch` away from
- * silently failing, and this file already owns the fix.
+ * It is exported for `/dashboard`, which sends a manager to `/admin` and then
+ * dispatches on the viewer's profile rows: without this wrapper `tsc` would
+ * consider both dispatch branches reachable for a manager, and the only thing
+ * keeping them out would be the runtime `NEXT_REDIRECT` throw. A guard the type
+ * system cannot see is one stray `try`/`catch` away from silently failing.
  *
  * It is also where a caller-supplied locale is validated, rather than at each
  * call site. `requireViewer` below is called by every Server Action in the app
@@ -73,14 +71,12 @@ export type RedirectHref = '/login' | '/suspended' | '/admin' | '/'
  * anything that is not a configured locale; the reasoning, and why it
  * substitutes rather than throws, is written up there.
  *
- * This is NOT the only funnel, and an earlier version of this comment claimed
- * it was. `signInAction`/`signOutAction` (`@/server/actions/auth`) call
- * next-intl's `redirect()` and `getPathname()` directly, never reaching this
- * wrapper, and were missed by exactly the reasoning that sentence encouraged —
- * they had to be fixed separately, one commit later. They now call
- * `toAppLocale` themselves. Anything added that builds a locale-prefixed URL
- * without coming through here must do the same; centralising the rule here
- * removes six chances to forget it, not the seventh.
+ * **This is not the only funnel.** `signInAction`/`signOutAction`
+ * (`@/server/actions/auth`) call next-intl's `redirect()` and `getPathname()`
+ * directly and never reach this wrapper, so they call `toAppLocale`
+ * themselves. Anything added that builds a locale-prefixed URL without coming
+ * through here must do the same: centralising the rule removes six chances to
+ * forget it, not the seventh.
  */
 export function redirectNow(href: RedirectHref, locale: string): never {
   redirect({ href, locale: toAppLocale(locale) })

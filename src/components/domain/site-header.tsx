@@ -9,7 +9,16 @@ import { FOCUS_RING, cn } from '@/lib/cn'
 import { isActive, type Viewer } from '@/lib/authz'
 import { signOutAction } from '@/server/actions/auth'
 
-export function SiteHeader({ viewer, locale }: { viewer: Viewer | null; locale: string }) {
+export function SiteHeader({
+  viewer,
+  locale,
+  unreadCount,
+}: {
+  viewer: Viewer | null
+  locale: string
+  /** Messages waiting for this viewer; `0` for anonymous, suspended and managers. */
+  unreadCount: number
+}) {
   const t = useTranslations()
   // A suspended viewer keeps a session — they can still see their email and
   // sign out below — but a non-ACTIVE viewer may not reach an authenticated
@@ -30,9 +39,9 @@ export function SiteHeader({ viewer, locale }: { viewer: Viewer | null; locale: 
   // exactly the condition these three lines need, and it was previously
   // written out inline here rather than called.
   //
-  // Task 18 added the two role-specific entry points (`/listings/new`,
-  // `/profile`), which depend on whether the viewer holds the matching
-  // profile row and not only on their role. Only the two booleans travel into
+  // The two role-specific entry points (`/listings/new`, `/profile`) depend
+  // on whether the viewer holds the matching profile row and not only on
+  // their role. Only the two booleans travel into
   // `navKeysFor`, never the cuids themselves, and both are dropped along with
   // the role for a non-ACTIVE viewer.
   const isActiveViewer = isActive(viewer)
@@ -63,9 +72,22 @@ export function SiteHeader({ viewer, locale }: { viewer: Viewer | null; locale: 
             between two pages sharing this layout. `SiteNav` explains both
             halves. Everything crossing the boundary is already-translated
             text plus the key set this component decided above. */}
+        {/* The badge rides on the key set decided above rather than on a
+            separate condition, so a viewer who is not offered an inbox cannot
+            be given a count for one — a manager and a suspended viewer are
+            already excluded by `navKeysFor`, and `countUnreadMessages`
+            independently answers them `0`. Two rules that agree, neither
+            relying on the other. */}
         <SiteNav
           ariaLabel={t('header.primaryNav')}
-          items={navKeys.map((key) => ({ key, label: t(`nav.${key}`) }))}
+          discardPrompt={t('header.discardPrompt')}
+          items={navKeys.map((key) => ({
+            key,
+            label: t(`nav.${key}`),
+            ...(key === 'inbox' && unreadCount > 0
+              ? { badgeCount: unreadCount, badgeLabel: t('nav.unread', { count: unreadCount }) }
+              : {}),
+          }))}
         />
 
         <div className="ml-auto flex shrink-0 items-center gap-3">

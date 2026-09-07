@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { sendMessage } from '@/server/actions/messages'
 import type { ActionError } from '@/server/actions/types'
+import { attempt } from '@/lib/action-result'
 
 /** The longest message `sendMessage` (`@/server/actions/messages`) will accept. */
 const MAX_BODY_LENGTH = 4000
@@ -53,7 +54,7 @@ export function MessageComposer({
     if (trimmed.length === 0) return
     setError(null)
     startTransition(async () => {
-      const result = await sendMessage({ conversationId, body: trimmed, locale })
+      const result = await attempt('send-message', sendMessage({ conversationId, body: trimmed, locale }))
       if (!result.ok) {
         setError(result.error)
         return

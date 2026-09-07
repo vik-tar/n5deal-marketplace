@@ -287,7 +287,7 @@ export async function listAllAssets(
       status: row.status,
       category: row.category,
       country: row.country,
-      // `bigint` → `number` at the read (ruling 6): these are hand-built
+      // `bigint` → `number` at the read: these are hand-built
       // summary rows, not `AssetDto`s, so nothing downstream narrows them.
       askingPriceCents: Number(row.askingPriceCents),
       sellerCompanyName: row.sellerProfile.companyName,

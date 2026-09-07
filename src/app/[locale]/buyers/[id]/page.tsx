@@ -14,7 +14,7 @@ import type { RawSearchParams } from '@/lib/filters/shared'
 
 /**
  * The buyer profile and full mandate a seller (or a manager) reaches from
- * the catalog (`/buyers`, Task 17). `forAsset` in the query string — set by
+ * the catalog (`/buyers`). `forAsset` in the query string — set by
  * `BuyerCard`'s own link when the catalog list was scored — is re-verified
  * here through the identical ownership-checked path `listBuyers` uses
  * (`getBuyerDetail`'s own `forAssetId` parameter), not trusted at face

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { startConversation, type StartConversationTarget } from '@/server/actions/messages'
 import type { ContactAvailability } from '@/lib/authz'
 import type { ActionError } from '@/server/actions/types'
+import { attempt } from '@/lib/action-result'
 
 /**
  * The one control that opens a thread, used from both sides of the market:
@@ -23,22 +24,21 @@ import type { ActionError } from '@/server/actions/types'
  * message anyone". This component does not re-derive it; it presents the
  * answer and explains it.
  *
- * The button is rendered **disabled, never omitted**, when the answer is no
- * (Task 17's shape, kept): a manager, or a viewer looking at a suspended
- * counterparty, sees why the action is unavailable instead of a missing
- * control they would reasonably assume is a bug.
+ * The button is rendered **disabled, never omitted**, when the answer is no:
+ * a manager, or a viewer looking at a suspended counterparty, sees why the
+ * action is unavailable instead of a missing control they would reasonably
+ * assume is a bug.
  *
- * The explanation is one string per reason, because a single one was wrong
- * for most of them. Until the whole-branch review every refusal printed
- * "This account cannot be messaged", which a manager reads as a claim about
- * the person they are looking at (false — managers moderate rather than
- * transact), a seller on a listing reads the same way (also false — they
- * simply hold no `BuyerProfile` and cannot be the buyer side of that
- * thread), and only a genuinely suspended counterparty reads correctly. The
- * remedies differ per reason, so the copy has to as well: sign in, appeal
- * your own suspension, or nothing at all.
+ * The explanation is one string per reason, because a single one is wrong
+ * for most of them. A blanket "This account cannot be messaged" reads to a
+ * manager as a claim about the person they are looking at (false — managers
+ * moderate rather than transact); a seller on a listing reads it the same way
+ * (also false — they simply hold no `BuyerProfile` and cannot be the buyer
+ * side of that thread); and only a genuinely suspended counterparty reads it
+ * correctly. The remedies differ per reason, so the copy has to as well: sign
+ * in, appeal your own suspension, or nothing at all.
  *
- * `isAnonymous` is gone with it — `'SIGN_IN'` is one of the reasons, so the
+ * There is no `isAnonymous` prop — `'SIGN_IN'` is one of the reasons, so the
  * caller no longer passes the same fact twice in two shapes.
  *
  * On success the action returns the thread's id and this navigates into it,
@@ -65,7 +65,7 @@ export function ContactButton({
   function handleClick() {
     setError(null)
     startTransition(async () => {
-      const result = await startConversation({ target, locale })
+      const result = await attempt('start-conversation', startConversation({ target, locale }))
       if (!result.ok) {
         setError(result.error)
         return

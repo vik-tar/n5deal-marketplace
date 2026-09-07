@@ -1,14 +1,17 @@
 'use client'
 
-import { useRef, useState, useTransition } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, useTransition } from 'react'
 import { useTranslations } from 'next-intl'
 import { useRouter } from '@/i18n/navigation'
 import type { AssetCategory, BusinessStatus } from '@/generated/prisma/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardBody, CardHeader } from '@/components/ui/card'
 import { Field } from '@/components/ui/field'
+import { UnsavedMarker } from '@/components/ui/unsaved-marker'
 import { ASSET_CATEGORIES, BUSINESS_STATUSES } from '@/lib/filters/asset-filters'
 import { BUYER_TYPES, MANDATE_LICENCE_TYPES } from '@/lib/filters/buyer-filters'
+import { mandateCriteriaKey } from '@/lib/matching'
+import { useUnsavedChanges } from '@/components/domain/use-unsaved-changes'
 import { parseEuros } from '@/lib/money'
 import {
   MAX_BIO_LENGTH,
@@ -16,23 +19,26 @@ import {
   MAX_TIMELINE_MONTHS,
   MIN_TIMELINE_MONTHS,
   buyerProfileSchema,
+  mandateCriteriaSchema,
   mandateSchema,
   type BuyerProfileInput,
   type MandateInput,
 } from '@/lib/validation/profile'
 import { COUNTRY_CODE_LENGTH } from '@/lib/validation/primitives'
 import {
+  countMandateMatches,
   saveBuyerProfile,
   saveMandate,
   type MandateMatchSummary,
 } from '@/server/actions/profile'
 import type { ActionError } from '@/server/actions/types'
+import { attempt } from '@/lib/action-result'
 import { FOCUS_RING, cn } from '@/lib/cn'
 
 /** Everything the profile page already loaded, with every `bigint` money
  * column on the mandate converted to `number` before it ever reaches this
- * client component (ruling 5, Task 16) — the same rule `ListingFormInitial`
- * (`@/components/domain/listing-form`) documents for Task 15's own money
+ * client component — the same rule `ListingFormInitial`
+ * (`@/components/domain/listing-form`) documents for a listing's own money
  * columns. Plain aliases, not `extends`-ed interfaces: unlike `ListingFormInitial`,
  * neither shape adds a field beyond its schema's own, so an `interface … extends`
  * here would declare no members of its own. */
@@ -89,6 +95,9 @@ function mandateErrorKey(field: keyof MandateInput, code: string): string {
   if (code === 'custom' && field === 'ticketMaxCents') return 'ticketRange'
   return MANDATE_FIELD_ERROR_KEY[field] ?? 'invalidSelection'
 }
+
+/** Debounce before a criteria edit costs a catalogue scan. */
+const RECOUNT_DEBOUNCE_MS = 400
 
 const checkboxClass = cn(
   'h-4 w-4 shrink-0 rounded border-border bg-surface-2 accent-accent',
@@ -154,6 +163,9 @@ export function MandateForm({
 
   // --- Buyer profile section: uncontrolled inputs read via FormData at
   // submit, mirroring `listing-form.tsx`'s `readFormValues` convention. ---
+  const profileUnsavedId = useId()
+  const mandateUnsavedId = useId()
+
   const profileFormRef = useRef<HTMLFormElement>(null)
   const [profileFieldErrors, setProfileFieldErrors] = useState<ProfileFieldErrors>({})
   const [profileFormError, setProfileFormError] = useState<ActionError | 'CLIENT_INVALID' | null>(
@@ -161,6 +173,25 @@ export function MandateForm({
   )
   const [profileNotice, setProfileNotice] = useState<'saved' | null>(null)
   const [isProfilePending, startProfileTransition] = useTransition()
+
+  /**
+   * The profile values as last written to the database — the baseline the
+   * unsaved marker compares against. Starts at what the page loaded.
+   */
+  const [savedProfile, setSavedProfile] = useState<BuyerProfileInput>(profile)
+  const [isProfileDirty, setIsProfileDirty] = useState(false)
+
+  /**
+   * Nothing in this section is marked wrong until it has been submitted once.
+   * Going red for an incomplete field while it is still being filled in is
+   * nagging; pressing the button is the user saying they think it is done,
+   * which is the moment to disagree. Afterwards the errors stay live and clear
+   * on blur as each field is fixed.
+   *
+   * The unsaved-changes marker is unaffected and still updates per keystroke —
+   * "you have edits here" is a fact about the form, not a complaint about it.
+   */
+  const [hasProfileSubmitted, setHasProfileSubmitted] = useState(false)
 
   function readProfileValues(form: HTMLFormElement): Record<string, unknown> {
     const data = new FormData(form)
@@ -174,19 +205,76 @@ export function MandateForm({
     }
   }
 
+  /** The first issue per field, translated — shared by the blur pass and the save pass. */
+  function profileIssues(result: ReturnType<typeof buyerProfileSchema.safeParse>): ProfileFieldErrors {
+    if (result.success) return {}
+    const errors: ProfileFieldErrors = {}
+    for (const issue of result.error.issues) {
+      const field = issue.path[0]
+      if (typeof field !== 'string' || field in errors) continue
+      const key = PROFILE_FIELD_ERROR_KEY[field as keyof BuyerProfileInput] ?? 'required'
+      errors[field as keyof BuyerProfileInput] = t(`errors.${key}`)
+    }
+    return errors
+  }
+
+  /**
+   * Re-checks the profile section whenever focus leaves one of its fields, so
+   * an emptied required field turns red the moment the buyer looks away rather
+   * than when they eventually press this section's own button.
+   *
+   * This page carries two independent forms with two independent buttons —
+   * `Buyer profile` and `Investment mandate` — and until this ran on blur, the
+   * gap between them was reachable and confusing: clear the display name, press
+   * **Save mandate**, and the page answers with a green "Mandate saved." while
+   * the emptied required field sits above it looking untouched. Nothing wrong
+   * had been written (the profile action is never called, and `saveBuyerProfile`
+   * would refuse an empty name anyway) — but the screen said success and the
+   * reload put the old name back, which reads exactly like a save that silently
+   * dropped a field.
+   *
+   * Only field errors are set here, never `profileFormError`: "Fix the
+   * highlighted fields" is an answer to pressing a button, and nobody has
+   * pressed one yet. One handler on the `<form>` rather than per input —
+   * React's `onBlur` bubbles.
+   */
+  function revalidateProfileFields(): void {
+    if (!hasProfileSubmitted) return
+    const form = profileFormRef.current
+    if (!form) return
+    setProfileFieldErrors(profileIssues(buyerProfileSchema.safeParse(readProfileValues(form))))
+  }
+
+  /**
+   * Whether this section holds edits that have not been written.
+   *
+   * Compares *parsed* values, not raw text, so retyping `mt` over `MT` or
+   * padding a name with spaces is not an edit — the schema normalises both to
+   * the same thing, and a marker that lights up for a change the database
+   * cannot see is a marker people learn to ignore. Input the schema rejects
+   * counts as dirty by definition: it cannot be what was saved.
+   *
+   * Driven by handlers rather than derived during render, unlike the mandate
+   * section below. These inputs are uncontrolled — their values live in the
+   * DOM and are read through `FormData` — and reading the DOM during render is
+   * exactly what React forbids. The asymmetry is in the two sections, not in
+   * the rule.
+   */
+  function recomputeProfileDirty(): void {
+    const form = profileFormRef.current
+    if (!form) return
+    const parsed = buyerProfileSchema.safeParse(readProfileValues(form))
+    setIsProfileDirty(
+      !parsed.success || JSON.stringify(parsed.data) !== JSON.stringify(savedProfile),
+    )
+  }
+
   function validateProfile(): BuyerProfileInput | null {
     const form = profileFormRef.current
     if (!form) return null
     const result = buyerProfileSchema.safeParse(readProfileValues(form))
     if (!result.success) {
-      const errors: ProfileFieldErrors = {}
-      for (const issue of result.error.issues) {
-        const field = issue.path[0]
-        if (typeof field !== 'string' || field in errors) continue
-        const key = PROFILE_FIELD_ERROR_KEY[field as keyof BuyerProfileInput] ?? 'required'
-        errors[field as keyof BuyerProfileInput] = t(`errors.${key}`)
-      }
-      setProfileFieldErrors(errors)
+      setProfileFieldErrors(profileIssues(result))
       setProfileFormError('CLIENT_INVALID')
       setProfileNotice(null)
       return null
@@ -196,10 +284,13 @@ export function MandateForm({
   }
 
   function handleSaveProfile() {
+    setHasProfileSubmitted(true)
+    // An invalid submit stops here — `saveBuyerProfile` is never called, on
+    // this attempt or any later one.
     const data = validateProfile()
     if (!data) return
     startProfileTransition(async () => {
-      const result = await saveBuyerProfile({ ...data, locale })
+      const result = await attempt('save-buyer-profile', saveBuyerProfile({ ...data, locale }))
       if (!result.ok) {
         setProfileFormError(result.error)
         setProfileNotice(null)
@@ -207,6 +298,8 @@ export function MandateForm({
       }
       setProfileFormError(null)
       setProfileNotice('saved')
+      setSavedProfile(data)
+      setIsProfileDirty(false)
       router.refresh()
     })
   }
@@ -238,6 +331,130 @@ export function MandateForm({
   const [mandateNotice, setMandateNotice] = useState<'saved' | null>(null)
   const [matchSummary, setMatchSummary] = useState<MandateMatchSummary>(match)
   const [isMandatePending, startMandateTransition] = useTransition()
+  /**
+   * The six criteria that actually change the answer, parsed once per edit.
+   *
+   * `timelineMonths` and `notes` are deliberately absent: they live on the
+   * mandate but not in `MandateCriteria` (`@/lib/matching`), so `scoreMatch`
+   * never reads them and typing a note must not spend a round trip. The six
+   * that remain are exactly `mandateCriteriaSchema`'s shape — the schema the
+   * action validates against — so what this watches and what the server scores
+   * cannot drift.
+   *
+   * `null` means the mandate cannot be scored yet: a ticket minimum above its
+   * maximum, or an amount `readOptionalMoney` could not read. That is not an
+   * error to raise here — the field already carries one — it just means no
+   * request is worth making.
+   */
+  const criteria = useMemo(() => {
+    const parsed = mandateCriteriaSchema.safeParse({
+      categories,
+      countries,
+      licenceTypes,
+      businessStatuses,
+      ticketMinCents: readOptionalMoney(ticketMin),
+      ticketMaxCents: readOptionalMoney(ticketMax),
+    })
+    return parsed.success ? parsed.data : null
+  }, [categories, countries, licenceTypes, businessStatuses, ticketMin, ticketMax])
+
+  /**
+   * Identity of those six, or `null` while they cannot be scored.
+   * `mandateCriteriaKey` (`@/lib/matching`) owns which fields participate, and
+   * a test there holds it to every key of `MandateCriteria`.
+   */
+  const criteriaKey = criteria === null ? null : mandateCriteriaKey(criteria)
+
+  /**
+   * The criteria the number on screen was computed for — **state, not a ref**,
+   * because the panel's dimming is derived from it and a ref would not
+   * re-render.
+   *
+   * Initialised to the criteria this component mounted with, because the page
+   * already counted those server-side (`countMandateMatches` in
+   * `profile/page.tsx`); re-asking on mount would be a wasted full-catalogue
+   * scan, and React's development double-invocation of effects would make a
+   * plain "first run" flag fire one anyway.
+   *
+   * Comparing keys rather than counting runs also fixes the case a flag gets
+   * wrong: a buyer who changes a criterion and changes it straight back must
+   * get their original number restored. A flag would skip that second edit and
+   * leave the intermediate count on screen — the one failure mode nobody
+   * notices until the number is quietly wrong.
+   */
+  const [countedKey, setCountedKey] = useState(criteriaKey)
+
+  /** The mandate as last written. Baseline for this section's unsaved marker. */
+  const [savedMandate, setSavedMandate] = useState<MandateInput>(mandate)
+
+  /**
+   * Derived, not stored: every field of this section is React state already,
+   * so the answer is a function of the current render and needs no effect.
+   * Includes `timelineMonths` and `notes` — they do not affect matching, which
+   * is why `criteriaKey` above excludes them, but they are absolutely part of
+   * "have I saved my changes".
+   */
+  const isMandateDirty = useMemo(() => {
+    const parsed = mandateSchema.safeParse(buildMandateValues())
+    return !parsed.success || JSON.stringify(parsed.data) !== JSON.stringify(savedMandate)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- buildMandateValues reads exactly these
+  }, [
+    categories,
+    countries,
+    licenceTypes,
+    businessStatuses,
+    ticketMin,
+    ticketMax,
+    timelineEnabled,
+    timelineMonths,
+    notes,
+    savedMandate,
+  ])
+
+  /**
+   * Discards a reply whose request has been superseded. Every edit takes a new
+   * ticket; an older one that arrives late is dropped rather than written.
+   * Without it two edits in flight resolve in whatever order the network
+   * chooses and the slower, older answer wins.
+   */
+  const recountTicket = useRef(0)
+
+  /**
+   * Derived, never assigned: "the number you are reading was computed for
+   * something other than what is now selected". True through the debounce and
+   * the round trip, and — deliberately — after a failed request, because the
+   * count really is stale then. The next edit retries, and saving recomputes
+   * authoritatively either way. Claiming freshness we do not have would be the
+   * worse of the two.
+   */
+  const isRecounting = criteriaKey !== null && criteriaKey !== countedKey
+
+  useEffect(() => {
+    if (criteria === null || criteriaKey === null || criteriaKey === countedKey) return
+
+    const ticket = (recountTicket.current += 1)
+    // Long enough that toggling three chips in a row is one request rather
+    // than three. Each call reads every published listing and scores it in
+    // memory (`scoreMandateAgainstCatalog`, `@/server/actions/profile`), so
+    // this is a real cost, not a formality.
+    const timer = setTimeout(() => {
+      void (async () => {
+        const result = await attempt(
+          'count-mandate-matches',
+          countMandateMatches({ mandate: criteria, locale }),
+        )
+        if (ticket !== recountTicket.current || !result.ok) return
+        setCountedKey(criteriaKey)
+        setMatchSummary({
+          matchCount: result.matchCount,
+          totalListings: result.totalListings,
+          specificity: result.specificity,
+        })
+      })()
+    }, RECOUNT_DEBOUNCE_MS)
+
+    return () => clearTimeout(timer)
+  }, [criteria, criteriaKey, countedKey, locale])
 
   function addCountry() {
     const code = countryDraft.trim().toUpperCase()
@@ -283,11 +500,16 @@ export function MandateForm({
     return result.data
   }
 
+  // Both sections at once: the guard asks "is there unsaved work on this
+  // screen", not which card it is in. Which card is the marker's job, and it is
+  // already answering that beside each button.
+  useUnsavedChanges('buyer-profile-page', isProfileDirty || isMandateDirty)
+
   function handleSaveMandate() {
     const data = validateMandate()
     if (!data) return
     startMandateTransition(async () => {
-      const result = await saveMandate({ ...data, locale })
+      const result = await attempt('save-mandate', saveMandate({ ...data, locale }))
       if (!result.ok) {
         setMandateFormError(result.error)
         setMandateNotice(null)
@@ -295,6 +517,14 @@ export function MandateForm({
       }
       setMandateFormError(null)
       setMandateNotice('saved')
+      // The save recomputed the same number against the same criteria, and its
+      // answer is the authoritative one. Retiring the outstanding ticket stops
+      // a live recount that is still in flight from landing on top of it, and
+      // marks these criteria as counted so the effect does not immediately ask
+      // again.
+      recountTicket.current += 1
+      setCountedKey(criteriaKey)
+      setSavedMandate(data)
       setMatchSummary({
         matchCount: result.matchCount,
         totalListings: result.totalListings,
@@ -315,7 +545,16 @@ export function MandateForm({
           <form
             ref={profileFormRef}
             className="flex flex-col gap-4"
+            // See `register-form.tsx`: this form validates through its own
+            // schema, so the browser's constraint check must not pre-empt it.
+            noValidate
             onSubmit={(event) => event.preventDefault()}
+            // `onInput` bubbles, so one handler covers every control in the
+            // section. The marker has to answer per keystroke; the red field
+            // below deliberately waits for `onBlur`, because flagging a name
+            // as empty while it is being retyped is nagging, not help.
+            onInput={recomputeProfileDirty}
+            onBlur={revalidateProfileFields}
           >
             <Field
               label={t('profileSection.fields.displayNameLabel')}
@@ -398,15 +637,19 @@ export function MandateForm({
               />
             </Field>
 
-            <div>
+            <div className="flex flex-wrap items-center gap-3">
               <Button
                 type="button"
                 variant="secondary"
                 disabled={isProfilePending}
+                aria-describedby={isProfileDirty ? profileUnsavedId : undefined}
                 onClick={handleSaveProfile}
               >
                 {isProfilePending ? t('actions.saving') : t('actions.saveProfile')}
               </Button>
+              {isProfileDirty ? (
+                <UnsavedMarker id={profileUnsavedId} label={t('actions.unsaved')} />
+              ) : null}
             </div>
 
             {profileFormError === 'CLIENT_INVALID' ? (
@@ -418,7 +661,7 @@ export function MandateForm({
                 {t(`error.${profileFormError}`)}
               </p>
             ) : null}
-            {profileNotice === 'saved' ? (
+            {profileNotice === 'saved' && !isProfileDirty ? (
               <p className="text-sm text-success">{t('profileSection.savedNotice')}</p>
             ) : null}
           </form>
@@ -433,11 +676,16 @@ export function MandateForm({
         <CardBody className="flex flex-col gap-5">
           <div
             role="status"
+            aria-busy={isRecounting}
             className={cn(
-              'rounded-md border px-4 py-3 text-sm text-ink',
+              'rounded-md border px-4 py-3 text-sm text-ink transition-opacity',
               matchSummary.specificity === 0
                 ? 'border-warning/40 bg-warning/10'
                 : 'border-accent/30 bg-accent/10',
+              // Dimmed rather than blanked or spinner-ed: the previous count
+              // stays readable while the next one is computed, so the panel
+              // never flashes empty on a criterion the buyer is still editing.
+              isRecounting && 'opacity-60',
             )}
           >
             {matchSummary.specificity === 0
@@ -450,6 +698,7 @@ export function MandateForm({
 
           <form
             className="flex flex-col gap-5"
+            noValidate
             onSubmit={(event) => event.preventDefault()}
           >
             <fieldset className="flex flex-col gap-2">
@@ -673,14 +922,18 @@ export function MandateForm({
               />
             </Field>
 
-            <div>
+            <div className="flex flex-wrap items-center gap-3">
               <Button
                 type="button"
                 disabled={isMandatePending}
+                aria-describedby={isMandateDirty ? mandateUnsavedId : undefined}
                 onClick={handleSaveMandate}
               >
                 {isMandatePending ? t('actions.saving') : t('actions.saveMandate')}
               </Button>
+              {isMandateDirty ? (
+                <UnsavedMarker id={mandateUnsavedId} label={t('actions.unsaved')} />
+              ) : null}
             </div>
 
             {mandateFormError === 'CLIENT_INVALID' ? (
@@ -692,7 +945,7 @@ export function MandateForm({
                 {t(`error.${mandateFormError}`)}
               </p>
             ) : null}
-            {mandateNotice === 'saved' ? (
+            {mandateNotice === 'saved' && !isMandateDirty ? (
               <p className="text-sm text-success">{t('mandate.savedNotice')}</p>
             ) : null}
           </form>

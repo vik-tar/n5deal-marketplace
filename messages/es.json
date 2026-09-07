@@ -1,0 +1,795 @@
+{
+  "common": {
+    "appName": "N5Deal",
+    "signIn": "Iniciar sesión",
+    "signOut": "Cerrar sesión",
+    "cancel": "Cancelar",
+    "aiDisabled": "Disponible cuando hay una ANTHROPIC_API_KEY configurada — consulta el README. Todo lo demás aquí se calcula en el servidor, sin modelo."
+  },
+  "nav": {
+    "listings": "Todos los anuncios",
+    "buyers": "Compradores",
+    "dashboard": "Panel",
+    "inbox": "Mensajes",
+    "admin": "Consola de gestión",
+    "newListing": "Nuevo anuncio",
+    "profile": "Perfil",
+    "unread": "{count, plural, one {# mensaje sin leer} other {# mensajes sin leer}}"
+  },
+  "header": {
+    "primaryNav": "Navegación principal",
+    "discardPrompt": "Tienes cambios sin guardar en esta página. ¿Salir y descartarlos?"
+  },
+  "localeSwitcher": {
+    "label": "Idioma",
+    "locale": {
+      "en": "English",
+      "es": "Español"
+    },
+    "discardPrompt": "Tienes cambios sin guardar en esta página. ¿Cambiar de idioma y descartarlos?"
+  },
+  "status": {
+    "DRAFT": "Borrador",
+    "PENDING_REVIEW": "Pendiente de revisión",
+    "PUBLISHED": "Publicado",
+    "REJECTED": "Rechazado",
+    "SUSPENDED": "Suspendido",
+    "SOLD": "Vendido",
+    "ACTIVE": "Activa",
+    "REMOVED": "Eliminada",
+    "REQUESTED": "Solicitada",
+    "APPROVED": "Aprobada",
+    "DECLINED": "Denegada",
+    "REVOKED": "Revocada"
+  },
+  "login": {
+    "title": "Iniciar sesión",
+    "subtitle": "Inicia sesión en tu cuenta de N5Deal.",
+    "emailLabel": "Correo electrónico",
+    "passwordLabel": "Contraseña",
+    "submit": "Iniciar sesión",
+    "error": "Correo electrónico o contraseña incorrectos.",
+    "demoHeading": "Cuentas de demostración",
+    "demoHint": "Un clic te conecta con ese rol. Las credenciales aparecen bajo cada botón, así que también puedes iniciar sesión manualmente.",
+    "demoBuyer": "Entrar como comprador",
+    "demoSeller": "Entrar como vendedor",
+    "demoManager": "Entrar como gestor",
+    "noAccount": "¿Aún no tienes cuenta?",
+    "registerLink": "Crear una",
+    "registeredNotice": "Tu cuenta se ha creado. Inicia sesión para continuar."
+  },
+  "register": {
+    "title": "Crear una cuenta",
+    "subtitle": "Aquí pueden registrarse compradores y vendedores. Los gestores de la plataforma se designan, no se registran solos.",
+    "submit": "Crear cuenta",
+    "submitting": "Creando la cuenta…",
+    "haveAccount": "¿Ya tienes cuenta?",
+    "signInLink": "Iniciar sesión",
+    "role": {
+      "BUYER": "Comprador — busco adquirir",
+      "SELLER": "Vendedor — tengo un activo en venta"
+    },
+    "fields": {
+      "roleLabel": "Soy",
+      "roleHint": "Determina qué perfil se crea y no se puede cambiar después.",
+      "emailLabel": "Correo electrónico",
+      "passwordLabel": "Contraseña",
+      "passwordHint": "Al menos {min} caracteres. Las contraseñas de más de {max} bytes se rechazan en lugar de recortarse en silencio.",
+      "displayNameLabel": "Nombre visible para los vendedores",
+      "buyerTypeLabel": "Tipo de comprador",
+      "companyNameLabel": "Nombre de la empresa",
+      "contactNameLabel": "Persona de contacto",
+      "countryLabel": "Tu jurisdicción (código ISO)",
+      "countryPlaceholder": "p. ej. GB"
+    },
+    "errors": {
+      "form": "Corrige los campos marcados e inténtalo de nuevo.",
+      "required": "Este campo no puede estar vacío.",
+      "email": "Introduce una dirección de correo válida.",
+      "password": "Usa al menos 8 caracteres y como máximo 72 bytes.",
+      "country": "Introduce un código de país ISO de 2 letras."
+    },
+    "error": {
+      "FORBIDDEN": "Ya has iniciado sesión. Cierra la sesión antes de crear otra cuenta.",
+      "NOT_FOUND": "Esta acción no es válida aquí.",
+      "ALREADY_REQUESTED": "Esta acción no es válida aquí.",
+      "INVALID": "Algunos campos necesitan atención antes de crear la cuenta.",
+      "UNEXPECTED": "Algo ha fallado por nuestra parte. La acción no se ha completado; inténtalo de nuevo.",
+      "EMAIL_TAKEN": "Ya existe una cuenta con este correo electrónico. Inicia sesión en su lugar."
+    }
+  },
+  "suspended": {
+    "title": "Cuenta suspendida",
+    "body": "Un gestor del marketplace ha suspendido esta cuenta. Puedes seguir navegando por el catálogo público, pero no puedes enviar mensajes, resolver solicitudes de acceso ni abrir tu panel hasta que se restablezca.",
+    "reasonLabel": "Motivo",
+    "noReason": "No se registró ningún motivo para esta suspensión."
+  },
+  "notFound": {
+    "title": "Página no encontrada",
+    "body": "Esta página no existe o ya no está disponible para ti. Un anuncio puede retirarse, venderse o suspenderse, y una conversación solo la ven las dos partes que participan en ella.",
+    "backToListings": "Ver anuncios",
+    "backHome": "Ir a la página de inicio"
+  },
+  "errorBoundary": {
+    "title": "Algo ha fallado",
+    "body": "No se ha podido mostrar esta página. Nada de lo que habías enviado se ha perdido en el servidor; reintentar es seguro.",
+    "retry": "Reintentar",
+    "backHome": "Ir a la página de inicio"
+  },
+  "home": {
+    "hero": {
+      "eyebrow": "Instituciones reguladas, intermediadas con discreción",
+      "title": "Compra o vende un negocio financiero regulado.",
+      "body": "N5Deal es donde cambian de manos bancos, entidades de dinero electrónico y de pago, fintechs y negocios cripto en Europa. Cada anuncio es un teaser anónimo hasta que su vendedor aprueba tu solicitud de acceso, así que una empresa puede estar en venta sin que el mercado se entere.",
+      "ctaBuy": "Empezar a comprar",
+      "ctaSell": "Empezar a vender",
+      "cta": {
+        "listings": "Ver el catálogo",
+        "dashboard": "Ir a tu panel",
+        "newListing": "Publicar un negocio"
+      },
+      "stats": {
+        "listings": "{count, plural, one {institución regulada en venta} other {instituciones reguladas en venta}}",
+        "combinedValue": "Precio de venta combinado"
+      }
+    },
+    "categories": {
+      "title": "Explorar por categoría",
+      "subtitle": "Recuentos en vivo del catálogo. Cada tarjeta abre el mismo filtro que aplica la barra lateral.",
+      "listings": "{count, plural, one {anuncio} other {anuncios}}"
+    },
+    "recent": {
+      "title": "Publicados recientemente",
+      "subtitle": "Los anuncios más nuevos que han pasado la revisión, en el orden en que los muestra el catálogo.",
+      "viewAll": "Ver todos los anuncios",
+      "empty": "Ahora mismo no hay nada publicado. Los anuncios nuevos aparecen aquí en cuanto un gestor los aprueba."
+    }
+  },
+  "assets": {
+    "title": "Todos los anuncios",
+    "subtitle": "{count, plural, one {# institución regulada en venta} other {# instituciones reguladas en venta}}",
+    "searchPlaceholder": "Buscar por referencia, título o descripción",
+    "searchSubmit": "Buscar",
+    "searchAiButton": "Pregunta con tus palabras",
+    "searchAiPending": "Pensando…",
+    "filters": {
+      "title": "Filtros",
+      "categoryLabel": "Categoría",
+      "businessStatusLabel": "Situación del negocio",
+      "countryLabel": "Jurisdicción",
+      "countryPlaceholder": "p. ej. MT, GB, US",
+      "priceLabel": "Precio de venta (EUR)",
+      "priceMinPlaceholder": "Mín.",
+      "priceMaxPlaceholder": "Máx.",
+      "apply": "Aplicar",
+      "clearAll": "Borrar todo"
+    },
+    "sort": {
+      "ariaLabel": "Ordenar anuncios",
+      "newest": "Más recientes",
+      "popular": "Más vistos",
+      "price_asc": "Precio: de menor a mayor",
+      "price_desc": "Precio: de mayor a menor"
+    },
+    "category": {
+      "BANK": "Banco",
+      "FINTECH": "Fintech",
+      "PAYMENT": "Entidad de pago",
+      "EMI": "Entidad de dinero electrónico",
+      "CRYPTO": "Cripto"
+    },
+    "businessStatus": {
+      "ACTIVE": "Negocio en funcionamiento",
+      "LICENSE_ONLY": "Solo licencia"
+    },
+    "card": {
+      "employees": "{count, plural, one {# empleado} other {# empleados}}",
+      "yearOfIssue": "Licencia emitida en {year}",
+      "includedLabel": "Incluido en la venta",
+      "views": "{count, plural, one {# visita} other {# visitas}}",
+      "askingPrice": "Precio de venta"
+    },
+    "chips": {
+      "ariaLabel": "Filtros activos",
+      "search": "Búsqueda: «{value}»",
+      "priceFrom": "Desde {value}",
+      "priceTo": "Hasta {value}",
+      "remove": "Quitar filtro: {value}"
+    },
+    "empty": {
+      "title": "Ningún anuncio coincide con tus filtros",
+      "body": "Prueba a ampliar el rango de precio, quitar un filtro o buscar otros términos.",
+      "clearAction": "Borrar todos los filtros"
+    },
+    "pagination": {
+      "ariaLabel": "Paginación",
+      "previous": "Anterior",
+      "next": "Siguiente",
+      "status": "Página {page} de {total}"
+    }
+  },
+  "assetDetail": {
+    "descriptionLabel": "Sobre este anuncio",
+    "seller": {
+      "label": "Vendedor",
+      "verifiedBadge": "Verificado"
+    }
+  },
+  "buyers": {
+    "title": "Compradores",
+    "subtitle": "{count, plural, one {# mandato de inversión al que puedes dirigirte directamente} other {# mandatos de inversión a los que puedes dirigirte directamente}}",
+    "searchPlaceholder": "Buscar por nombre o descripción",
+    "searchSubmit": "Buscar",
+    "filters": {
+      "title": "Filtros",
+      "buyerTypeLabel": "Tipo de comprador",
+      "categoryLabel": "Categoría del mandato",
+      "countryLabel": "Jurisdicción del mandato",
+      "countryPlaceholder": "p. ej. MT, GB, US",
+      "ticketMinLabel": "Ticket mínimo que puede asumir (EUR)",
+      "ticketMinPlaceholder": "Mín.",
+      "apply": "Aplicar",
+      "clearAll": "Borrar todo"
+    },
+    "scoreAgainst": {
+      "label": "Puntuar frente a",
+      "placeholder": "Elige uno de tus anuncios publicados",
+      "empty": "Aún no tienes anuncios publicados con los que puntuar."
+    },
+    "card": {
+      "verifiedBadge": "Verificado",
+      "categoriesLabel": "Categorías",
+      "countriesLabel": "Jurisdicciones",
+      "licenceTypesLabel": "Tipos de licencia",
+      "ticketLabel": "Tamaño del ticket",
+      "ticketAny": "Cualquier tamaño de ticket",
+      "ticketFrom": "Desde {value}",
+      "ticketTo": "Hasta {value}",
+      "ticketRange": "{min} – {max}"
+    },
+    "chips": {
+      "ariaLabel": "Filtros activos",
+      "search": "Búsqueda: «{value}»",
+      "ticketMin": "Puede asumir al menos {value}",
+      "remove": "Quitar filtro: {value}"
+    },
+    "empty": {
+      "noResults": {
+        "title": "Ningún comprador coincide con tus filtros",
+        "body": "Prueba a ampliar el tamaño del ticket, quitar un filtro o eliminar una jurisdicción.",
+        "clearAction": "Borrar todos los filtros"
+      }
+    },
+    "specificity": "Este mandato restringe {count} de 5 criterios",
+    "specificityUnconstrained": "Este mandato no restringe nada: todos los anuncios puntuarían igual"
+  },
+  "buyerDetail": {
+    "verifiedBadge": "Verificado",
+    "bioTitle": "Sobre el comprador",
+    "noBio": "Este comprador todavía no ha añadido una descripción.",
+    "mandateTitle": "Mandato de inversión",
+    "ticketLabel": "Tamaño del ticket",
+    "notScored": "Selecciona uno de tus anuncios publicados en el directorio de compradores para ver cómo puntúa este comprador frente a él."
+  },
+  "contact": {
+    "seller": "Contactar con el vendedor",
+    "buyer": "Contactar con el comprador",
+    "opening": "Abriendo la conversación...",
+    "unavailable": {
+      "SIGN_IN": "{target, select, asset {Inicia sesión para contactar con este vendedor.} other {Inicia sesión para contactar con este comprador.}}",
+      "VIEWER_INACTIVE": "Tu cuenta está suspendida, así que no puedes iniciar conversaciones nuevas.",
+      "MANAGER": "Los gestores moderan el marketplace y no escriben a quienes participan en él.",
+      "SELF": "{target, select, asset {Este anuncio es tuyo.} other {Este perfil es el tuyo.}}",
+      "WRONG_SIDE": "{target, select, asset {Solo una cuenta de comprador puede escribir a un vendedor.} other {Solo una cuenta de vendedor puede escribir a un comprador.}}",
+      "COUNTERPARTY_INACTIVE": "{target, select, asset {La cuenta de este vendedor está suspendida y no admite mensajes.} other {La cuenta de este comprador está suspendida y no admite mensajes.}}"
+    },
+    "error": {
+      "FORBIDDEN": "No puedes iniciar una conversación con esta cuenta.",
+      "NOT_FOUND": "No se ha encontrado esta cuenta.",
+      "ALREADY_REQUESTED": "Esta acción no es válida aquí.",
+      "INVALID": "Esta acción no es válida.",
+      "UNEXPECTED": "Algo ha fallado por nuestra parte. La acción no se ha completado; inténtalo de nuevo."
+    }
+  },
+  "inbox": {
+    "title": "Mensajes",
+    "subtitle": "Tus conversaciones con la otra parte de cada operación.",
+    "empty": "Todavía no hay conversaciones. Contacta con un vendedor desde un anuncio, o con un comprador desde el directorio, para iniciar una.",
+    "noMessages": "Aún no hay mensajes.",
+    "unread": "{count, plural, one {# sin leer} other {# sin leer}}",
+    "counterparty": {
+      "BUYER": "Comprador",
+      "SELLER": "Vendedor"
+    },
+    "manager": {
+      "title": "Los gestores no tienen bandeja de mensajes",
+      "body": "Las conversaciones son privadas entre un comprador y un vendedor. La moderación actúa sobre cuentas y anuncios, no sobre lo que dos partes se dicen, así que una cuenta de gestor nunca participa en una conversación ni puede leerla."
+    },
+    "thread": {
+      "title": "Conversación",
+      "back": "Volver a los mensajes",
+      "you": "Tú",
+      "identityWithheld": "El nombre de la empresa de este vendedor solo se muestra mientras tengas acceso aprobado al anuncio del que trata esta conversación.",
+      "identityWithheldNoListing": "Esta conversación no trata de ningún anuncio, así que no hay solicitud de acceso que pueda revelar el nombre de la empresa de este vendedor. Seguirá siendo privado salvo que él mismo te lo facilite."
+    },
+    "composer": {
+      "label": "Tu mensaje",
+      "placeholder": "Escribe un mensaje...",
+      "send": "Enviar",
+      "sending": "Enviando...",
+      "blocked": "No puedes responder aquí: la cuenta de la otra parte ya no está activa.",
+      "error": {
+        "FORBIDDEN": "No se ha podido enviar este mensaje.",
+        "NOT_FOUND": "No se ha encontrado esta conversación.",
+        "ALREADY_REQUESTED": "Esta acción no es válida aquí.",
+        "INVALID": "Escribe algo antes de enviar.",
+        "UNEXPECTED": "Algo ha fallado por nuestra parte. La acción no se ha completado; inténtalo de nuevo."
+      }
+    }
+  },
+  "matchBadge": {
+    "band": {
+      "STRONG": "Coincidencia alta",
+      "GOOD": "Buena coincidencia",
+      "NONE": "Sin coincidencia"
+    },
+    "scoreValue": "{score}/100",
+    "reasonsTitle": "Por qué esta puntuación",
+    "reasonCode": {
+      "CATEGORY": "Categoría",
+      "COUNTRY": "Jurisdicción",
+      "PRICE": "Tamaño del ticket",
+      "BUSINESS_STATUS": "Situación del negocio",
+      "LICENCE_TYPE": "Tipo de licencia"
+    },
+    "reasonKind": {
+      "MATCH": "Coincide con el mandato",
+      "PARTIAL": "Parcialmente dentro del rango",
+      "MISMATCH": "No coincide",
+      "NO_PREFERENCE": "Sin preferencia definida"
+    },
+    "specificityNote": "Basado en {count} de 5 criterios del mandato",
+    "specificityUnconstrained": "Basado en un mandato que no restringe nada: este comprador puntuaría igual frente a cualquier anuncio",
+    "ai": {
+      "loading": "Pidiendo a la IA que lo explique…"
+    }
+  },
+  "gate": {
+    "open": {
+      "title": "Detalles confidenciales",
+      "legalName": "Denominación social",
+      "revenue": "Ingresos anuales",
+      "ebitda": "EBITDA",
+      "clientCount": "Clientes",
+      "dataRoomLabel": "Data room",
+      "dataRoomLink": "Abrir el data room",
+      "notesLabel": "Notas para compradores aprobados"
+    },
+    "requestable": {
+      "title": "Tras el acuerdo de confidencialidad",
+      "body": "La denominación social, las cifras financieras, el número de clientes, el data room y las notas confidenciales se publican en cuanto el vendedor aprueba tu solicitud de acceso.",
+      "action": "Solicitar acceso",
+      "submitting": "Enviando...",
+      "messageLabel": "Mensaje para el vendedor (opcional)",
+      "messagePlaceholder": "Preséntate y explica tu interés por este anuncio.",
+      "error": {
+        "FORBIDDEN": "No puedes solicitar acceso a este anuncio.",
+        "NOT_FOUND": "No se ha encontrado este anuncio.",
+        "ALREADY_REQUESTED": "Ya tienes una solicitud registrada para este anuncio.",
+        "INVALID": "Tu mensaje es demasiado largo. Acórtalo e inténtalo de nuevo.",
+        "UNEXPECTED": "Algo ha fallado por nuestra parte. La acción no se ha completado; inténtalo de nuevo."
+      }
+    },
+    "pending": {
+      "title": "Tu solicitud está con el vendedor",
+      "body": "Enviada el {date}. Se te avisará en cuanto el vendedor decida."
+    },
+    "closed": {
+      "title": "Confidencial",
+      "declined": "El vendedor ha denegado tu solicitud de acceso a este anuncio.",
+      "revoked": "Se ha revocado tu acceso a los detalles confidenciales de este anuncio.",
+      "default": "La denominación social, las cifras financieras, el número de clientes y el data room solo se facilitan a un comprador aprobado por el vendedor.",
+      "signInPrompt": "Inicia sesión para solicitar acceso a los detalles confidenciales de un anuncio.",
+      "signInAction": "Iniciar sesión"
+    }
+  },
+  "listingForm": {
+    "newTitle": "Nuevo anuncio",
+    "newSubtitle": "El teaser público de abajo lo ve cualquier visitante. La sección confidencial solo llega a un comprador cuando apruebas su solicitud de acceso.",
+    "editTitle": "Editar el anuncio {ref}",
+    "editSubtitle": "Actualiza el teaser público y los detalles confidenciales que hay detrás.",
+    "rejectionNotice": "Un gestor de la plataforma ha rechazado este anuncio: {reason}",
+    "sections": {
+      "teaserTitle": "Teaser público",
+      "teaserBody": "Visible para cualquier visitante, con sesión iniciada o sin ella.",
+      "confidentialTitle": "Confidencial",
+      "confidentialBody": "Se facilita a un comprador solo cuando apruebas su solicitud de acceso a este anuncio."
+    },
+    "fields": {
+      "categoryLabel": "Categoría",
+      "businessStatusLabel": "Situación del negocio",
+      "licenceTypeLabel": "Tipo de licencia",
+      "licenceTypePlaceholder": "p. ej. EMI, PI, Banking",
+      "businessTypeLabel": "Tipo de negocio",
+      "businessTypePlaceholder": "p. ej. Emisión y procesamiento de tarjetas",
+      "countryLabel": "Jurisdicción (código ISO)",
+      "countryPlaceholder": "p. ej. MT",
+      "regulatorLabel": "Regulador",
+      "regulatorPlaceholder": "p. ej. MFSA",
+      "askingPriceLabel": "Precio de venta (EUR)",
+      "employeesLabel": "Empleados",
+      "yearOfIssueLabel": "Año de emisión de la licencia",
+      "teaserTitleLabel": "Título del teaser",
+      "teaserTitleHint": "De 10 a 120 caracteres.",
+      "teaserDescriptionLabel": "Descripción del teaser",
+      "teaserDescriptionHint": "De 40 a 2000 caracteres. No nombres la empresa ni des cifras exactas: la comprobación de confidencialidad de abajo puede ayudarte.",
+      "includedLabel": "Incluido en la venta",
+      "includedPlaceholder": "p. ej. Licencia, cartera de clientes, equipo principal",
+      "includedItemLabel": "Elemento {index}",
+      "includedAdd": "Añadir elemento",
+      "includedRemove": "Quitar",
+      "includedHint": "Hasta 8 elementos breves que se muestran en la tarjeta del teaser.",
+      "legalNameLabel": "Denominación social",
+      "revenueLabel": "Ingresos anuales (EUR)",
+      "ebitdaLabel": "EBITDA (EUR)",
+      "clientCountLabel": "Número de clientes",
+      "dataRoomUrlLabel": "URL del data room (opcional)",
+      "dataRoomUrlPlaceholder": "https://...",
+      "confidentialNotesLabel": "Notas para compradores aprobados (opcional)"
+    },
+    "actions": {
+      "saveDraft": "Guardar borrador",
+      "saving": "Guardando...",
+      "submitForReview": "Enviar a revisión",
+      "submitting": "Enviando...",
+      "unsaved": "Cambios sin guardar"
+    },
+    "savedNotice": "Borrador guardado.",
+    "submittedNotice": "Enviado a revisión. Un gestor de la plataforma decidirá si se publica.",
+    "alreadyInReviewNotice": "Este anuncio ya está en la cola de revisión. Guardar lo mantiene ahí hasta que un gestor lo publique o lo rechace.",
+    "unpublishedForReviewNotice": "Se han guardado tus cambios, pero este anuncio ya no es visible públicamente: editar un anuncio publicado lo devuelve a revisión. Un gestor de la plataforma decidirá si vuelve a publicarse.",
+    "suspendedSentForReviewNotice": "Se han guardado tus cambios y este anuncio está ahora en la cola de revisión. Ya estaba fuera del catálogo público y sigue fuera hasta que un gestor de la plataforma vuelva a aprobarlo.",
+    "errors": {
+      "required": "Este campo no puede estar vacío.",
+      "positiveMoney": "Introduce un precio de venta mayor que 0.",
+      "money": "Introduce un importe válido y no negativo en EUR.",
+      "nonNegativeInt": "Introduce un número entero, 0 o mayor.",
+      "country": "Introduce un código de país de 2 letras, p. ej. MT.",
+      "teaserTitle": "Introduce entre 10 y 120 caracteres.",
+      "teaserDescription": "Introduce entre 40 y 2000 caracteres.",
+      "yearOfIssue": "Introduce un año entre 1900 y el año actual.",
+      "included": "Hasta 8 elementos, cada uno de 1 a 80 caracteres.",
+      "url": "Introduce una URL válida que empiece por http:// o https://, o déjalo en blanco.",
+      "tooLong": "Acorta este texto.",
+      "form": "Corrige los campos marcados e inténtalo de nuevo."
+    },
+    "error": {
+      "FORBIDDEN": "No puedes editar este anuncio.",
+      "NOT_FOUND": "No se ha encontrado este anuncio.",
+      "ALREADY_REQUESTED": "Esta acción no es válida aquí.",
+      "INVALID": "Algunos campos necesitan atención antes de poder guardar.",
+      "UNEXPECTED": "Algo ha fallado por nuestra parte. La acción no se ha completado; inténtalo de nuevo."
+    },
+    "review": {
+      "title": "Comprobación de confidencialidad",
+      "intro": "Comprueba si el teaser guardado revela sin querer los detalles confidenciales que hay debajo.",
+      "trigger": "Comprobar el teaser",
+      "checking": "Comprobando...",
+      "loading": "Buscando detalles confidenciales en el teaser guardado...",
+      "unavailable": "La comprobación no ha podido ejecutarse ahora mismo. Puedes enviar el anuncio igualmente.",
+      "clean": "No se han encontrado problemas de confidencialidad.",
+      "leaksTitle": "Posibles filtraciones",
+      "suggestionsTitle": "Sugerencias",
+      "advisory": "Esta comprobación es orientativa: puedes enviar el anuncio con independencia de lo que encuentre."
+    }
+  },
+  "requestQueue": {
+    "title": "Solicitudes de acceso",
+    "pendingTitle": "Solicitudes pendientes",
+    "decideOwnerOnly": "Solo el vendedor propietario de este anuncio puede aprobar o denegar una solicitud. Aun así, puedes revocar más abajo un acceso ya concedido.",
+    "approvedTitle": "Compradores aprobados",
+    "requestedOn": "Solicitado el {date}",
+    "decidedOn": "Aprobado el {date}",
+    "approve": "Aprobar",
+    "decline": "Denegar",
+    "revoke": "Revocar el acceso",
+    "approving": "Aprobando...",
+    "declining": "Denegando...",
+    "revoking": "Revocando...",
+    "error": {
+      "FORBIDDEN": "Ya no se puede actuar sobre esta solicitud.",
+      "NOT_FOUND": "No se ha encontrado esta solicitud.",
+      "ALREADY_REQUESTED": "Esta acción no es válida aquí.",
+      "INVALID": "Esta acción no es válida.",
+      "UNEXPECTED": "Algo ha fallado por nuestra parte. La acción no se ha completado; inténtalo de nuevo."
+    }
+  },
+  "profile": {
+    "pageTitle": "Tu perfil",
+    "pageSubtitle": "Esto no es una página de ajustes: el mandato de inversión de abajo es la base de cada puntuación de coincidencia que verás y de cada clasificación en la que un vendedor te verá a ti.",
+    "profileSection": {
+      "title": "Perfil de comprador",
+      "subtitle": "Así te ven los vendedores cuando les escribes o cuando revisan tus solicitudes de acceso.",
+      "fields": {
+        "displayNameLabel": "Nombre visible",
+        "buyerTypeLabel": "Tipo de comprador",
+        "countryLabel": "Tu jurisdicción (código ISO)",
+        "countryPlaceholder": "p. ej. GB",
+        "bioLabel": "Sobre ti",
+        "bioPlaceholder": "Una descripción breve que los vendedores verán en tu perfil de comprador.",
+        "websiteUrlLabel": "Sitio web (opcional)",
+        "websiteUrlPlaceholder": "https://..."
+      },
+      "savedNotice": "Perfil guardado."
+    },
+    "buyerType": {
+      "PE_FUND": "Fondo de capital privado",
+      "STRATEGIC": "Comprador estratégico",
+      "FAMILY_OFFICE": "Family office",
+      "INDIVIDUAL": "Particular"
+    },
+    "licenceType": {
+      "PI": "PI",
+      "EMI": "EMI",
+      "SEMI": "SEMI",
+      "MSO": "MSO",
+      "API": "API",
+      "CASP": "CASP",
+      "Banking": "Licencia bancaria"
+    },
+    "mandate": {
+      "title": "Mandato de inversión",
+      "subtitle": "Cada puntuación de coincidencia que ven compradores y vendedores se calcula a partir de este mandato. Acótalo para ver coincidencias más relevantes; deja un grupo sin tocar para decir «cualquiera».",
+      "matchSummary": {
+        "count": "Coincide con {matchCount} de los {totalListings} anuncios publicados hoy.",
+        "unconstrained": "Este mandato todavía no restringe nada: todos los anuncios empatarían en el primer puesto, así que no se muestra ninguna clasificación. Rellena al menos una preferencia abajo para ver coincidencias reales."
+      },
+      "any": {
+        "category": "Cualquier categoría",
+        "country": "Cualquier jurisdicción",
+        "licenceType": "Cualquier tipo de licencia",
+        "businessStatus": "Cualquier situación del negocio",
+        "ticket": "Cualquier tamaño de ticket",
+        "timeline": "Sin preferencia"
+      },
+      "fields": {
+        "categoriesLabel": "Categorías",
+        "countriesLabel": "Jurisdicciones",
+        "countryAddPlaceholder": "p. ej. MT",
+        "countryAdd": "Añadir",
+        "removeCountry": "Quitar {code}",
+        "licenceTypesLabel": "Tipos de licencia",
+        "businessStatusesLabel": "Situación del negocio",
+        "ticketMinLabel": "Ticket mínimo (EUR)",
+        "ticketMaxLabel": "Ticket máximo (EUR)",
+        "ticketPlaceholder": "Sin límite",
+        "timelineLabel": "Horizonte de inversión",
+        "timelineValue": "{count, plural, one {# mes} other {# meses}}",
+        "timelineNoPreference": "Sin preferencia de plazo",
+        "notesLabel": "Notas (opcional)",
+        "notesPlaceholder": "Cualquier otra cosa que un vendedor con el que coincidas deba saber sobre tu mandato."
+      },
+      "savedNotice": "Mandato guardado."
+    },
+    "actions": {
+      "saveProfile": "Guardar el perfil",
+      "saveMandate": "Guardar el mandato",
+      "saving": "Guardando...",
+      "unsaved": "Cambios sin guardar"
+    },
+    "errors": {
+      "required": "Este campo no puede estar vacío.",
+      "country": "Introduce un código de país de 2 letras, p. ej. MT.",
+      "tooLong": "Acorta este texto.",
+      "url": "Introduce una URL válida que empiece por http:// o https://, o déjalo en blanco.",
+      "invalidSelection": "Esa selección no es válida.",
+      "money": "Introduce un importe válido y no negativo en EUR, o déjalo en blanco.",
+      "ticketRange": "El ticket máximo debe ser al menos igual al mínimo.",
+      "timeline": "Introduce un número de meses de 1 a 60, o marca «Sin preferencia de plazo».",
+      "form": "Corrige los campos marcados e inténtalo de nuevo."
+    },
+    "error": {
+      "FORBIDDEN": "No puedes editar este perfil.",
+      "NOT_FOUND": "No se ha encontrado este perfil.",
+      "ALREADY_REQUESTED": "Esta acción no es válida aquí.",
+      "INVALID": "Algunos campos necesitan atención antes de poder guardar.",
+      "UNEXPECTED": "Algo ha fallado por nuestra parte. La acción no se ha completado; inténtalo de nuevo."
+    }
+  },
+  "dashboard": {
+    "buyer": {
+      "title": "Panel del comprador",
+      "subtitle": "Anuncios que encajan con tu mandato, los accesos que has solicitado y lo que está pendiente de ti.",
+      "mandate": {
+        "title": "Tu mandato de inversión",
+        "editAction": "Editar el mandato"
+      },
+      "recommendations": {
+        "title": "Anuncios recomendados",
+        "basedOn": "Ordenados según los {criteria} de 5 criterios que restringe tu mandato, sobre {considered} anuncios publicados.",
+        "empty": "Ahora mismo ningún anuncio publicado supera tu mandato. Ampliar un criterio suele devolver alguno.",
+        "browseAction": "Ver todos los anuncios",
+        "completeMandateTitle": "Completa tu mandato para ver recomendaciones",
+        "completeMandateBody": "Tu mandato todavía no restringe nada, así que todos los anuncios puntúan igual y cualquier clasificación aquí sería inventada. Define una preferencia y aparecerán recomendaciones reales.",
+        "completeMandateAction": "Definir tu mandato",
+        "noListings": "Todavía no hay anuncios publicados. Las recomendaciones aparecerán en cuanto los vendedores publiquen."
+      },
+      "requests": {
+        "title": "Tus solicitudes de acceso",
+        "empty": "Aún no has solicitado acceso a ningún anuncio.",
+        "count": "{count, plural, one {# solicitud} other {# solicitudes}}",
+        "requestedOn": "Solicitado el {date}",
+        "decidedOn": "Resuelto el {date}"
+      }
+    },
+    "seller": {
+      "title": "Panel del vendedor",
+      "subtitle": "Tus anuncios, los compradores que esperan respuesta y quién encaja mejor con lo último que publicaste.",
+      "listings": {
+        "title": "Tus anuncios",
+        "empty": "Todavía no has creado ningún anuncio.",
+        "count": "{count, plural, one {# anuncio} other {# anuncios}}",
+        "newAction": "Nuevo anuncio",
+        "editAction": "Editar",
+        "rejectionReason": "Por qué se rechazó"
+      },
+      "requests": {
+        "title": "Solicitudes de acceso",
+        "empty": "Ningún comprador ha solicitado todavía acceso a tus anuncios.",
+        "pendingCount": "{count, plural, =0 {No queda nada por decidir.} one {# solicitud está esperando tu respuesta.} other {# solicitudes están esperando tu respuesta.}}"
+      },
+      "matchedBuyers": {
+        "title": "Compradores que encajan con tu último anuncio",
+        "scoredAgainst": "Puntuado frente a {ref} · {title}.",
+        "viewAll": "Ver todos los compradores",
+        "empty": "Ningún mandato de comprador encaja todavía lo bastante con este anuncio como para sugerirlo.",
+        "noPublished": "Publica un anuncio y aquí aparecerán los compradores cuyos mandatos encajen con él."
+      }
+    },
+    "messages": {
+      "title": "Mensajes",
+      "openInbox": "Abrir los mensajes",
+      "none": "Nada sin leer.",
+      "unread": "{count, plural, one {# mensaje sin leer} other {# mensajes sin leer}}"
+    }
+  },
+  "admin": {
+    "title": "Consola de gestión",
+    "subtitle": "Todos los participantes, todos los anuncios y todas las decisiones de moderación registradas.",
+    "tabs": {
+      "participants": "Participantes",
+      "assets": "Anuncios",
+      "assetsWithQueue": "Anuncios ({count} en revisión)",
+      "log": "Registro de moderación",
+      "ariaLabel": "Secciones de la consola"
+    },
+    "role": {
+      "BUYER": "Comprador",
+      "SELLER": "Vendedor",
+      "MANAGER": "Gestor"
+    },
+    "action": {
+      "SUSPEND": "Suspensión",
+      "REINSTATE": "Restablecimiento",
+      "REMOVE": "Eliminación",
+      "APPROVE_LISTING": "Anuncio aprobado",
+      "REJECT_LISTING": "Anuncio rechazado"
+    },
+    "target": {
+      "USER": "Cuenta {value}",
+      "ASSET": "Anuncio {value}"
+    },
+    "dialog": {
+      "reasonLabel": "Motivo para el registro",
+      "reasonHint": "Al menos {min} caracteres. Se guarda de forma permanente en el registro de moderación, y la cuenta suspendida lo ve."
+    },
+    "error": {
+      "FORBIDDEN": "Ya no es posible: el registro ha cambiado desde que se cargó esta página.",
+      "NOT_FOUND": "Ese registro ya no existe.",
+      "ALREADY_REQUESTED": "Esta acción no es válida aquí.",
+      "INVALID": "Escribe un motivo más largo antes de confirmar.",
+      "UNEXPECTED": "Algo ha fallado por nuestra parte. La acción no se ha completado; inténtalo de nuevo."
+    },
+    "participants": {
+      "filterRole": "Rol",
+      "filterRoleToggle": "Filtrar por rol: {value}",
+      "filterStatus": "Estado",
+      "filterStatusToggle": "Filtrar por estado: {value}",
+      "searchPlaceholder": "Buscar por correo o nombre",
+      "searchSubmit": "Buscar",
+      "count": "{count, plural, one {# cuenta} other {# cuentas}}",
+      "empty": "Ninguna cuenta coincide con estos filtros.",
+      "columns": {
+        "account": "Cuenta",
+        "role": "Rol",
+        "status": "Estado",
+        "verified": "Verificada",
+        "activity": "Actividad",
+        "actions": "Acciones"
+      },
+      "verified": {
+        "yes": "Verificada",
+        "no": "Sin verificar",
+        "none": "Sin perfil"
+      },
+      "activity": {
+        "listings": "{count, plural, one {# anuncio} other {# anuncios}}",
+        "published": "{count} en el catálogo",
+        "publishedHidden": "{count} publicados, ocultos mientras esta cuenta no esté activa",
+        "requests": "{count, plural, one {# solicitud de acceso} other {# solicitudes de acceso}}",
+        "none": "Nada todavía"
+      },
+      "actions": {
+        "self": "Esta es tu propia cuenta."
+      },
+      "suspend": {
+        "trigger": "Suspender",
+        "title": "¿Suspender a {name}?",
+        "consequence": "{count, plural, =0 {{name} no tiene nada en el catálogo que ocultar, pero desde su próxima petición no podrá enviar mensajes ni resolver solicitudes de acceso, y verá el aviso de suspensión con tu motivo.} one {# anuncio de {name} se oculta del catálogo de inmediato. Desde su próxima petición no podrá enviar mensajes ni resolver solicitudes de acceso, y verá el aviso de suspensión con tu motivo.} other {# anuncios de {name} se ocultan del catálogo de inmediato. Desde su próxima petición no podrá enviar mensajes ni resolver solicitudes de acceso, y verá el aviso de suspensión con tu motivo.}}",
+        "confirm": "Suspender la cuenta",
+        "pending": "Suspendiendo..."
+      },
+      "reinstate": {
+        "trigger": "Restablecer",
+        "title": "¿Restablecer a {name}?",
+        "consequence": "{count, plural, =0 {{name} puede volver a usar el marketplace. No se borró nada mientras estuvo fuera.} one {{name} puede volver a usar el marketplace, y su # anuncio vuelve al catálogo con el estado que ya tenía.} other {{name} puede volver a usar el marketplace, y sus # anuncios vuelven al catálogo con los estados que ya tenían.}}",
+        "confirm": "Restablecer la cuenta",
+        "pending": "Restableciendo..."
+      },
+      "remove": {
+        "trigger": "Eliminar",
+        "title": "¿Eliminar a {name}?",
+        "consequence": "{name} cierra sesión en su próxima petición y desaparece del marketplace, pero no se borra nada: las conversaciones y solicitudes de acceso en las que participa quedan intactas para quienes están al otro lado. Puedes restablecer la cuenta más adelante.",
+        "confirm": "Eliminar la cuenta",
+        "pending": "Eliminando..."
+      }
+    },
+    "assets": {
+      "filterStatus": "Estado",
+      "filterStatusToggle": "Filtrar por estado: {value}",
+      "count": "{count, plural, one {# anuncio} other {# anuncios}}",
+      "empty": "Ningún anuncio coincide con estos filtros.",
+      "columns": {
+        "listing": "Anuncio",
+        "status": "Estado",
+        "seller": "Vendedor",
+        "category": "Categoría",
+        "price": "Precio de venta",
+        "actions": "Acciones"
+      },
+      "rejectionReason": "Rechazado: {reason}",
+      "ownerNotActive": "El propietario no está activo, así que está oculto del catálogo",
+      "actions": {
+        "none": "Nada que decidir"
+      },
+      "approve": {
+        "trigger": "Aprobar",
+        "title": "¿Publicar {ref}?",
+        "consequence": "El anuncio entra en el catálogo público de inmediato y los compradores pueden empezar a solicitar su información confidencial. Tu nota va al registro de moderación, no al vendedor.",
+        "consequenceOwnerNotActive": "El anuncio queda aprobado, pero se mantiene fuera del catálogo público mientras la cuenta de su vendedor no esté activa: un anuncio necesita ambas cosas. Restablece al vendedor en la pestaña Participantes para hacerlo visible. Tu nota va al registro de moderación, no al vendedor.",
+        "confirm": "Publicar el anuncio",
+        "pending": "Publicando..."
+      },
+      "reject": {
+        "trigger": "Rechazar",
+        "title": "¿Rechazar {ref}?",
+        "consequence": "El anuncio se queda fuera del catálogo y vuelve al vendedor, que lee tu motivo palabra por palabra en su panel. Escríbelo para él.",
+        "confirm": "Rechazar el anuncio",
+        "pending": "Rechazando..."
+      },
+      "suspend": {
+        "trigger": "Suspender",
+        "title": "¿Suspender {ref}?",
+        "consequence": "El anuncio sale del catálogo público de inmediato. El vendedor ve el nuevo estado pero no tu motivo, que solo queda en el registro de moderación.",
+        "confirm": "Suspender el anuncio",
+        "pending": "Suspendiendo..."
+      }
+    },
+    "log": {
+      "empty": "Todavía no se ha moderado nada.",
+      "count": "{count, plural, one {# entrada} other {# entradas}}",
+      "actor": "Por {email}",
+      "truncated": "Solo se muestran las {limit} entradas más recientes."
+    }
+  }
+}

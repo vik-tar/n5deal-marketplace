@@ -10,7 +10,7 @@ import { countryCode, optionalHttpUrl, requiredText } from './primitives'
  * enforce it (`@/server/actions/profile`) — this module never imports
  * `@/server/db`, so it stays reachable from a client component and from
  * `tests/unit/validation/profile.test.ts` with `DATABASE_URL` unset, exactly
- * as `@/lib/validation/asset` (Task 15) already does.
+ * as `@/lib/validation/asset` already does.
  *
  * The mandate is not a settings form: `mandateSchema` below is the shape that
  * becomes `MandateCriteria` (`@/lib/matching`), the input to every
@@ -61,9 +61,9 @@ export type BuyerProfileInput = z.infer<typeof buyerProfileSchema>
  * that is "any", not "unset" — so none of them carries a `.min(1)`.
  *
  * `ticketMinCents`/`ticketMaxCents` are cents (integers), nullable
- * independently of each other, with the cross-field refinement ruling 1
- * (Task 16) asks for: when both are present, the minimum must not exceed the
- * maximum. The refinement's issue is attached to `ticketMaxCents` — the field
+ * independently of each other, with a cross-field refinement: when both are
+ * present, the minimum must not exceed the maximum. The refinement's issue is
+ * attached to `ticketMaxCents` — the field
  * whose value is invalid *relative to* the other, mirroring which field the
  * form should flag inline.
  *

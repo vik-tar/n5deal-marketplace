@@ -3,8 +3,8 @@ import type { AccessStatus, AssetStatus, UserStatus } from '@/generated/prisma/c
 import { Badge, type BadgeTone } from '@/components/ui/badge'
 
 /**
- * Every status this pill can render — listing statuses, account statuses and,
- * since Task 18's dashboards, access-request statuses.
+ * Every status this pill can render: listing statuses, account statuses and
+ * access-request statuses.
  *
  * The three enums are unioned rather than given three components because
  * their members are disjoint (`AccessStatus`'s `REQUESTED`/`APPROVED`/
@@ -22,16 +22,18 @@ import { Badge, type BadgeTone } from '@/components/ui/badge'
  * discriminated prop, and the only thing that would surface it is someone
  * noticing the wrong word on screen.
  *
- * **That shared word already costs something in Russian, and the decision was
- * to pay it.** The `status` namespace's listing members are neuter, agreeing
- * with the implied noun the catalog uses («Опубликовано», «Отклонено»,
- * «Продано»), while its account and request members are masculine
- * («Активен», «Удалён», «Запрошен»). `SUSPENDED` is one entry serving both
- * sides and is written neuter — «Заблокировано» — so a *listing* reads
- * correctly and a suspended *account* reads a gender off. The alternative is
- * the discriminated prop above: a second enum-shaped namespace and a second
- * tone map, to fix one word. Left as is, deliberately, and written down here
- * so the next reader knows it was seen rather than missed.
+ * **That shared word costs something in Spanish, and the decision was to pay
+ * it.** Every member of the `status` namespace that belongs to one enum is
+ * written to agree with that enum's noun: listing statuses are masculine for
+ * *el anuncio* ("Publicado", "Rechazado", "Vendido"), account statuses
+ * feminine for *la cuenta* ("Activa", "Eliminada"), request statuses feminine
+ * for *la solicitud* ("Solicitada", "Aprobada", "Denegada", "Revocada").
+ * `SUSPENDED` is the one entry serving two enums at once and is written
+ * masculine — "Suspendido" — so a *listing* reads correctly and a suspended
+ * *account* reads a gender off. The alternative is the discriminated prop
+ * above: a second enum-shaped namespace and a second tone map, to fix one
+ * word. Left as is, deliberately, and written down here so the next reader
+ * knows it was seen rather than missed.
  */
 export type PillStatus = AssetStatus | UserStatus | AccessStatus
 

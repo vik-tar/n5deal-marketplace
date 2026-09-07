@@ -10,6 +10,7 @@ import {
   isValidModerationReason,
 } from '@/lib/validation/moderation'
 import type { ActionResult } from '@/server/actions/types'
+import { attempt } from '@/lib/action-result'
 
 /** The `name` the reason travels under, read back out of the `FormData`. */
 const REASON_FIELD = 'reason'
@@ -76,7 +77,10 @@ export function ModerationDialog({
 
   const [state, formAction, isPending] = useActionState<ActionResult | null, FormData>(
     async (_previous, formData) => {
-      const result = await onConfirm(String(formData.get(REASON_FIELD) ?? ''))
+      const result = await attempt(
+        'moderate',
+        onConfirm(String(formData.get(REASON_FIELD) ?? '')),
+      )
       // Closed here rather than in an effect watching `state`: a successful
       // action revalidates, which may re-render this row with different
       // buttons or remove it, and an effect would then be racing an unmount

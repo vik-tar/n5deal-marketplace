@@ -49,10 +49,11 @@ export interface StructuredCallOptions<T> {
  * as "no API key", making a truncation indistinguishable from a feature that
  * is simply switched off.
  *
- * Every call site previously set 400-1024, chosen when the intended output
- * was a short JSON object and nothing was reserved for reasoning. None had
- * ever run against the real API (see the ledger, Tasks 9/17/18), so the
- * truncation had never had the chance to show up.
+ * The obvious ceiling for these call sites is 400-1024 — the intended output
+ * is a short JSON object — and that is the wrong number, because it reserves
+ * nothing for reasoning. None of the three features has ever run against the
+ * real API, so a truncation here would show up for the first time in
+ * production; the ceiling is set where it cannot.
  */
 const DEFAULT_MAX_TOKENS = 4096
 

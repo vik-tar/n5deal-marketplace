@@ -13,8 +13,9 @@ import { prisma } from '@/server/db'
  * of an approved grant. The owning seller editing their own draft always
  * sees every field, gated here by `canEditAsset` alone, and each `bigint`
  * money column is converted to `number` right here — before `initial` is
- * ever handed to the client component `ListingForm` — the same rule ruling 1
- * states and `@/lib/dto/asset` already follows for the public detail page.
+ * ever handed to the client component `ListingForm` — the same rule
+ * `@/lib/dto/asset` already follows for the public detail page: no `bigint`
+ * crosses into React.
  *
  * A listing that exists but is not this viewer's to edit (someone else's
  * listing, or their own asset once it is `'SOLD'`) renders exactly the same

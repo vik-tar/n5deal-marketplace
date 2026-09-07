@@ -1,3 +1,4 @@
+import { notFound } from 'next/navigation'
 import { getTranslations } from 'next-intl/server'
 import { Link } from '@/i18n/navigation'
 import { BuyerFilterSidebar } from '@/components/domain/buyer-filter-sidebar'
@@ -6,7 +7,7 @@ import { BuyerSearch } from '@/components/domain/buyer-search'
 import { BuyerCard } from '@/components/domain/buyer-card'
 import { Pagination } from '@/components/domain/pagination'
 import { listBuyers } from '@/server/queries/buyers'
-import { getViewer } from '@/server/session'
+import { requireViewer } from '@/server/session'
 import { prisma } from '@/server/db'
 import { canBrowseBuyers } from '@/lib/authz'
 import { isAiEnabled } from '@/lib/ai/client'
@@ -24,18 +25,35 @@ import {
 } from '@/lib/filters/buyer-filters'
 
 /**
- * The seller's half of the marketplace (Task 17): browse, filter and search
+ * The seller's half of the marketplace: browse, filter and search
  * buyer mandates, optionally scored against one of the seller's own
  * published listings.
  *
- * Ruling 1 is enforced twice, deliberately: `listBuyers` itself refuses a
- * buyer (or anonymous visitor) with an empty result, and this page
- * independently calls the same `canBrowseBuyers` predicate to choose which
- * empty state to render — "buyers are visible to sellers" for someone who
- * may never see this directory, "no buyers match your filters" for a seller
- * whose filters happen to exclude everyone. Both paths return the identical
- * `{ items: [], total: 0 }` from the query, so the page — not the query — is
- * where that distinction has to be made.
+ * Gated exactly like every other role-specific page in this app —
+ * `requireViewer` first, then the page's own predicate, then `notFound()` —
+ * which is what `/admin`, `/dashboard`, `/profile` and `/listings/new` all do.
+ * This page used to be the single exception: it called `getViewer()` and
+ * rendered an empty directory with an explanatory panel to anyone who may not
+ * browse it. Two things were wrong with that.
+ *
+ * The first was a false statement. The subtitle below renders `total` from the
+ * query, and `listBuyers` answers `{ items: [], total: 0 }` for a viewer it
+ * refuses — so an anonymous visitor was told "0 investor mandates" about a
+ * marketplace holding twelve. A page that cannot show you the data must not
+ * make claims about how much of it there is.
+ *
+ * The second was that the three refusals are not one refusal. `requireViewer`
+ * splits them where the viewer can act on the difference: an anonymous visitor
+ * goes to `/login`, where signing in is the thing to do; a suspended seller
+ * goes to `/suspended`, which tells them why and what it does not stop them
+ * doing; a signed-in buyer gets the 404 they would get from `/admin`, because
+ * the directory is not theirs to see and never will be. A bare `notFound()`
+ * would collapse all three into a dead end, and the empty panel collapsed them
+ * into a lie.
+ *
+ * `listBuyers` keeps its own `canBrowseBuyers` refusal. That is defence in
+ * depth, not duplication: the query is what guarantees no buyer row reaches a
+ * caller who may not have it, whatever any page in front of it does.
  */
 export default async function BuyersPage({
   params,
@@ -49,8 +67,10 @@ export default async function BuyersPage({
   const filters = parseBuyerFilters(rawSearchParams)
   const requestedAssetId = parseForAssetId(rawSearchParams)
 
-  const [viewer, t, tProfile, tAssets] = await Promise.all([
-    getViewer(),
+  const viewer = await requireViewer(locale)
+  if (!canBrowseBuyers(viewer)) notFound()
+
+  const [t, tProfile, tAssets] = await Promise.all([
     getTranslations('buyers'),
     getTranslations('profile'),
     getTranslations('assets'),
@@ -58,7 +78,7 @@ export default async function BuyersPage({
 
   const [{ items, total, scoredAssetId }, scorableAssets] = await Promise.all([
     listBuyers(filters, viewer, requestedAssetId),
-    viewer?.sellerProfileId
+    viewer.sellerProfileId
       ? prisma.asset.findMany({
           where: { sellerProfileId: viewer.sellerProfileId, status: 'PUBLISHED' },
           select: { id: true, publicRef: true, teaserTitle: true },
@@ -69,23 +89,19 @@ export default async function BuyersPage({
 
   const aiEnabled = isAiEnabled()
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
-  const mayBrowse = canBrowseBuyers(viewer)
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
       <h1 className="text-2xl font-semibold text-ink">{t('title')}</h1>
       <p className="mt-1 text-sm text-ink-muted">{t('subtitle', { count: total })}</p>
 
-      {!mayBrowse ? (
-        <EmptyState t={t} kind="notASeller" />
-      ) : (
-        <div className="mt-6 grid gap-8 lg:grid-cols-[240px_minmax(0,1fr)]">
+      <div className="mt-6 grid gap-8 lg:grid-cols-[240px_minmax(0,1fr)]">
           <BuyerFilterSidebar filters={filters} forAssetId={scoredAssetId} />
 
           <div className="min-w-0">
             <BuyerSearch filters={filters} forAssetId={scoredAssetId} />
 
-            {viewer?.sellerProfileId ? (
+            {viewer.sellerProfileId ? (
               <div className="mt-4">
                 <BuyerAssetSelector
                   assets={scorableAssets}
@@ -105,7 +121,7 @@ export default async function BuyersPage({
             />
 
             {items.length === 0 ? (
-              <EmptyState t={t} kind="noResults" hasFilters={hasActiveBuyerFilters(filters)} />
+              <EmptyState t={t} hasFilters={hasActiveBuyerFilters(filters)} />
             ) : (
               <>
                 <ul className="mt-4 flex flex-col gap-4">
@@ -137,15 +153,14 @@ export default async function BuyersPage({
               </>
             )}
           </div>
-        </div>
-      )}
+      </div>
     </main>
   )
 }
 
 /**
  * Every non-default filter rendered as a removable chip, mirroring
- * `listings/page.tsx`'s identical `FilterChips` (ruling 7: "both catalogues
+ * `listings/page.tsx`'s identical `FilterChips` ("both catalogues
  * identical"). `forAssetId`, when set, is preserved on every chip's own link
  * — removing a filter must not also silently stop scoring against the
  * selected listing.
@@ -231,24 +246,18 @@ function FilterChips({
   )
 }
 
+/**
+ * The one empty state left: a seller whose filters happen to exclude every
+ * buyer. "You may not browse this directory" is no longer an empty state — it
+ * is a redirect or a 404, decided above before any query runs.
+ */
 function EmptyState({
   t,
-  kind,
   hasFilters,
 }: {
   t: Translator
-  kind: 'notASeller' | 'noResults'
   hasFilters?: boolean
 }) {
-  if (kind === 'notASeller') {
-    return (
-      <div className="mt-6 flex flex-col items-center gap-3 rounded-card border border-dashed border-border px-6 py-16 text-center">
-        <p className="text-lg font-semibold text-ink">{t('empty.notASeller.title')}</p>
-        <p className="max-w-sm text-sm text-ink-muted">{t('empty.notASeller.body')}</p>
-      </div>
-    )
-  }
-
   return (
     <div className="mt-4 flex flex-col items-center gap-3 rounded-card border border-dashed border-border px-6 py-16 text-center">
       <p className="text-lg font-semibold text-ink">{t('empty.noResults.title')}</p>

@@ -9,7 +9,7 @@ type LinkHref = ComponentProps<typeof Link>['href']
  * Link-based, like `Tabs` — the target page is fully determined by the URL,
  * so no client JavaScript is needed to move between pages.
  *
- * Shared by both catalogs (ruling 7, Task 17: "both catalogues identical"):
+ * Shared by both catalogs, which are deliberately identical:
  * `hrefForPage` is the one thing that differs between them — the asset
  * catalog builds it from `AssetFilters` and `/listings`, the buyer catalog
  * from `BuyerFilters`, `/buyers`, and its own `forAsset` scoring parameter —

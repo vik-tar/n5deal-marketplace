@@ -242,7 +242,7 @@ describe('canRevokeAccess', () => {
 })
 
 /**
- * Renamed from `canAccessApp` in Task 20. The behaviour is unchanged and
+ * Named for what it answers rather than `canAccessApp`. The behaviour is
  * these assertions are the originals; only the name and what it claims moved
  * (see the predicate's own doc comment). `null` returning `true` is the
  * reason it is `statusAllows…` and not `canAccess…`: an anonymous visitor is
@@ -302,7 +302,7 @@ describe('canModerate, canModerateUser and canMessage', () => {
   })
 
   /**
-   * Task 20. The self-moderation guard: a manager who suspends or removes
+   * The self-moderation guard: a manager who suspends or removes
    * their own account locks themselves out of the only surface that could
    * undo it, and on a single-manager deployment that is unrecoverable.
    */

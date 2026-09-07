@@ -1,3 +1,5 @@
+import type { Role } from '@/generated/prisma/client'
+
 /**
  * Which primary navigation items a viewer may see, and where they point.
  *
@@ -27,6 +29,31 @@ export const NAV_HREF: Record<NavKey, string> = {
 }
 
 /** Where an anonymous visitor goes to sign in. */
+/**
+ * The largest number the header's unread badge prints before it gives up and
+ * says "more than this". A count badge is a nudge, not a figure anyone reads
+ * precisely, and three digits do not fit a circle sized for one or two — at
+ * which point the pill either stretches and shifts every nav item beside it or
+ * clips its own text.
+ */
+export const MAX_BADGE_COUNT = 99
+
+/**
+ * What the badge should print, or `null` when there should be no badge at all.
+ *
+ * A separate pure function rather than an inline ternary in `SiteNav`, for the
+ * reason every rule in this module is: the interesting cases are the boundaries
+ * — zero must render nothing rather than a circled `0`, and a negative or
+ * non-finite count (which no query produces today, and which a future one
+ * could) must not print `-1` or `NaN` in the header of every page. Those are
+ * one-line assertions in a unit test and a hard thing to notice in a browser.
+ */
+export function unreadBadgeLabel(count: number): string | null {
+  if (!Number.isFinite(count) || count < 1) return null
+  const whole = Math.floor(count)
+  return whole > MAX_BADGE_COUNT ? `${MAX_BADGE_COUNT}+` : String(whole)
+}
+
 export const SIGN_IN_HREF = '/login'
 
 /**
@@ -47,17 +74,21 @@ export interface NavProfiles {
 const NO_PROFILES: NavProfiles = { buyer: false, seller: false }
 
 /**
- * `role` is the viewer's role, or `null` for an anonymous visitor. It is typed
- * as `string` rather than the Prisma `Role` so the header stays free of a
- * server-only import; `Role` is assignable to it.
+ * `role` is the viewer's role, or `null` for an anonymous visitor — and it is
+ * the real `Role`, not a bare `string`. An earlier signature took `string` to
+ * keep this module free of a Prisma import, which it does not need to: `Role`
+ * is reached through `import type`, erased at compile time, and both callers
+ * (`site-header.tsx` and the landing page) are Server Components that already
+ * import `Viewer` from `@/lib/authz` — which type-imports `Role` itself. The
+ * loose type bought nothing and let `navKeysFor('MANGER')` compile into a
+ * silently missing console link.
  *
  * `profiles` defaults to "neither", so a caller that knows only the role gets
- * exactly the pre-Task-18 key set back.
+ * back only the keys a role alone unlocks.
  *
- * The last two keys are the entry points to pages that existed but were
- * unreachable from any UI until Task 18 (`/listings/new` from Task 15,
- * `/profile` from Task 16). Each mirrors the guard its own page applies, and
- * the two guards are genuinely different:
+ * The last two keys are the entry points to the two role-specific pages
+ * (`/listings/new`, `/profile`). Each mirrors the guard its own page applies,
+ * and the two guards are genuinely different:
  *
  * - `/listings/new` calls `canPublishListing` (`@/lib/authz`), which requires
  *   an active `SELLER` *with* a `SellerProfile` — so both conditions appear
@@ -66,9 +97,9 @@ const NO_PROFILES: NavProfiles = { buyer: false, seller: false }
  *   else, so the nav gates on the profile row alone. Adding a `role ===
  *   'BUYER'` test here would be a stricter rule than the page enforces, and
  *   nav that hides a page the viewer can still open is the same class of
- *   inconsistency Task 13 removed between the catalog and the detail page.
+ *   inconsistency the catalog and the detail page avoid between them.
  *
- * `inbox` is withheld from a `MANAGER` for the same reason (Task 19). A
+ * `inbox` is withheld from a `MANAGER` for the same reason. A
  * manager holds neither a `BuyerProfile` nor a `SellerProfile`, so they are a
  * party to no conversation: `listConversations` returns them an empty list
  * and `getConversation` refuses them every thread — deliberately, because a
@@ -86,7 +117,7 @@ const NO_PROFILES: NavProfiles = { buyer: false, seller: false }
  * so no authenticated entry point can escape through a caller that passes
  * profile flags without a role.
  */
-export function navKeysFor(role: string | null, profiles: NavProfiles = NO_PROFILES): NavKey[] {
+export function navKeysFor(role: Role | null, profiles: NavProfiles = NO_PROFILES): NavKey[] {
   const keys: NavKey[] = ['listings']
   if (role === 'SELLER' || role === 'MANAGER') keys.push('buyers')
   if (role === null) return keys
@@ -153,7 +184,7 @@ export function activeNavKey(pathname: string, keys: readonly NavKey[]): NavKey 
  * needs an active `SELLER` *with* a `SellerProfile`, and every reason that
  * rule looks the way it does is written above, once. A hero button and a nav
  * item pointing at the same page under two different rules is the
- * inconsistency Task 13 removed between the catalog and the detail page.
+ * inconsistency the catalog and the detail page avoid between them.
  *
  * An anonymous visitor gets an empty list and the hero renders the spec's
  * pair. `role === null` short-circuits before `navKeysFor` for the same
@@ -167,8 +198,8 @@ export const HERO_CTA_ORDER: readonly NavKey[] = ['newListing', 'dashboard', 'li
  * are both reachable destinations for some viewers, but `listings` is
  * unconditional for every non-null role in `navKeysFor`, so any key ordered
  * after it could never be selected — and this codebase has already deleted
- * one guard that could not fail (`listAssets`' per-row `canViewAsset`,
- * Task 12) precisely because a rule that cannot change an outcome reads to
+ * one guard that could not fail (`listAssets`' per-row `canViewAsset`)
+ * precisely because a rule that cannot change an outcome reads to
  * the next maintainer as a rule that is doing something. Anything added here
  * must go *before* `listings` to mean anything.
  *
@@ -176,18 +207,18 @@ export const HERO_CTA_ORDER: readonly NavKey[] = ['newListing', 'dashboard', 'li
  * `listings` are both unconditional above, so the slice is never short.
  *
  * A manager's `dashboard` button lands on `/admin` rather than `/dashboard`,
- * because `/dashboard` redirects a manager to the console (Task 18, see
- * `redirectNow`'s doc in `@/server/session`). That is not a mismatch to fix
- * here: the header's own `Dashboard` item has behaved that way since Task 18,
- * and teaching this function about the redirect would be a second copy of a
- * rule the destination page already owns.
+ * because `/dashboard` redirects a manager to the console (see `redirectNow`'s
+ * doc in `@/server/session`). That is not a mismatch to fix here: the header's
+ * own `Dashboard` item behaves the same way, and teaching this function about
+ * the redirect would be a second copy of a rule the destination page already
+ * owns.
  *
  * A suspended viewer is the caller's problem, exactly as with `navKeysFor` —
  * the landing page passes `null` for one, which is correct twice over, since
  * `/dashboard` would only bounce them to `/suspended` and `/login` at least
  * tells them why.
  */
-export function heroCtaKeys(role: string | null, profiles: NavProfiles = NO_PROFILES): NavKey[] {
+export function heroCtaKeys(role: Role | null, profiles: NavProfiles = NO_PROFILES): NavKey[] {
   if (role === null) return []
   const allowed = new Set(navKeysFor(role, profiles))
   return HERO_CTA_ORDER.filter((key) => allowed.has(key)).slice(0, 2)

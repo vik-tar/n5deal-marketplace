@@ -3,7 +3,8 @@
     "appName": "N5Deal",
     "signIn": "Sign in",
     "signOut": "Sign out",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "aiDisabled": "Available when an ANTHROPIC_API_KEY is configured — see the README. Everything else here is computed server-side, without a model."
   },
   "nav": {
     "listings": "All listings",
@@ -12,17 +13,20 @@
     "inbox": "Inbox",
     "admin": "Manager console",
     "newListing": "New listing",
-    "profile": "Profile"
+    "profile": "Profile",
+    "unread": "{count, plural, one {# unread message} other {# unread messages}}"
   },
   "header": {
-    "primaryNav": "Main navigation"
+    "primaryNav": "Main navigation",
+    "discardPrompt": "You have unsaved changes on this page. Leave and discard them?"
   },
   "localeSwitcher": {
     "label": "Language",
     "locale": {
       "en": "English",
-      "ru": "Русский"
-    }
+      "es": "Español"
+    },
+    "discardPrompt": "You have unsaved changes on this page. Switch language and discard them?"
   },
   "status": {
     "DRAFT": "Draft",
@@ -49,13 +53,68 @@
     "demoHint": "One click signs you in as that role. The credentials are shown below each button so you can also sign in manually.",
     "demoBuyer": "Continue as buyer",
     "demoSeller": "Continue as seller",
-    "demoManager": "Continue as manager"
+    "demoManager": "Continue as manager",
+    "noAccount": "No account yet?",
+    "registerLink": "Create one",
+    "registeredNotice": "Your account was created. Sign in to continue."
+  },
+  "register": {
+    "title": "Create an account",
+    "subtitle": "Buyers and sellers can register here. Platform managers are appointed, not self-registered.",
+    "submit": "Create account",
+    "submitting": "Creating account…",
+    "haveAccount": "Already have an account?",
+    "signInLink": "Sign in",
+    "role": {
+      "BUYER": "Buyer — I am looking to acquire",
+      "SELLER": "Seller — I have an asset to sell"
+    },
+    "fields": {
+      "roleLabel": "I am a",
+      "roleHint": "This decides which profile is created and cannot be changed later.",
+      "emailLabel": "Email",
+      "passwordLabel": "Password",
+      "passwordHint": "At least {min} characters. Passwords longer than {max} bytes are refused rather than silently truncated.",
+      "displayNameLabel": "Display name sellers will see",
+      "buyerTypeLabel": "Buyer type",
+      "companyNameLabel": "Company name",
+      "contactNameLabel": "Contact name",
+      "countryLabel": "Your jurisdiction (ISO code)",
+      "countryPlaceholder": "e.g. GB"
+    },
+    "errors": {
+      "form": "Fix the highlighted fields and try again.",
+      "required": "This field cannot be empty.",
+      "email": "Enter a valid email address.",
+      "password": "Use at least 8 characters, and at most 72 bytes.",
+      "country": "Enter a 2-letter ISO country code."
+    },
+    "error": {
+      "FORBIDDEN": "You are already signed in. Sign out before creating another account.",
+      "NOT_FOUND": "That action is not valid here.",
+      "ALREADY_REQUESTED": "That action is not valid here.",
+      "INVALID": "Some fields need attention before an account can be created.",
+      "UNEXPECTED": "Something went wrong on our side. The action did not go through — try again.",
+      "EMAIL_TAKEN": "An account already exists for this email address. Sign in instead."
+    }
   },
   "suspended": {
     "title": "Account suspended",
     "body": "A marketplace manager has suspended this account. You can still browse the public catalog, but you cannot message anyone, act on access requests, or open your dashboard until it is reinstated.",
     "reasonLabel": "Reason",
     "noReason": "No reason was recorded for this suspension."
+  },
+  "notFound": {
+    "title": "Page not found",
+    "body": "This page does not exist, or it is no longer open to you. A listing can be withdrawn, sold or suspended, and a conversation is visible only to the two parties on it.",
+    "backToListings": "Browse listings",
+    "backHome": "Go to the home page"
+  },
+  "errorBoundary": {
+    "title": "Something went wrong",
+    "body": "This page could not be rendered. Nothing you had submitted was lost on the server — retrying is safe.",
+    "retry": "Try again",
+    "backHome": "Go to the home page"
   },
   "home": {
     "hero": {
@@ -195,10 +254,6 @@
       "remove": "Remove filter: {value}"
     },
     "empty": {
-      "notASeller": {
-        "title": "Buyers are visible to sellers",
-        "body": "This directory lists investor mandates so a seller can reach out directly. Buyer accounts do not see it."
-      },
       "noResults": {
         "title": "No buyers match your filters",
         "body": "Try widening the ticket size, clearing a filter, or removing a jurisdiction.",
@@ -232,7 +287,8 @@
       "FORBIDDEN": "You cannot start a conversation with this account.",
       "NOT_FOUND": "This account could not be found.",
       "ALREADY_REQUESTED": "That action is not valid here.",
-      "INVALID": "That action is not valid."
+      "INVALID": "That action is not valid.",
+      "UNEXPECTED": "Something went wrong on our side. The action did not go through — try again."
     }
   },
   "inbox": {
@@ -266,7 +322,8 @@
         "FORBIDDEN": "This message could not be sent.",
         "NOT_FOUND": "This conversation could not be found.",
         "ALREADY_REQUESTED": "That action is not valid here.",
-        "INVALID": "Write something before sending."
+        "INVALID": "Write something before sending.",
+        "UNEXPECTED": "Something went wrong on our side. The action did not go through — try again."
       }
     }
   },
@@ -319,7 +376,8 @@
         "FORBIDDEN": "You are not able to request access to this listing.",
         "NOT_FOUND": "This listing could not be found.",
         "ALREADY_REQUESTED": "You already have a request on file for this listing.",
-        "INVALID": "Your message is too long. Shorten it and try again."
+        "INVALID": "Your message is too long. Shorten it and try again.",
+        "UNEXPECTED": "Something went wrong on our side. The action did not go through — try again."
       }
     },
     "pending": {
@@ -383,7 +441,8 @@
       "saveDraft": "Save draft",
       "saving": "Saving...",
       "submitForReview": "Submit for review",
-      "submitting": "Submitting..."
+      "submitting": "Submitting...",
+      "unsaved": "Unsaved changes"
     },
     "savedNotice": "Draft saved.",
     "submittedNotice": "Submitted for review. A platform manager will decide whether to publish it.",
@@ -408,7 +467,8 @@
       "FORBIDDEN": "You are not able to edit this listing.",
       "NOT_FOUND": "This listing could not be found.",
       "ALREADY_REQUESTED": "That action is not valid here.",
-      "INVALID": "Some fields need attention before this can be saved."
+      "INVALID": "Some fields need attention before this can be saved.",
+      "UNEXPECTED": "Something went wrong on our side. The action did not go through — try again."
     },
     "review": {
       "title": "Confidentiality check",
@@ -440,7 +500,8 @@
       "FORBIDDEN": "This request can no longer be acted on.",
       "NOT_FOUND": "This request could not be found.",
       "ALREADY_REQUESTED": "That action is not valid here.",
-      "INVALID": "That action is not valid."
+      "INVALID": "That action is not valid.",
+      "UNEXPECTED": "Something went wrong on our side. The action did not go through — try again."
     }
   },
   "profile": {
@@ -513,7 +574,8 @@
     "actions": {
       "saveProfile": "Save profile",
       "saveMandate": "Save mandate",
-      "saving": "Saving..."
+      "saving": "Saving...",
+      "unsaved": "Unsaved changes"
     },
     "errors": {
       "required": "This field cannot be empty.",
@@ -530,7 +592,8 @@
       "FORBIDDEN": "You are not able to edit this profile.",
       "NOT_FOUND": "This profile could not be found.",
       "ALREADY_REQUESTED": "That action is not valid here.",
-      "INVALID": "Some fields need attention before this can be saved."
+      "INVALID": "Some fields need attention before this can be saved.",
+      "UNEXPECTED": "Something went wrong on our side. The action did not go through — try again."
     }
   },
   "dashboard": {
@@ -624,7 +687,8 @@
       "FORBIDDEN": "This is no longer possible — the record has changed since this page loaded.",
       "NOT_FOUND": "That record no longer exists.",
       "ALREADY_REQUESTED": "That action is not valid here.",
-      "INVALID": "Write a longer reason before confirming."
+      "INVALID": "Write a longer reason before confirming.",
+      "UNEXPECTED": "Something went wrong on our side. The action did not go through — try again."
     },
     "participants": {
       "filterRole": "Role",

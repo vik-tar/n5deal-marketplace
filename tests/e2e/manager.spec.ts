@@ -25,7 +25,7 @@ import {
  *
  * The suspension is checked from a *signed-out* session on purpose. A
  * suspended viewer browses exactly what an anonymous visitor browses (settled
- * Task 12), so checking as the suspended seller would conflate "your own
+ * `canViewAsset`), so checking as the suspended seller would conflate "your own
  * listing is hidden from you" with "it is hidden from the market".
  */
 

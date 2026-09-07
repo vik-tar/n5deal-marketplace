@@ -43,7 +43,7 @@ import {
 import { unreadForViewerWhere } from './conversation-where'
 // `getRecommendedAssets` needs one buyer's mandate in `MandateCriteria`
 // shape. Rather than restate the six-column select and the `bigint` →
-// `number` narrowing here, it borrows Task 17's single definition of both
+// `number` narrowing here, it borrows the single definition of both
 // from the buyer query module. No cycle: `buyers.ts` imports `buyer-where`
 // and `@/lib/*` only, never this file.
 import { MANDATE_SELECT, toMandateCriteria } from './buyers'
@@ -320,7 +320,7 @@ export interface AssetDetail {
   /** The viewer's own request date. Only meaningful when `gateStatus` is `'PENDING'`. */
   requestedAt: Date | null
   /**
-   * Whether "Contact seller" should be offered as a live control (Task 19),
+   * Whether "Contact seller" should be offered as a live control,
    * and if not, why not. The mirror of `BuyerDetail.canContact`
    * (`@/server/queries/buyers`) on the other side of the market, and it
    * answers the same question that page's button asks: would
@@ -330,8 +330,8 @@ export interface AssetDetail {
    * let one seller message another, but a `Conversation` has a buyer side and
    * a seller side, and a viewer with no `BuyerProfile` cannot occupy the
    * former — the action refuses them with `FORBIDDEN`. Offering a control
-   * that is guaranteed to fail is the same class of inconsistency Task 13
-   * removed between the catalog and this page, so the buyer-profile
+   * that is guaranteed to fail is the same class of inconsistency this
+   * codebase avoids between the catalog and this page, so the buyer-profile
    * requirement is part of the answer rather than a surprise behind it.
    *
    * A `ContactAvailability` rather than the boolean it was, because the
@@ -346,11 +346,9 @@ export interface AssetDetail {
    * listing — empty for every other viewer. `getSellerOverview` below
    * aggregates the equivalent queue across a seller's whole catalog for the
    * dashboard, built on this same row projection rather than as a second,
-   * parallel approve/decline surface. This per-listing slice came first, in
-   * Task 14, so that `decideAccess` and `revokeAccess`
-   * (`@/server/actions/access-requests`) had a real place to be invoked from
-   * on the listing they act on, instead of sitting unreachable until the
-   * dashboard landed in Task 18.
+   * parallel approve/decline surface. The per-listing slice is what gives
+   * `decideAccess` and `revokeAccess` (`@/server/actions/access-requests`) a
+   * place to be invoked from on the listing they act on.
    */
   requestQueue: AssetRequestQueue
 }
@@ -414,9 +412,9 @@ interface AccessRequestQueueRow {
 /**
  * The single row → `PendingRequestSummary` | `ApprovedGrantSummary`
  * projection, shared by the per-listing `getAssetRequestQueue` below and by
- * `getSellerOverview`'s catalogue-wide equivalent (Task 14's handoff to
- * Task 18: build the wider shape *on top of* the same row projection types
- * rather than writing a second, parallel approve/decline surface).
+ * `getSellerOverview`'s catalogue-wide equivalent, which builds the wider
+ * shape *on top of* these row projection types rather than as a second,
+ * parallel approve/decline surface.
  *
  * Both callers filter to `status in (REQUESTED, APPROVED)` before this runs,
  * so the `else` branch is the approved case; a `DECLINED` or `REVOKED` row
@@ -550,7 +548,7 @@ export async function getAssetDetail(
 
   if (!canViewAsset(viewer, ref)) return null
 
-  // Only the viewer's own request against this asset — ruling 3 forbids
+  // Only the viewer's own request against this asset — the buyer-scoped read forbids
   // loading every request for it, which would let a buyer learn something
   // about another buyer's standing with this seller.
   const viewerRequest =
@@ -617,7 +615,7 @@ export async function getAssetDetail(
 }
 
 // ---------------------------------------------------------------------------
-// Task 18 — dashboard reads
+// dashboard reads
 // ---------------------------------------------------------------------------
 
 /** One recommended listing and the deterministic score that put it there. */
@@ -677,7 +675,7 @@ export interface RecommendedAssetsResult {
  * `VISIBILITY_FLOOR` (`@/server/queries/asset-where`) is reused verbatim
  * rather than re-expressed, so a recommendation can never surface a listing
  * the public catalog would not — including a suspended seller's, which is
- * what Task 20's moderation cascade depends on.
+ * what the moderation cascade depends on.
  *
  * The read carries no `select`, so the confidential columns do come into
  * memory, exactly as `listAssets` above already does: `toTeaserAsset`
@@ -697,7 +695,7 @@ export async function getRecommendedAssets(
     where: { buyerProfileId },
     select: MANDATE_SELECT,
   })
-  // A buyer with no `Mandate` row at all is legitimate (Task 16's ruling 2)
+  // A buyer with no `Mandate` row at all is legitimate (the rule)
   // and lands on `specificity` 0 through the same path as a saved-but-empty
   // mandate — one branch below covers both.
   const criteria = toMandateCriteria(mandateRow)
@@ -714,7 +712,7 @@ export async function getRecommendedAssets(
       country: row.country,
       licenceType: row.licenceType,
       businessStatus: row.businessStatus,
-      // `bigint` → `number` at the read (ruling 6). `toTeaserAsset` below
+      // `bigint` → `number` at the read. `toTeaserAsset` below
       // narrows the same column again for the DTO; this one feeds
       // `scoreMatch`, which compares it against the mandate's already-narrowed
       // ticket bounds.
@@ -823,8 +821,8 @@ function emptySellerOverview(): SellerOverview {
  * status, the access requests standing against it, and their unread message
  * count.
  *
- * **On composing rather than duplicating `getAssetRequestQueue`** (Task 14's
- * handoff, binding here). The dashboard genuinely needs the catalogue-wide
+ * **On composing rather than duplicating `getAssetRequestQueue`.** The
+ * dashboard genuinely needs the catalogue-wide
  * shape — a seller with nine listings must not have to open nine pages to
  * find the two buyers waiting on an answer — and calling the per-listing
  * query once per asset would be N round trips to reconstruct one query's
@@ -905,7 +903,7 @@ export async function getSellerOverview(sellerProfileId: string): Promise<Seller
     publicRef: row.publicRef,
     teaserTitle: row.teaserTitle,
     status: row.status,
-    // `bigint` → `number` at the read (ruling 6): these rows are hand-built
+    // `bigint` → `number` at the read: these rows are hand-built
     // summaries, not `AssetDto`s, so nothing downstream would narrow them.
     askingPriceCents: Number(row.askingPriceCents),
     rejectionReason: row.rejectionReason,

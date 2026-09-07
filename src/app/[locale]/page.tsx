@@ -114,7 +114,7 @@ export default async function HomePage({
           {summary.recent.length === 0 ? (
             // Not unreachable defensive code: a marketplace with every listing
             // sold or every seller suspended is a real state of the seeded
-            // data (Task 20 can produce it from the admin console), and the
+            // data (the admin console can produce it), and the
             // alternative is a section heading over nothing at all.
             <p className="mt-5 rounded-card border border-dashed border-border px-6 py-12 text-center text-sm text-ink-muted">
               {t('recent.empty')}

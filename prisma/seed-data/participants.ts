@@ -7,7 +7,7 @@ import type {
 
 export const DEMO_PASSWORD = 'demo1234'
 
-/** Reused by the Task 11 login page and the Task 22 e2e suite — do not rename. */
+/** Reused by the login page's demo buttons and by the e2e suite — do not rename. */
 export const DEMO_ACCOUNTS = {
   buyer: 'buyer@n5deal.demo',
   seller: 'seller@n5deal.demo',

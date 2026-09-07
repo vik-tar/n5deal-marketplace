@@ -10,7 +10,7 @@ import type { BuyerFilters } from '@/lib/filters/buyer-filters'
  */
 
 /**
- * The floor every buyer-catalog query enforces (ruling 1, Task 17): only
+ * The floor every buyer-catalog query enforces: only
  * buyers whose account is still active. Nothing in this module — or in any
  * caller — widens it.
  *
@@ -26,7 +26,7 @@ export const BUYER_VISIBILITY_FLOOR = {
 } as const satisfies Prisma.BuyerProfileWhereInput
 
 /**
- * Ruling 2 (Task 17): every filter here maps onto the mandate, not the
+ * every filter here maps onto the mandate, not the
  * buyer's own country or identity — `categories` and `countries` are
  * `hasSome` against the mandate's arrays, `buyerTypes` is `in` against the
  * buyer's own type, and `ticketMinCents` selects a buyer who could plausibly
@@ -35,8 +35,8 @@ export const BUYER_VISIBILITY_FLOOR = {
  * and bio, not the mandate — a free-text search is about who the buyer *is*,
  * not what they will pay.
  *
- * A buyer with no `Mandate` row at all (legitimately possible — Task 16's
- * ruling 2: a buyer who never saved one has none) fails every mandate-shaped
+ * A buyer with no `Mandate` row at all (legitimately possible: a row appears
+ * only on their first `saveMandate`) fails every mandate-shaped
  * condition here exactly as a buyer whose mandate constrains that criterion
  * away from the query would; only the unfiltered case (nothing set on
  * `categories`/`countries`/`ticketMinCents`) leaves them visible, matching
@@ -102,7 +102,7 @@ export interface BuyerRecencyKey {
   createdAt: Date
 }
 
-/** `BuyerRecencyKey` plus the two keys ruling 3 (Task 17) sorts a scored list by first. */
+/** `BuyerRecencyKey` plus the two keys the ranking sorts a scored list by first. */
 export interface BuyerScoreKey extends BuyerRecencyKey {
   score: number
   specificity: number
@@ -112,7 +112,7 @@ export interface BuyerScoreKey extends BuyerRecencyKey {
  * Newest-first, ties broken by `id` ascending — the same tail `BUYER_SORT_ORDER`
  * gives `findMany`, reimplemented here as a plain comparator because
  * `listBuyers`'s unscored path sorts an already-fetched array in memory
- * rather than letting Postgres do it (ruling 3 does the identical thing for
+ * rather than letting Postgres do it (the same is done for
  * the scored path below, since the score itself only exists after the rows
  * are fetched). Exported so `tests/unit/queries/buyer-where.test.ts` can
  * assert the tie-break without a database.
@@ -124,7 +124,7 @@ export function compareBuyersByRecency(a: BuyerRecencyKey, b: BuyerRecencyKey): 
 }
 
 /**
- * Ruling 3 (Task 17): score descending, ties broken by `specificity`
+ * score descending, ties broken by `specificity`
  * descending — a buyer whose mandate constrains all five criteria and still
  * scores 100 is a genuinely better lead than one who scores 100 because
  * their mandate constrains nothing — then falls through to
@@ -139,9 +139,9 @@ export function compareBuyersByScore(a: BuyerScoreKey, b: BuyerScoreKey): number
 }
 
 /**
- * The order the buyer dashboard renders its access-request groups in
- * (Task 18), the buyer-side counterpart of `SELLER_STATUS_ORDER`
- * (`@/server/queries/asset-where`) — and ordered on the same principle, "what
+ * The order the buyer dashboard renders its access-request groups in — the
+ * buyer-side counterpart of `SELLER_STATUS_ORDER`
+ * (`@/server/queries/asset-where`), ordered on the same principle, "what
  * can this person act on", which lands somewhere different on each side of
  * the market.
  *

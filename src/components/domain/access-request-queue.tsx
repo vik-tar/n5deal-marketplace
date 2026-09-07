@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardBody, CardHeader } from '@/components/ui/card'
 import { decideAccess, revokeAccess } from '@/server/actions/access-requests'
 import type { ActionResult } from '@/server/actions/types'
+import { attempt } from '@/lib/action-result'
 import type { AssetRequestQueue } from '@/server/queries/assets'
 import { formatDate } from '@/lib/datetime'
 
@@ -67,10 +68,10 @@ function PendingRow({
   const date = formatDate(requestedAt, locale)
 
   const [approveState, approveAction] = useActionState<ActionResult | null>(async () => {
-    return decideAccess({ requestId, decision: 'APPROVED', locale })
+    return attempt('decide-access', decideAccess({ requestId, decision: 'APPROVED', locale }))
   }, null)
   const [declineState, declineAction] = useActionState<ActionResult | null>(async () => {
-    return decideAccess({ requestId, decision: 'DECLINED', locale })
+    return attempt('decide-access', decideAccess({ requestId, decision: 'DECLINED', locale }))
   }, null)
 
   return (
@@ -113,7 +114,7 @@ function ApprovedRow({
   const date = decidedAt ? formatDate(decidedAt, locale) : ''
 
   const [state, revokeFormAction] = useActionState<ActionResult | null>(async () => {
-    return revokeAccess({ requestId, locale })
+    return attempt('revoke-access', revokeAccess({ requestId, locale }))
   }, null)
 
   return (

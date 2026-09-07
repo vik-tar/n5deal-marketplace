@@ -11,7 +11,7 @@ import { reviewTeaser, type TeaserReview } from '@/lib/ai/teaser-review'
 import type { ActionError, ActionResult } from './types'
 
 /**
- * Every action below follows the same shape Task 14's `access-requests.ts`
+ * Every action below follows the same shape `access-requests.ts`
  * documents: `requireViewer` first, then load the row the mutation targets
  * and build the `AssetRef` `@/lib/authz`'s predicates expect, then call the
  * matching predicate and bail out with `FORBIDDEN` before anything is
@@ -133,21 +133,21 @@ function toAssetWrite(data: AssetInput) {
  * The manager's `APPROVE` out of `'SUSPENDED'` remains the separate "I took
  * this down by mistake" path, which by definition involves no edited content;
  * either way the takedown stays in the moderation log. It also removes a
- * mismatch the edit page has carried since Task 15: the page offers "Submit
+ * mismatch the edit page carried: the page offers "Submit
  * for review" on every editable listing, and `submitForReview` below refuses
  * a `'SUSPENDED'` source status — after this save the listing is
  * `'PENDING_REVIEW'`, which is exactly where that button was trying to go.
  *
  * `runTeaserReview` is **not** invoked from here, on this path or on the
- * `'PUBLISHED'` one — following what Task 15 established: the teaser check is
- * a button the seller presses (`listing-form.tsx`'s "Check teaser"), reading
+ * `'PUBLISHED'` one. The teaser check is a button the seller presses
+ * (`listing-form.tsx`'s "Check teaser"), reading
  * the last *saved* row, never an implicit cost attached to saving. The
  * demotion is what guarantees a human sees the new text; the AI check
  * advises the seller before they get there and is disabled outright without
  * an API key, so making it load-bearing on a write path is precisely what
- * this codebase has refused to do since Task 9.
+ * this codebase deliberately does not do.
  *
- * `publicRef` allocation (ruling 2, Task 15): the next free `N5-<n>` is read
+ * `publicRef` allocation: the next free `N5-<n>` is read
  * (via `nextPublicRef`) and the row inserted inside one `$transaction`, so the
  * read and the write are atomic from this function's own point of view. That
  * is not quite the same as collision-proof: two concurrent creates can each
@@ -257,8 +257,8 @@ export interface SubmitForReviewInput {
 }
 
 /**
- * Moves a listing from `'DRAFT'` or `'REJECTED'` to `'PENDING_REVIEW'` —
- * ruling 3 (Task 15). The transition rule itself is not re-derived here: the
+ * Moves a listing from `'DRAFT'` or `'REJECTED'` to `'PENDING_REVIEW'`.
+ * The transition rule itself is not re-derived here: the
  * write below is conditioned on exactly those two source statuses via
  * `updateMany`, mirroring `decideAccess`/`revokeAccess`
  * (`@/server/actions/access-requests`) — a concurrent call that already moved
@@ -309,7 +309,7 @@ export interface RunTeaserReviewInput {
  * already returns: an unauthorized caller, a missing asset, and "no key
  * configured" are indistinguishable from this function's outside, so calling
  * it never confirms whether a given `assetId` even exists to someone who may
- * not edit it, and it never throws (ruling 4, Task 15) — `requireViewer`'s
+ * not edit it, and it never throws — `requireViewer`'s
  * redirect for a signed-out caller is Next's own control-flow throw, the same
  * exception every other action in this app lets through, not an application
  * error this function itself raises.

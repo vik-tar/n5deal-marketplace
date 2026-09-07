@@ -25,7 +25,7 @@ export const BUYER_TYPES = [
  * against a listing's `licenceType` by exact string equality — so a mandate
  * chip for a licence type that no listing could ever carry would silently
  * never match anything. This is that same fixed universe, named once here so
- * `mandateSchema` (`@/lib/validation/profile`, Task 16) and the mandate form's
+ * `mandateSchema` (`@/lib/validation/profile`) and the mandate form's
  * chip picker share one definition of "known licence type" instead of each
  * guessing the list independently.
  */
@@ -62,9 +62,8 @@ export function parseBuyerFilters(sp: RawSearchParams): BuyerFilters {
 }
 
 /**
- * `forAsset` selects which listing the buyer catalog is scored against
- * (ruling 3, Task 17) — it is not part of `BuyerFilters` above, since it is
- * a scoring parameter, not a facet of the buyer search itself, exactly as
+ * `forAsset` selects which listing the buyer catalog is scored against. It is
+ * not part of `BuyerFilters` above because it is a scoring parameter, not a facet of the buyer search itself, exactly as
  * `AssetFilters`'s own `sort` is a distinct concern from its filter fields.
  * Parsed separately so a page can pass it to `listBuyers`/`getBuyerDetail`
  * without folding it into every filter round-trip.

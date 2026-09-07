@@ -52,7 +52,7 @@ const seller: Viewer = {
  * The console's guard is the one authorization check in this codebase that
  * *throws* instead of returning an empty result, and the reasoning for the
  * difference is on the function itself. Unlike the per-row `canViewAsset`
- * check Task 12 deleted from `listAssets` — which could not fail, because it
+ * check this codebase deleted from `listAssets` — which could not fail, because it
  * was fed a hardcoded `ownerStatus` — this one is called with the real viewer
  * and every non-manager shape reaches the throw. All four are asserted here,
  * because a guard that is never exercised is exactly how that dead check

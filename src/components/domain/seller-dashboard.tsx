@@ -18,8 +18,8 @@ import type { BuyerListItem } from '@/server/queries/buyers'
  *
  * The approve/decline surface is `AccessRequestQueue`
  * (`@/components/domain/access-request-queue`) unchanged — the same client
- * component the listing detail page has used since Task 14, rendered once per
- * listing that has requests standing against it. Nothing about deciding a
+ * component the listing detail page uses, rendered once per listing that has
+ * requests standing against it. Nothing about deciding a
  * request is reimplemented here; this page only decides which queues to show
  * and in what order.
  */
@@ -207,7 +207,7 @@ function Listings({
  * `AssetRequestQueue` and knows nothing about which listing it belongs to, so
  * the listing is named in the heading above it instead. A flat list would
  * have meant a second, listing-aware approve/decline component — exactly the
- * duplication Task 14's handoff forbids.
+ * duplication this shared projection exists to avoid.
  */
 function RequestQueues({
   queues,

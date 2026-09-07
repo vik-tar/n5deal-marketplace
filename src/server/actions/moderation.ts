@@ -20,7 +20,7 @@ import type { ActionResult } from './types'
  * The four moderation mutations, and the audit trail that makes them
  * accountable.
  *
- * Every one of them follows the shape Task 14's `access-requests.ts`
+ * Every one of them follows the shape `access-requests.ts`
  * documents — `requireViewer`, then the `@/lib/authz` predicate and a bail-out
  * with `FORBIDDEN` before anything is validated or written, then zod on the
  * reason, then the transition's legality — with one deliberate departure:
@@ -50,8 +50,8 @@ import type { ActionResult } from './types'
  * suspended user why. Two writes, one transaction, both or neither.
  *
  * **Every write is conditioned on a status, via `updateMany` rather than
- * `update`** — the pattern `decideAccess` established after Task 14's review
- * showed that an unconditioned write silently overwrites a concurrent one.
+ * `update`** — the pattern `decideAccess` uses, because an unconditioned
+ * write silently overwrites a concurrent one.
  * Two managers acting on the same account in the same instant both read
  * `ACTIVE` and both pass every check above; the database, not this function's
  * own read, decides which one wins, and the loser matches zero rows, writes
@@ -122,7 +122,7 @@ const listingDecisionSchema = z.enum(['APPROVE', 'REJECT', 'SUSPEND'])
  *
  * The locale is validated through `toAppLocale` before it is interpolated,
  * unlike the six older `revalidatePath` call sites in this codebase, which
- * build `/${locale}/…` from raw input. Task 19 deliberately left those alone —
+ * build `/${locale}/…` from raw input. Those are left alone deliberately —
  * a forged value revalidates a path that does not exist, changing nothing an
  * attacker can observe — and this does not reopen that decision; it is simply
  * free in new code, and a revalidated path that is always a real one is worth
@@ -296,7 +296,7 @@ function logActionFor(decision: ListingModerationAction): ModAction {
  * published one down.
  *
  * **`publishedAt` is stamped only when it is null.** A listing that was
- * published, edited (which returns it to `PENDING_REVIEW` — Task 15's ruling)
+ * published, edited (which returns it to `PENDING_REVIEW`)
  * and re-approved keeps its original publication date, because that column
  * means "when this listing first went live" and the catalog's `newest` sort
  * reads it (`SORT_ORDER`, `@/server/queries/asset-where`). Re-stamping would

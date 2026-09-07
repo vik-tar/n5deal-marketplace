@@ -51,7 +51,7 @@ function normalise(text: string): string {
  */
 const MIN_EXCERPT_LENGTH = 4
 
-/** Letters and digits in any script: the teaser may be English or Russian. */
+/** Letters and digits in any script: the teaser may be English or Spanish. */
 const WORD_CHARACTER = /[\p{L}\p{N}]/u
 
 /**

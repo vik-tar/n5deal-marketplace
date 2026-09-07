@@ -16,12 +16,12 @@ export interface ScorableAsset {
 }
 
 /**
- * "Score against…" (Step 3, Task 17): lets the viewing seller pick one of
+ * "Score against…": lets the viewing seller pick one of
  * their own published listings, setting `forAsset` in the URL so the whole
  * buyer grid re-renders scored and re-sorted — a plain navigation, not a
- * fetch, so the selection is shareable exactly like every other filter here
- * (ruling 7). Choosing the placeholder option clears `forAsset` and returns
- * to the unscored, newest-first view.
+ * fetch, so the selection is shareable exactly like every other filter here.
+ * Choosing the placeholder option clears `forAsset` and returns to the
+ * unscored, newest-first view.
  *
  * Only ever rendered for a viewer who holds a `SellerProfile`: `/buyers`
  * mounts this at all only when `viewer?.sellerProfileId` is set, so a manager

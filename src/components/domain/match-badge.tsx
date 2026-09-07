@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Badge, type BadgeTone } from '@/components/ui/badge'
+import { AiUnavailableNote } from '@/components/ui/ai-unavailable-note'
 import { explainMatchAction } from '@/server/actions/ai'
 import type { MatchBand, MatchResult } from '@/lib/matching'
 import { FOCUS_RING, cn } from '@/lib/cn'
@@ -17,7 +18,7 @@ const BAND_TONE: Record<MatchBand, BadgeTone> = {
  * The score as a coloured pill, with a disclosure listing the deterministic
  * `MatchReason`s underneath.
  *
- * Ruling 4 (Task 17) is the whole point of this component's shape: the
+ * The split is the whole point of this component's shape: the
  * reasons list below is built entirely from `result.reasons` — each
  * translated from its `code` and `kind`, never a sentence the server sent —
  * so it is complete and correct with `aiEnabled` false and no network call
@@ -55,6 +56,7 @@ export function MatchBadge({
   aiEnabled: boolean
 }) {
   const t = useTranslations('matchBadge')
+  const tCommon = useTranslations('common')
   const [isOpen, setIsOpen] = useState(false)
   const [explanation, setExplanation] = useState<string | null | undefined>(undefined)
   const hasStartedFetch = useRef(false)
@@ -63,9 +65,21 @@ export function MatchBadge({
     if (!isOpen || !aiEnabled || hasStartedFetch.current) return
     hasStartedFetch.current = true
     let cancelled = false
-    explainMatchAction({ score: result.score, reasons: result.reasons, locale }).then((value) => {
-      if (!cancelled) setExplanation(value)
-    })
+    explainMatchAction({ score: result.score, reasons: result.reasons, locale })
+      .catch((error: unknown) => {
+        // Collapsed into the same `null` the action already returns for "no
+        // key", a refusal or a parsing failure. The deterministic half of this
+        // badge — the score, the band, the translated reasons — is rendered
+        // above and owes nothing to this call, so a failed round trip must
+        // cost the viewer that one optional sentence and nothing else. Left
+        // unhandled it rejected inside an effect and took the whole page to
+        // the error boundary.
+        console.error('[explain-match]', error)
+        return null
+      })
+      .then((value) => {
+        if (!cancelled) setExplanation(value)
+      })
     return () => {
       cancelled = true
     }
@@ -114,7 +128,7 @@ export function MatchBadge({
               : t('specificityNote', { count: result.specificity })}
           </p>
 
-          {/* Ruling 4: only ever rendered when `aiEnabled` — no disabled
+          {/* only ever rendered when `aiEnabled` — no disabled
               placeholder, no error text, nothing at all otherwise. */}
           {aiEnabled && explanation === undefined ? (
             <p className="text-xs text-ink-muted">{t('ai.loading')}</p>
@@ -122,6 +136,13 @@ export function MatchBadge({
           {aiEnabled && typeof explanation === 'string' ? (
             <p className="border-t border-border pt-2 text-sm text-ink">{explanation}</p>
           ) : null}
+          {/* The reasons above are complete without it — this only says a
+              sentence-form explanation exists and is switched off. */}
+          {aiEnabled ? null : (
+            <div className="border-t border-border pt-2">
+              <AiUnavailableNote text={tCommon('aiDisabled')} />
+            </div>
+          )}
         </div>
       ) : null}
     </div>

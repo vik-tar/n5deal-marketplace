@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { Link, usePathname } from '@/i18n/navigation'
 import { routing } from '@/i18n/routing'
 import { FOCUS_RING, cn } from '@/lib/cn'
+import { hasUnsavedChanges } from '@/lib/unsaved-changes'
 
 /**
  * Switches locale while staying on the current screen.
@@ -37,6 +38,11 @@ export function LocaleSwitcher() {
             href={target}
             locale={locale}
             aria-current={isActive ? 'true' : undefined}
+            // Switching locale re-renders the page from the server, so an
+            // unsaved form is lost exactly as it is by any other navigation.
+            onNavigate={(event) => {
+              if (hasUnsavedChanges() && !window.confirm(t('discardPrompt'))) event.preventDefault()
+            }}
             className={cn(
               'rounded px-2 py-1 text-xs font-medium transition',
               FOCUS_RING,

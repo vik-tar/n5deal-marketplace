@@ -80,7 +80,7 @@ The domain model below is built for this specific domain rather than for an abst
 2. **AI layer** — natural-language search, match explanation, confidentiality
    validation on publish (section 8).
 3. **Automated tests** — Vitest on the pure logic, Playwright on three role flows.
-4. **i18n** — English and Russian via `next-intl`.
+4. **i18n** — English and Spanish via `next-intl`.
 5. **Threaded messaging** with an inbox and unread counts.
 
 ### Cut order under time pressure
@@ -349,7 +349,7 @@ and logged, never surfaced as a crash.
 
 ## 9. Screens and flows
 
-Routes are locale-prefixed: `/[locale]/...` with `en` and `ru`.
+Routes are locale-prefixed: `/[locale]/...` with `en` and `es`.
 
 **Public**
 - `/` — landing in N5Deal's visual language: dark, value proposition, aggregate stats

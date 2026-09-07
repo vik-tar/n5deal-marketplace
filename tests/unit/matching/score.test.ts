@@ -5,6 +5,7 @@ import {
   mandateSpecificity,
   RECOMMENDABLE_BANDS,
   scoreMatch,
+  mandateCriteriaKey,
 } from '@/lib/matching'
 import type { AssetCriteria, MandateCriteria } from '@/lib/matching'
 
@@ -147,7 +148,7 @@ describe('mandateSpecificity', () => {
 
 describe('isMandateRankable', () => {
   /**
-   * The rule Task 18's buyer dashboard turns on, asserted against the number
+   * The rule the buyer dashboard turns on, asserted against the number
    * `scoreMatch` actually produces rather than against a hand-written 0: a
    * mandate that constrains nothing scores every listing at 100 in the
    * STRONG band, so ranking on that score would order listings by nothing.
@@ -198,5 +199,64 @@ describe('isRecommendableMatch', () => {
     expect(result.score).toBe(0)
     expect(result.band).toBe('NONE')
     expect(isRecommendableMatch(result)).toBe(false)
+  })
+})
+
+/**
+ * `mandateCriteriaKey` decides when the profile form spends a full catalogue
+ * scan recounting a buyer's matches. Two failure modes matter, and only one is
+ * visible in a browser.
+ *
+ * A field wrongly *included* costs a request per keystroke — annoying, and
+ * obvious the moment anyone watches the network tab. A criterion wrongly
+ * *omitted* is the quiet one: toggling it leaves the count stale with nothing
+ * on screen saying so, and the number is simply wrong. The exhaustiveness test
+ * below is aimed at the second: it derives the field list from the object
+ * rather than restating it, so a seventh criterion added to `MandateCriteria`
+ * fails here until the key accounts for it.
+ */
+describe('mandateCriteriaKey', () => {
+  const base: MandateCriteria = {
+    categories: ['EMI'],
+    countries: ['MT'],
+    licenceTypes: ['EMI'],
+    businessStatuses: ['ACTIVE'],
+    ticketMinCents: 1_000_000_00,
+    ticketMaxCents: 6_000_000_00,
+  }
+
+  /** A different, valid value for each criterion — never equal to `base`'s. */
+  const changed: { [K in keyof MandateCriteria]: MandateCriteria[K] } = {
+    categories: ['BANK'],
+    countries: ['GB'],
+    licenceTypes: ['PI'],
+    businessStatuses: ['LICENSE_ONLY'],
+    ticketMinCents: null,
+    ticketMaxCents: 9_000_000_00,
+  }
+
+  it('is stable for the same mandate expressed twice', () => {
+    expect(mandateCriteriaKey(base)).toBe(mandateCriteriaKey({ ...base }))
+  })
+
+  it('responds to every criterion the type declares, with none forgotten', () => {
+    const fields = Object.keys(base) as (keyof MandateCriteria)[]
+    // Guards the guard: a `base` that lost a field would make this vacuous.
+    expect(fields.length).toBe(6)
+
+    const deaf = fields.filter(
+      (field) => mandateCriteriaKey({ ...base, [field]: changed[field] }) === mandateCriteriaKey(base),
+    )
+    expect(deaf).toEqual([])
+  })
+
+  it('treats an emptied criterion as a change', () => {
+    expect(mandateCriteriaKey({ ...base, categories: [] })).not.toBe(mandateCriteriaKey(base))
+    expect(mandateCriteriaKey({ ...base, ticketMaxCents: null })).not.toBe(mandateCriteriaKey(base))
+  })
+
+  it('does not confuse the two ticket bounds with each other', () => {
+    const swapped = { ...base, ticketMinCents: base.ticketMaxCents, ticketMaxCents: base.ticketMinCents }
+    expect(mandateCriteriaKey(swapped)).not.toBe(mandateCriteriaKey(base))
   })
 })

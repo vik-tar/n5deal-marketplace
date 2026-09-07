@@ -14,11 +14,12 @@ export interface ThreadKeyInput {
  * column closes that hole. The `asset:` prefix keeps a real asset whose id is
  * literally "none" from colliding with the sentinel.
  *
- * Landed in Task 14 (rather than Task 19, which specifies it) because
- * `decideAccess` (`@/server/actions/access-requests`) already needs to open a
- * `Conversation` on approval, and `prisma/seed.ts` had an inline copy of this
- * exact expression pending this file's creation. Task 19 imports this
- * unchanged.
+ * Held here rather than inline in either writer, because both
+ * `decideAccess` (`@/server/actions/access-requests`, which opens a
+ * `Conversation` on approval) and `startConversation`
+ * (`@/server/actions/messages`) must derive the identical key or the unique
+ * constraint stops meaning one thread per relationship. `prisma/seed.ts`
+ * imports it for the same reason.
  */
 export function buildThreadKey(input: ThreadKeyInput): string {
   const asset = input.assetId === null ? 'noasset' : `asset:${input.assetId}`

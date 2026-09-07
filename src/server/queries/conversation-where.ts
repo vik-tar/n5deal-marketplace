@@ -20,12 +20,13 @@ import type { Viewer } from '@/lib/authz'
  * including on the ones the viewer just sent — so a bare `readAt: null`
  * count reports a viewer's own outbox back to them as unread mail.
  *
- * This existed twice before Task 19 (inline in `getBuyerOverview`,
- * `@/server/queries/buyers`, and in `getSellerOverview`,
- * `@/server/queries/assets`) and Task 19 needed it in three more places —
- * the per-thread count on `/inbox`, the thread page's own count, and
- * `markRead` (`@/server/actions/messages`), whose `where` must select
- * exactly the rows the counts were counting or the dot would not clear.
+ * Five call sites need the identical clause — the two dashboard overviews
+ * (`getBuyerOverview`, `@/server/queries/buyers`, and `getSellerOverview`,
+ * `@/server/queries/assets`), the per-thread count on `/inbox`, the thread
+ * page's own count, and `markRead` (`@/server/actions/messages`), whose
+ * `where` must select exactly the rows the counts were counting or the dot
+ * would not clear. Held once so it cannot drift between the count and the
+ * clear.
  * Five copies of one definition is five chances for them to drift, so the
  * rule is written once, here, and every one of those five reads it from this
  * module. Four import this `where` fragment directly; the thread page

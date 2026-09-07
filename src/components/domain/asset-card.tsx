@@ -11,13 +11,13 @@ import type { TeaserAsset } from '@/lib/dto/asset'
  * The reference product's horizontal listing card: reference + flag on one
  * line, the teaser title, a row of small-caps facts, the "included" chips,
  * the view count, and the asking price set larger to the right. The whole
- * card is one link to the detail page (`/listings/[id]`, Task 13).
+ * card is one link to the detail page (`/listings/[id]`).
  *
  * `h-full` on both the anchor and the `Card` is what lets the card fill a
  * container that is taller than its own content. In the catalog's
  * single-column list every row is exactly as tall as its card, so this is
  * inert there — a percentage height against a parent whose own height is
- * `auto` resolves to `auto`. It matters in Task 21's two-column landing grid,
+ * `auto` resolves to `auto`. It matters in the two-column landing grid,
  * where the grid stretches each `<li>` to its row's height but the card
  * inside it kept its content height, leaving a ragged bottom edge in every
  * row (measured `<li>` `[303,303,275,275,324,324]` against card

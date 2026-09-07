@@ -40,7 +40,17 @@ export function MarkReadOnView({
     if (handled.current === conversationId) return
     handled.current = conversationId
     startTransition(async () => {
-      await markRead({ conversationId, locale })
+      // Swallowed on purpose, and this is the one call in the app where that
+      // is right. A read receipt has no UI to fail into: there is no button
+      // the viewer pressed, nothing they typed, and no state to roll back —
+      // the thread is on screen either way. Left unhandled it would instead
+      // reject inside the transition and take the whole page to the error
+      // boundary, replacing a conversation the viewer is reading with an error
+      // screen because a background write did not land. The messages stay
+      // unread and the next visit tries again.
+      await markRead({ conversationId, locale }).catch((error: unknown) => {
+        console.error('[mark-read]', error)
+      })
     })
   }, [conversationId, unreadCount, locale])
 

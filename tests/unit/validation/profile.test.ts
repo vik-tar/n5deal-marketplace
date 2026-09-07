@@ -203,9 +203,63 @@ describe('buyerProfileSchema', () => {
     expect(result.success).toBe(false)
   })
 
-  it('rejects an empty display name', () => {
-    const result = buyerProfileSchema.safeParse({ ...validProfile, displayName: '   ' })
-    expect(result.success).toBe(false)
+  /**
+   * The schema is what actually guarantees a buyer cannot be saved nameless —
+   * the form's inline red field is a courtesy, and a Server Action is reachable
+   * without any form at all. Both the truly empty string and the
+   * whitespace-only one, because `requiredText` trims before it counts and a
+   * field cleared with the spacebar looks identical to one cleared properly.
+   */
+  it('rejects a display name that is empty or only whitespace', () => {
+    for (const displayName of ['', ' ', '   ', '\t\n ']) {
+      const result = buyerProfileSchema.safeParse({ ...validProfile, displayName })
+      expect(result.success, JSON.stringify(displayName)).toBe(false)
+    }
+  })
+
+  /**
+   * The profile page's "unsaved changes" marker compares the *parsed* form
+   * against the last saved values, not the raw text, so that retyping `gb`
+   * over `GB` or padding a name with spaces is not flagged as an edit — a
+   * marker that lights up for a change the database cannot see is one people
+   * learn to ignore. That comparison is only sound if parsing is idempotent
+   * and order-stable, which is what these assert.
+   */
+  it('normalises two spellings of the same profile to the same value', () => {
+    const typed = buyerProfileSchema.safeParse({
+      ...validProfile,
+      displayName: '  Meridian Growth Partners  ',
+      country: 'gb',
+    })
+    const canonical = buyerProfileSchema.safeParse({
+      ...validProfile,
+      displayName: 'Meridian Growth Partners',
+      country: 'GB',
+    })
+    expect(typed.success && canonical.success).toBe(true)
+    if (typed.success && canonical.success) {
+      expect(JSON.stringify(typed.data)).toBe(JSON.stringify(canonical.data))
+    }
+  })
+
+  it('parses to a stable key order, so a serialized comparison is meaningful', () => {
+    const a = buyerProfileSchema.safeParse(validProfile)
+    const b = buyerProfileSchema.safeParse({
+      // Same fields, declared in a different order.
+      websiteUrl: validProfile.websiteUrl,
+      bio: validProfile.bio,
+      country: validProfile.country,
+      buyerType: validProfile.buyerType,
+      displayName: validProfile.displayName,
+    })
+    expect(a.success && b.success).toBe(true)
+    if (a.success && b.success) expect(JSON.stringify(a.data)).toBe(JSON.stringify(b.data))
+  })
+
+  it('keeps a name that merely has whitespace around it, trimmed', () => {
+    const result = buyerProfileSchema.safeParse({ ...validProfile, displayName: '  Acme  ' })
+    expect(result.success).toBe(true)
+    if (result.success) expect(result.data.displayName).toBe('Acme')
   })
 
   it('rejects an unknown buyer type', () => {

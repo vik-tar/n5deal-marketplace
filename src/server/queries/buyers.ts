@@ -33,7 +33,7 @@ import { unreadForViewerWhere } from './conversation-where'
  * constrains (`mandateSpecificity`, `@/lib/matching`) — carried alongside
  * every list row and the detail page so a consumer can tell a "100 from five
  * constrained criteria" apart from a "100 because nothing is constrained"
- * without recomputing it (ruling 3, Task 17).
+ * without recomputing it.
  */
 export interface BuyerMandateSummary extends MandateCriteria {
   specificity: number
@@ -58,7 +58,7 @@ export interface ListBuyersResult {
    * The asset this list was actually scored against, or `null` — never
    * simply an echo of the caller's `forAssetId` argument. It comes back
    * `null` when `forAssetId` was omitted, pointed at a listing that does not
-   * exist, or pointed at a listing the caller does not own (ruling 3): a bad
+   * exist, or pointed at a listing the caller does not own: a bad
    * or hostile `forAssetId` degrades to the plain, unscored view rather than
    * erroring or trusting a caller-supplied id at face value. The page uses
    * this — not the raw search param — to decide whether to show "scored
@@ -86,8 +86,8 @@ export interface BuyerDetail {
    * the click?
    *
    * `canMessage` (`@/lib/authz`) is most of the answer — a manager may never
-   * message, and a suspended buyer may not be messaged. Task 19 added the
-   * `sellerProfileId` half: a `Conversation` has a seller side, and a viewer
+   * message, and a suspended buyer may not be messaged. The
+   * `sellerProfileId` half is the rest: a `Conversation` has a seller side, and a viewer
    * with no `SellerProfile` row cannot occupy it, so the action refuses them
    * with `FORBIDDEN`. `canBrowseBuyers` (which gates this whole page) checks
    * the SELLER *role* but not the profile row, so the two are genuinely
@@ -134,10 +134,11 @@ export interface MandateRow {
 }
 
 /**
- * A buyer with no `Mandate` row at all — legitimately possible, Task 16's
- * ruling 2 — is treated exactly as a buyer whose mandate constrains nothing:
+ * A buyer with no `Mandate` row at all — legitimately possible, since a row
+ * appears only on their first `saveMandate` — is treated exactly as a buyer
+ * whose mandate constrains nothing:
  * every array empty, both bounds null, `specificity` 0. Money columns are
- * converted from `bigint` to `number` right here, at the read (ruling 6) —
+ * converted from `bigint` to `number` right here, at the read —
  * the only place in this module a mandate's ticket bounds are touched.
  */
 export function toMandateCriteria(mandate: MandateRow | null): MandateCriteria {
@@ -199,7 +200,7 @@ async function loadOwnedAssetCriteria(
 }
 
 /**
- * The seller/manager-only buyer directory (ruling 1, Task 17): a buyer
+ * The seller/manager-only buyer directory: a buyer
  * calling this gets `{ items: [], total: 0, scoredAssetId: null }`, never a
  * 403 and never a peek at who else is shopping the market — the same
  * "refuse by returning nothing, not by erroring" shape `getAssetRequestQueue`
@@ -210,7 +211,7 @@ async function loadOwnedAssetCriteria(
  * once `loadOwnedAssetCriteria` confirms the caller owns that listing),
  * every returned buyer is scored with `scoreMatch` and sorted by score
  * descending, ties broken by `specificity` descending, then `createdAt`
- * descending (ruling 3) — a buyer who scored 100 because their mandate
+ * descending — a buyer who scored 100 because their mandate
  * constrains all five criteria is a genuinely better lead than one who
  * scored 100 because it constrains nothing, and this ordering is what makes
  * that visible without the seller having to guess. `id` ascending is the
@@ -220,11 +221,11 @@ async function loadOwnedAssetCriteria(
  * no defined relative order, and a paginated read across such a boundary
  * could duplicate or drop a row.
  *
- * Like `countMandateMatches` (`@/server/actions/profile`, Task 16), this
+ * Like `countMandateMatches` (`@/server/actions/profile`), this
  * scores every matching row in memory rather than pushing the ranking into
  * SQL: with 12 seeded buyers (and no more expected at this prototype's scale)
  * that is correct and simple. A real deployment would move this to a filtered
- * query plus a background-computed score, exactly as Task 18's own README
+ * query plus a background-computed score, exactly as the README
  * note for `getRecommendedAssets` says for the mirror-image query.
  *
  * `listAssets`'s facet counts are **not** another example of this, though an
@@ -313,7 +314,7 @@ export async function listBuyers(
 
 /**
  * The buyer profile and full mandate for `/buyers/[id]`, restricted the same
- * way as `listBuyers` (ruling 1 extends naturally to the detail page: a
+ * way as `listBuyers` (the rule extends naturally to the detail page: a
  * buyer must not reach another buyer's full mandate just by guessing an id).
  * Returns `null` for anyone `canBrowseBuyers` refuses, for a buyer whose
  * account is not active, and for an id that does not exist — a 404 either
@@ -321,8 +322,8 @@ export async function listBuyers(
  * mirroring `getAssetDetail`'s identical "hidden and non-existent look the
  * same" rule.
  *
- * `forAssetId` is optional so `getBuyerDetail(id, viewer)` alone (the shape
- * Task 18/19 are expected to call) keeps working: when supplied, the same
+ * `forAssetId` is optional so `getBuyerDetail(id, viewer)` alone keeps
+ * working: when supplied, the same
  * ownership-checked `loadOwnedAssetCriteria` this file's `listBuyers` uses
  * decides whether a match breakdown is computed, so the two entry points
  * share one ownership check rather than two.
@@ -377,7 +378,7 @@ export async function getBuyerDetail(
 }
 
 // ---------------------------------------------------------------------------
-// Task 18 — the buyer's own dashboard
+// the buyer's own dashboard
 // ---------------------------------------------------------------------------
 
 /** One of the buyer's own access requests, as their dashboard shows it. */
@@ -443,7 +444,7 @@ function emptyBuyerOverview(): BuyerOverview {
  * including the ones this buyer just wrote, so counting the column alone
  * would tell a buyer they have unread mail every time they send some.
  *
- * Task 19 moved that clause into `unreadForViewerWhere`
+ * That clause lives in `unreadForViewerWhere`
  * (`@/server/queries/conversation-where`) so this total, the seller's
  * mirror of it, the per-thread dots on `/inbox` and the `where` `markRead`
  * clears with are one definition rather than five. This number must equal

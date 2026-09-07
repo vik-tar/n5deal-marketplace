@@ -19,12 +19,12 @@ import { keepKnown } from '@/lib/filters/shared'
  * documents for `canPublishListing`.
  *
  * `Mandate` is loaded separately from `BuyerProfile` because it may
- * legitimately be `null` (ruling 2, Task 16: a buyer who never saved one gets
- * a row only on their first `saveMandate`) — every array/bound below falls
+ * legitimately be `null` (a buyer who never saved one gets a row only on
+ * their first `saveMandate`) — every array/bound below falls
  * back to the "any preference" shape in that case. Every `bigint` money
  * column is converted to `number` right here, before `MandateFormInitialMandate`
- * is ever handed to the client component (ruling 5), exactly as the Task 15
- * edit page already does for a listing's own money columns.
+ * is ever handed to the client component, exactly as the listing edit page
+ * already does for a listing's own money columns.
  *
  * `countMandateMatches` runs once here, server-side, so the page's very first
  * render already shows the real "matches N of M" summary (or the

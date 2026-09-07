@@ -19,7 +19,7 @@
 - **Confidential asset fields** are exactly: `legalName`, `revenueCents`, `ebitdaCents`, `clientCount`, `dataRoomUrl`, `confidentialNotes`. They may only reach a component through `toFullAsset`.
 - **Prisma import path is `@/generated/prisma/client`.** The `prisma-client` generator emits no index file; `src/generated/prisma/` contains `client.ts`, `enums.ts` and `models.ts`, and `client.ts` re-exports `PrismaClient`, all nine enums and all ten model types.
 - **The five money columns are `BigInt` in the database and `number` above the DTO layer.** `Asset.askingPriceCents`, `Asset.revenueCents`, `Asset.ebitdaCents`, `Mandate.ticketMinCents` and `Mandate.ticketMaxCents` are Postgres `bigint`, because `Int` caps at €21.47M and the seed spans up to €25M. Prisma therefore hands them back as JavaScript `bigint`. Convert to `number` in the DTO layer (`src/lib/dto/`) and in the query layer — `bigint` must never reach a React component, because Next.js cannot serialise it across the server/client boundary. `Number.MAX_SAFE_INTEGER` is €90 trillion in cents, so the narrowing is lossless. Conversely, Prisma `where` clauses filtering these columns need `BigInt(...)` around the `number` bounds coming from the URL filters.
-- **No user-facing English or Russian string literals in components.** All copy goes through `next-intl` message keys in `messages/en.json` and `messages/ru.json`.
+- **No user-facing English or Spanish string literals in components.** All copy goes through `next-intl` message keys in `messages/en.json` and `messages/es.json`.
 - **Every AI feature must degrade.** With `ANTHROPIC_API_KEY` unset the app runs fully; AI entry points hide or fall back to deterministic behaviour.
 - **Anthropic model id:** `claude-opus-5` (exact string, never with a date suffix).
 - **Commit after every task.** Conventional commit prefixes (`feat:`, `test:`, `chore:`, `docs:`).
@@ -96,7 +96,7 @@ src/
     domain/                      AssetCard, BuyerCard, MatchBadge, GatedSection,
                                  FilterSidebar, StatusPill, LocaleSwitcher
 messages/
-  en.json  ru.json
+  en.json  es.json
 tests/
   unit/                          Vitest, mirrors src/lib
   e2e/                           Playwright
@@ -174,7 +174,7 @@ describe('formatCents', () => {
   })
 
   it('localises grouping', () => {
-    expect(formatCents(250_000_00, 'ru')).toBe('250 000 €')
+    expect(formatCents(250_000_00, 'es')).toBe('250.000\u00A0€')
   })
 })
 ```
@@ -212,7 +212,7 @@ export function parseEuros(input: string): number | null {
 - [ ] **Step 7: Run the test**
 
 Run: `pnpm test`
-Expected: PASS. If the Russian assertion fails, adjust the expected string to whatever `Intl` produces on Node 20+ for `ru` — record the real output rather than forcing a format.
+Expected: PASS. If the Spanish assertion fails, adjust the expected string to whatever `Intl` produces on Node 20+ for `es` — record the real output rather than forcing a format.
 
 - [ ] **Step 8: Write `.env.example` and extend `.gitignore`**
 
@@ -549,13 +549,13 @@ git commit -m "feat: add Prisma schema, migrations and client singleton"
 ### Task 3: Internationalisation foundation
 
 **Files:**
-- Create: `src/i18n/routing.ts`, `src/i18n/request.ts`, `src/i18n/navigation.ts`, `src/proxy.ts`, `messages/en.json`, `messages/ru.json`
+- Create: `src/i18n/routing.ts`, `src/i18n/request.ts`, `src/i18n/navigation.ts`, `src/proxy.ts`, `messages/en.json`, `messages/es.json`
 - Modify: `next.config.ts`
 - Move: `src/app/layout.tsx` and `src/app/page.tsx` into `src/app/[locale]/`
 
 **Interfaces:**
 - Consumes: nothing.
-- Produces: `routing` (locales `['en','ru']`, defaultLocale `'en'`); `Link`, `redirect`, `usePathname`, `useRouter`, `getPathname` from `@/i18n/navigation`; `useTranslations` / `getTranslations` usable everywhere.
+- Produces: `routing` (locales `['en','es']`, defaultLocale `'en'`); `Link`, `redirect`, `usePathname`, `useRouter`, `getPathname` from `@/i18n/navigation`; `useTranslations` / `getTranslations` usable everywhere.
 
 i18n is set up before any UI exists because retrofitting message keys across finished screens costs several hours; doing it first costs nothing per screen.
 
@@ -573,7 +573,7 @@ Create `src/i18n/routing.ts`:
 import { defineRouting } from 'next-intl/routing'
 
 export const routing = defineRouting({
-  locales: ['en', 'ru'],
+  locales: ['en', 'es'],
   defaultLocale: 'en',
 })
 
@@ -701,23 +701,23 @@ Create `messages/en.json`:
 }
 ```
 
-Create `messages/ru.json` with the same key structure:
+Create `messages/es.json` with the same key structure:
 
 ```json
 {
   "common": {
     "appName": "N5Deal",
-    "signIn": "Войти",
-    "signOut": "Выйти",
-    "cancel": "Отмена",
-    "save": "Сохранить"
+    "signIn": "Iniciar sesión",
+    "signOut": "Cerrar sesión",
+    "cancel": "Cancelar",
+    "save": "Guardar"
   },
   "nav": {
-    "listings": "Все объекты",
-    "buyers": "Покупатели",
-    "dashboard": "Кабинет",
-    "inbox": "Сообщения",
-    "admin": "Админка"
+    "listings": "Todos los anuncios",
+    "buyers": "Compradores",
+    "dashboard": "Panel",
+    "inbox": "Mensajes",
+    "admin": "Consola de gestión"
   }
 }
 ```
@@ -739,13 +739,13 @@ export default function Home() {
 pnpm dev
 ```
 
-Open `http://localhost:3000/en` — expect "All listings". Open `http://localhost:3000/ru` — expect "Все объекты". Open `http://localhost:3000/` — expect a redirect to `/en`.
+Open `http://localhost:3000/en` — expect "All listings". Open `http://localhost:3000/es` — expect "Todos los anuncios". Open `http://localhost:3000/` — expect a redirect to `/en`.
 
 - [ ] **Step 7: Commit**
 
 ```bash
 git add -A
-git commit -m "feat: add next-intl routing with English and Russian catalogues"
+git commit -m "feat: add next-intl routing with English and Spanish catalogues"
 ```
 
 ---
@@ -877,7 +877,7 @@ Add `<SiteHeader viewer={null} />` above `{children}` in `src/app/[locale]/layou
 
 - [ ] **Step 6: Verify**
 
-Run `pnpm dev`, open `/en`, confirm the dark shell renders, the locale switcher moves between `/en` and `/ru` without losing the path, and tabbing shows focus rings.
+Run `pnpm dev`, open `/en`, confirm the dark shell renders, the locale switcher moves between `/en` and `/es` without losing the path, and tabbing shows focus rings.
 
 - [ ] **Step 7: Commit**
 
@@ -1192,8 +1192,8 @@ git commit -m "feat: add deterministic mandate-to-asset match scoring"
 ### Task 6: Authorization rules
 
 **Files:**
-- Create: `src/lib/authz/types.ts`, `src/lib/authz/rules.ts`, `src/lib/authz/index.ts`
-- Test: `tests/unit/authz/rules.test.ts`
+- Create: `src/lib/authz/types.ts`, `src/lib/authz/esles.ts`, `src/lib/authz/index.ts`
+- Test: `tests/unit/authz/esles.test.ts`
 
 **Interfaces:**
 - Consumes: enum types from `@/generated/prisma/client`.
@@ -1237,7 +1237,7 @@ export type GrantState = 'NONE' | 'REQUESTED' | 'APPROVED' | 'DECLINED' | 'REVOK
 
 - [ ] **Step 2: Write the failing tests**
 
-Create `tests/unit/authz/rules.test.ts`:
+Create `tests/unit/authz/esles.test.ts`:
 
 ```ts
 import { describe, expect, it } from 'vitest'
@@ -1420,12 +1420,12 @@ describe('canModerate and canMessage', () => {
 
 - [ ] **Step 3: Run the tests to confirm they fail**
 
-Run: `pnpm test tests/unit/authz/rules.test.ts`
+Run: `pnpm test tests/unit/authz/esles.test.ts`
 Expected: FAIL — `Failed to resolve import "@/lib/authz"`.
 
 - [ ] **Step 4: Implement the rules**
 
-Create `src/lib/authz/rules.ts`:
+Create `src/lib/authz/esles.ts`:
 
 ```ts
 import type { AssetStatus } from '@/generated/prisma/client'
@@ -1521,12 +1521,12 @@ Create `src/lib/authz/index.ts`:
 
 ```ts
 export * from './types'
-export * from './rules'
+export * from './esles'
 ```
 
 - [ ] **Step 5: Run the tests**
 
-Run: `pnpm test tests/unit/authz/rules.test.ts`
+Run: `pnpm test tests/unit/authz/esles.test.ts`
 Expected: PASS, 26 tests.
 
 - [ ] **Step 6: Commit**
@@ -2401,7 +2401,7 @@ export async function explainMatch(input: ExplainMatchInput): Promise<string | n
   const result = await callStructured({
     system: SYSTEM,
     user: JSON.stringify({
-      language: input.locale === 'ru' ? 'Russian' : 'English',
+      language: input.locale === 'es' ? 'Spanish' : 'English',
       score: input.score,
       reasons: input.reasons.map((r) => ({ criterion: r.code, kind: r.kind })),
     }),
@@ -2756,7 +2756,7 @@ git commit -m "feat: add credentials auth with one-click demo logins"
 **Files:**
 - Create: `src/server/queries/assets.ts`, `src/app/[locale]/listings/page.tsx`
 - Create: `src/components/domain/asset-card.tsx`, `src/components/domain/filter-sidebar.tsx`, `src/components/domain/smart-search.tsx`, `src/components/domain/pagination.tsx`
-- Modify: `messages/en.json`, `messages/ru.json`
+- Modify: `messages/en.json`, `messages/es.json`
 
 **Interfaces:**
 - Consumes: `parseAssetFilters`, `PAGE_SIZE`, `toTeaserAsset`, `canViewAsset`, `getViewer`, `parseSearchQuery`.
@@ -2798,7 +2798,7 @@ Add an `assets` namespace to both catalogues covering every label, every enum va
 
 - [ ] **Step 7: Verify**
 
-Open `/en/listings`. Confirm: 34 published listings, the suspended seller's listing absent, category counts correct, filters change the URL and survive a reload, `/ru/listings` fully translated, and a hand-edited hostile URL (`?page=-1&sort=nonsense&categories=WOMBAT`) renders defaults instead of an error.
+Open `/en/listings`. Confirm: 34 published listings, the suspended seller's listing absent, category counts correct, filters change the URL and survive a reload, `/es/listings` fully translated, and a hand-edited hostile URL (`?page=-1&sort=nonsense&categories=WOMBAT`) renders defaults instead of an error.
 
 - [ ] **Step 8: Commit**
 

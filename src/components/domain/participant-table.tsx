@@ -178,7 +178,7 @@ function ParticipantRowView({
  * Actions enforce — expressed here as the statuses each button appears for,
  * so the console never offers a control that is guaranteed to come back
  * `FORBIDDEN`. That consistency between what is offered and what is allowed
- * is the rule Task 13 established between the catalog and the detail page.
+ * is the same rule the catalog and the detail page keep between them.
  *
  * A manager's own row shows a sentence instead of buttons, and the Server
  * Action refuses it independently (`canModerateUser`, `@/lib/authz`). Hiding

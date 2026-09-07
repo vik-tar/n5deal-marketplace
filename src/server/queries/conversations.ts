@@ -27,7 +27,7 @@ import {
  * will expect the same idiom; this is the one place where `canModerate`
  * intentionally does NOT widen access. A private thread between two parties
  * is the one artefact on this marketplace a manager has no business reading:
- * moderation acts on accounts and listings (Task 20), and none of its
+ * moderation acts on accounts and listings, and none of its
  * decisions need the contents of a negotiation. A manager holds neither
  * profile row, so `participantConversationsWhere` returns `null` for them
  * and `getConversation` finds them on neither side — they are refused by the
@@ -97,7 +97,7 @@ export interface ConversationDetail {
 
 /**
  * The seller's `companyName` is exactly as confidential as the asset's gated
- * fields — Task 13's rule, and the reason `getAssetDetail` nulls it out
+ * fields, which is why `getAssetDetail` nulls it out
  * behind a closed gate. The inbox must not become the back door around that:
  * cold contact is allowed (`canMessage` requires no grant), so a buyer can
  * open a thread with a seller they have no NDA with, and printing the
@@ -270,9 +270,47 @@ export async function listConversations(viewer: MaybeViewer): Promise<Conversati
  * A non-`ACTIVE` viewer is refused too: `requireViewer` sends them to
  * `/suspended` long before this runs, so the guard is defence in depth
  * rather than a reachable branch, and it keeps the "a suspended account
- * reaches no authenticated surface" rule (Task 12) true of this module on
+ * reaches no authenticated surface" rule true of this module on
  * its own.
  */
+/**
+ * How many messages are waiting for this viewer across every thread they are a
+ * party to — the number the header puts on its `Inbox` item.
+ *
+ * Deliberately *not* a fourth way to count unread mail. The two dashboard
+ * overviews (`getBuyerOverview`, `@/server/queries/buyers`, and
+ * `getSellerOverview`, `@/server/queries/assets`) each count one side of the
+ * market, scoping by `buyerProfileId` or `sellerProfileId` because that is all
+ * their page shows. The header is the one surface that must span both: a user
+ * holding both profile rows has one inbox, not two. So this composes the same
+ * two clauses everything else uses — `participantConversationsWhere` for "am I
+ * a party to this thread" and `unreadForViewerWhere` for "is this message
+ * unread *by me*" — rather than writing a third predicate that could drift
+ * from the dot on `/inbox` it has to agree with.
+ *
+ * The guards mirror `listConversations` above exactly, and both are load
+ * bearing. `isActive` keeps a suspended viewer's count at zero, matching a
+ * header that offers them no inbox at all. A `null` from
+ * `participantConversationsWhere` means the viewer holds neither profile row,
+ * which is every manager — so a manager is answered `0` by construction, from
+ * the same rule that makes them a party to no conversation, rather than by a
+ * role check this module would then have to keep in step.
+ *
+ * One `count` per page render for a signed-in, non-manager viewer, on top of
+ * the `getViewer` read the layout already performs. It is an indexed count
+ * over one user's threads, and it is skipped entirely for the two cases that
+ * cannot have a number — anonymous and manager.
+ */
+export async function countUnreadMessages(viewer: MaybeViewer): Promise<number> {
+  if (!isActive(viewer)) return 0
+  const where = participantConversationsWhere(viewer)
+  if (where === null) return 0
+
+  return prisma.message.count({
+    where: { conversation: where, ...unreadForViewerWhere(viewer.userId) },
+  })
+}
+
 export async function getConversation(id: string, viewer: MaybeViewer): Promise<ConversationDetail | null> {
   if (!isActive(viewer)) return null
 

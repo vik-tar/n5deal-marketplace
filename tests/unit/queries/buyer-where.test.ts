@@ -140,7 +140,7 @@ describe('compareBuyersByScore', () => {
     expect([low, high].sort(compareBuyersByScore)).toEqual([high, low])
   })
 
-  it("breaks a score tie by specificity descending — ruling 3's whole point", () => {
+  it('breaks a score tie by specificity descending, which is the whole point', () => {
     // Same score, same createdAt: the buyer whose mandate constrains more
     // criteria (a genuinely better lead) must rank first, never the other
     // way around and never left to whatever order the input happened to be in.

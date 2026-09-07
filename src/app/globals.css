@@ -23,6 +23,30 @@
    top-level rule to this file. */
 
 @layer base {
+  /* Tailwind 4 dropped the `cursor: pointer` its v3 preflight put on buttons,
+     so every button in this app inherited the browser default and stopped
+     looking clickable. Restored here rather than as a class on each one: a
+     rule that has to be remembered for every new button is one that will be
+     missed on one, and this covers `[role="button"]` too.
+
+     `:not(:disabled)` so a disabled control does not advertise an action it
+     will refuse. `Button` (`src/components/ui/button.tsx`) also sets
+     `disabled:pointer-events-none`, which stops the cursor changing there
+     anyway; this makes the raw `<button>` elements behave the same. */
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  /* Same regression, same fix: a radio, a checkbox and a `<select>` are click
+     targets that stopped looking like ones. `label:has(...)` covers the whole
+     clickable row of a radio group, which is what the pointer is actually over
+     when someone aims at the words rather than the dot. */
+  select:not(:disabled),
+  input[type='checkbox']:not(:disabled),
+  input[type='radio']:not(:disabled),
+  label:has(> input[type='checkbox']:not(:disabled)),
+  label:has(> input[type='radio']:not(:disabled)) {
+    cursor: pointer;
+  }
+
   html, body {
     /* `color-scheme` is not in the brief's block; it is added so native
        controls (inputs, selects, scrollbars) render dark, not light-on-dark. */
@@ -68,5 +92,26 @@
 
   .field-control:disabled {
     opacity: 0.5;
+  }
+
+  /* The invalid state is driven by `aria-invalid`, which `Field`
+     (`src/components/ui/field.tsx`) already sets on whichever control carries
+     the `htmlFor` id — so the accessible attribute and the visible one are the
+     same fact and cannot drift apart. A separate `.field-control--error`
+     class would be a second thing to remember at every call site, and the one
+     that gets forgotten is always the visual half.
+
+     Before this rule the form said "Fix the highlighted fields and try again"
+     while highlighting nothing: submitting a blank required field set
+     `aria-invalid`, wired `aria-describedby` to a red message under the input,
+     and left the input itself identical to a valid one. The message was there
+     and read as absent. */
+  .field-control[aria-invalid='true'] {
+    border-color: var(--color-danger);
+    background: color-mix(in oklab, var(--color-danger) 8%, var(--color-surface-2));
+  }
+
+  .field-control[aria-invalid='true']:focus-visible {
+    outline-color: var(--color-danger);
   }
 }

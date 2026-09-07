@@ -13,17 +13,14 @@ export function isActive(viewer: MaybeViewer): viewer is Viewer {
  * **authenticated surfaces** — the dashboards, the inbox, `/profile`, the
  * manager console — as opposed to the public pages anybody may open.
  *
- * Renamed from `canAccessApp` in Task 20, and the rename is not cosmetic.
- * The old name asserted "a non-`ACTIVE` viewer may not access the app", which
- * is not what this codebase does and never was: `/listings`, a listing teaser
- * and the landing page are public, and a suspended viewer who opens one is
- * served exactly what an anonymous visitor is served. Suspension means you
- * may not transact, not that you may not look — `canViewAsset` below was
- * deliberately widened in Task 13 to stop denying non-`ACTIVE` viewers for
- * precisely this reason, and redirecting a public URL for a signed-in-but-
- * suspended user is worse for them than the nav gate and the `/suspended`
- * page they already get. Semantics settled in Task 12; behaviour unchanged
- * here.
+ * The name is deliberately not `canAccessApp`, which would assert "a
+ * non-`ACTIVE` viewer may not access the app" — not what this codebase does.
+ * `/listings`, a listing teaser and the landing page are public, and a
+ * suspended viewer who opens one is served exactly what an anonymous visitor
+ * is served. Suspension means you may not transact, not that you may not look;
+ * `canViewAsset` below admits non-`ACTIVE` viewers for precisely this reason,
+ * and redirecting a public URL for a signed-in-but-suspended user is worse for
+ * them than the nav gate and the `/suspended` page they already get.
  *
  * It is `statusAllows…` rather than `canAccess…` because `null` — an
  * anonymous visitor — returns `true`, and an anonymous visitor plainly cannot
@@ -34,18 +31,14 @@ export function isActive(viewer: MaybeViewer): viewer is Viewer {
  * `REQUIRE_LOGIN` and `SUSPENDED`, and it — not this — is what `requireViewer`
  * (`@/server/session`) actually dispatches on.
  *
- * **`viewerGate` calls this, and that is deliberate.** Until the whole-branch
- * review it did not: three production files named this predicate in prose to
- * justify their behaviour, four tests exercised it, and nothing in the app
- * called it — documentation with an `export` on it. That is the exact shape
- * this codebase deleted `listAssets`' per-row `canViewAsset` for (Task 12,
- * cited again at `HERO_CTA_ORDER`, `@/lib/nav`): a rule that cannot change an
- * outcome reads to the next maintainer as a rule that is doing something. The
- * choice was to delete it or to give it the enforcement role its own doc
- * already claimed. It got the role, because the second sentence of this
- * comment is a real rule the product has to keep and `viewerGate`'s
- * `status !== 'ACTIVE'` was that rule written out a second time — so the two
- * could drift, and one of them was the one every page actually obeys.
+ * **`viewerGate` calls this, and that is deliberate.** An exported predicate
+ * that nothing calls is documentation wearing an `export` — a rule that cannot
+ * change an outcome reads to the next maintainer as a rule that is doing
+ * something, which is why this codebase deleted `listAssets`' per-row
+ * `canViewAsset` (cited again at `HERO_CTA_ORDER`, `@/lib/nav`). The paragraph
+ * above states a rule the product has to keep, and `viewerGate`'s
+ * `status !== 'ACTIVE'` was that same rule written a second time; the two could
+ * drift, and the copy every page actually obeys was the other one.
  *
  * It is *not* callable in place of the whole gate, which is why the header
  * does not use it: `site-header.tsx` needs "signed in **and** active", and
@@ -124,14 +117,20 @@ export function canModerateUser(viewer: MaybeViewer, target: { userId: string })
 }
 
 /**
- * The buyer directory (Task 17) is competitive intelligence, not a public
+ * The buyer directory is competitive intelligence, not a public
  * catalog: only the parties who might actually approach a buyer directly (an
  * active seller) or who moderate the market (a manager) may browse it. A
  * buyer asking for it must not learn who else is shopping the same sellers'
- * listings — `listBuyers` (`@/server/queries/buyers`) returns an empty
- * result rather than a 403 for anyone this returns `false` for, exactly as
- * `getAssetRequestQueue` (`@/server/queries/assets`) returns empty arrays
- * instead of an error.
+ * listings.
+ *
+ * Enforced twice, at two different altitudes. `/buyers` calls this predicate
+ * after `requireViewer` and `notFound()`s a viewer it refuses, so the page is
+ * gated exactly like `/admin` and `/listings/new`. `listBuyers`
+ * (`@/server/queries/buyers`) calls it again and answers an empty result
+ * rather than throwing — the same shape `getAssetRequestQueue`
+ * (`@/server/queries/assets`) uses. That second check is not redundant: it is
+ * what guarantees no buyer row reaches a caller who may not have it, whatever
+ * any future page or action in front of the query decides to do.
  */
 export function canBrowseBuyers(viewer: MaybeViewer): boolean {
   return isActive(viewer) && (viewer.role === 'SELLER' || viewer.role === 'MANAGER')
@@ -305,7 +304,10 @@ export type ContactAvailability =
 
 export function contactAvailability(
   viewer: MaybeViewer,
-  counterparty: { userId: string; status: 'ACTIVE' | 'SUSPENDED' | 'REMOVED' },
+  /** `UserStatus`, for the reason `canMessage` above spells out: a hand-written
+      union of the same three members is byte-identical today and silently
+      correct-looking the day the schema gains a fourth. */
+  counterparty: { userId: string; status: UserStatus },
   /** Which side of the thread this viewer would occupy. */
   viewerSide: 'BUYER' | 'SELLER',
 ): ContactAvailability {

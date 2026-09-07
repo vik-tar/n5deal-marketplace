@@ -608,7 +608,7 @@ Task 11: complete (commits fb922e6..9788366, 1 parked). Re-review traced all fiv
   measurements (n=8, sequential, on a dev server) as corroborating rather than load-bearing.
 Task 11: minor (deferred): requireViewer uses a `viewer as Viewer` cast after the switch rather
   than a type predicate; auth() has no comment warning later tasks off stale session fields;
-  RU terminology drift between "объявлениям" and "Все объекты"; demo fixtures imported by a
+  second-locale terminology drift between two words for the same thing; demo fixtures imported by a
   four-level relative path.
 
 Task 12: implementer DONE (commit 9840333). 162 passing; typecheck, lint, build clean.
@@ -1121,10 +1121,10 @@ Task 21: review = spec MET, quality "ship after one fix". It also CORRECTED the 
 Task 21: fix round 1/1 (commit 48d6072), verified by the controller from the diff and from the
   screenshots. (1) The hero eyebrow put a 47-character sentence in `Badge`, which hardcodes
   whitespace-nowrap for its ~20 short-status call sites; intrinsic width was a constant 319px EN /
-  395px RU at every viewport and the hero's own overflow-hidden clipped it SILENTLY
-  (scrollWidth === clientWidth, so no horizontal scroll betrayed it). At 390px — iPhone 12-15 — in
-  Russian it read "...СДЕЛКИ БЕЗ ОГЛАСК", cut mid-word with the border gone, on the first screen of
-  the product in the user's own locale. Fixed at the call site, not in Badge. Measured at five
+  395px in the second locale at every viewport and the hero's own overflow-hidden clipped it
+  SILENTLY (scrollWidth === clientWidth, so no horizontal scroll betrayed it). At 390px — iPhone
+  12-15 — the last word was cut mid-word with the border gone, on the first screen of the product
+  in the user's own locale. Fixed at the call site, not in Badge. Measured at five
   widths in both locales, before and after; the widths where it already fitted are byte-identical.
   (2) h-full on AssetCard so the landing grid's cards stop leaving a ragged bottom edge; proven
   inert on the single-column /listings by measuring row and card heights before and after.
@@ -1294,13 +1294,14 @@ Round 2: B1 DEMONSTRATED, not asserted. With a temporary Playwright probe readin
   MAX_CONFIDENTIAL_NOTES to 3777, COUNTRY_CODE_LENGTH to 3 and MIN_YEAR_OF_ISSUE to 1971 and
   rebuilding moved all four widgets to the new values, while the two bounds left alone
   (teaserDescription=2000, yearOfIssue max=2026) did not move. Constants and probe restored.
-Round 2: the status-pill ruling's own doc now states its Russian cost — the shared SUSPENDED
-  label is neuter («Заблокировано»), correct for a listing and a gender off for an account. The
-  ruling is unchanged; it was simply never written down that it was seen rather than missed.
-Round 2: nav.admin said "Admin"/"Админка" while the page it opens says "Manager console"/
-  "Консоль менеджера" and every other string in the product says manager. Both now match the
-  page. Also fixed: the one "модератор" in the RU catalogue, and the last pre-Task-11
-  "объявлениями" in inbox.manager.body.
+Round 2: the status-pill ruling's own doc now states its cost in the second locale — the shared
+  SUSPENDED label carries one grammatical gender, correct for a listing and a gender off for an
+  account. The ruling is unchanged; it was simply never written down that it was seen rather than
+  missed.
+Round 2: nav.admin said "Admin" in both locales while the page it opens says "Manager console"
+  and every other string in the product says manager. Both now match the page. Also fixed: the one
+  stray "moderator" in the second catalogue, and the last pre-Task-11 terminology drift in
+  inbox.manager.body.
 Round 2: NOT touched, as instructed — the specificity-0 badge, the category tile's count/unit
   split, raw locale in the six older revalidatePath sites, LANDING_RECENT_LIMIT <= PAGE_SIZE by
   comment, pnpm db:reset, getViewer() twice per request, the action-level existence oracles.
@@ -1442,3 +1443,43 @@ Still deferred, deliberately and recorded rather than forgotten: the link-styled
 (counted, 7 hand-rolled copies, a design-token change is a 7-file edit with no compiler help); the
 MatchReason comparanda finding; the unreachable `included` error branch in listing-form; and a short
 discretionary tail. 398 unit tests pass with DATABASE_URL set and unset; 3 e2e specs pass.
+
+---
+
+## Post-review change: second locale switched from Russian to Spanish
+
+Requested after the whole-branch review. `messages/ru.json` was replaced by
+`messages/es.json` — all 567 keys retranslated from `en.json`, not from the
+Russian, so nothing was translated twice.
+
+What it touched beyond the catalogue, and why each mattered:
+
+- `routing.locales`, and the `localeSwitcher.locale.*` key, which is named
+  after the locale it labels.
+- `explain.ts` — the language name handed to the model.
+- Two comments quoting real measurements against Russian text. Re-measured
+  against Spanish rather than reworded: the eyebrow's intrinsic width is 319px
+  in English and 408px in Spanish (53 characters, the longer of the two), and
+  it wraps to two lines from 320 through 430 where English only wraps at 320.
+  Nothing clips at any of the six widths tested in either locale.
+- The hero's `Stat` comment claimed a wrap that Spanish does not produce.
+  Measured at five widths in both locales: neither label wraps. Rewritten as
+  defensive rather than demonstrated.
+- `money.test.ts` — Spanish groups with a full stop and puts the symbol after
+  the number behind U+00A0.
+- The bcrypt byte-length test used a Cyrillic character to prove the limit
+  counts bytes and not characters; an accented Spanish character is also two
+  bytes and makes the same point in the project's own language.
+- `messages.test.ts`'s allowlist gained three entries: "Fintech", "data room"
+  and "family office" are the ordinary words in Spanish business writing, so
+  they are legitimately identical to English.
+- Spanish grammatical gender was applied per enum, which Russian had not been:
+  listing statuses agree with *el anuncio*, account statuses with *la cuenta*,
+  request statuses with *la solicitud*. `SUSPENDED` serves two enums and can
+  only agree with one — documented at `status-pill.tsx`, unchanged in
+  substance from the ruling it replaces.
+
+`tests/unit/no-cyrillic.test.ts` now fails the build if any Cyrillic character
+returns to `src/`, `tests/`, `prisma/`, `messages/` or the README. A character
+class rather than a word list, because the failure mode is a leftover nobody
+thought to look for.
