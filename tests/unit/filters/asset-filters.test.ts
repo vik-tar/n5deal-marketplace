@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { assetFiltersToSearchParams, parseAssetFilters } from '@/lib/filters/asset-filters'
+import {
+  ASSET_CATEGORIES,
+  assetFiltersToSearchParams,
+  categoryCountsInOrder,
+  parseAssetFilters,
+} from '@/lib/filters/asset-filters'
 
 describe('parseAssetFilters', () => {
   it('returns defaults for empty input', () => {
@@ -95,5 +100,53 @@ describe('assetFiltersToSearchParams', () => {
       Object.fromEntries(assetFiltersToSearchParams(original)),
     )
     expect(reparsed).toEqual(original)
+  })
+})
+
+describe('categoryCountsInOrder', () => {
+  it('returns every category, in ASSET_CATEGORIES order, whatever order it was given', () => {
+    // Alphabetical over the enum's values — the order `listAssets` actually
+    // returns its facets in (`orderBy: { category: 'asc' }`), which is *not*
+    // the order the product shows categories in.
+    const alphabetical = [
+      { category: 'BANK', count: 4 },
+      { category: 'CRYPTO', count: 4 },
+      { category: 'EMI', count: 4 },
+      { category: 'FINTECH', count: 5 },
+      { category: 'PAYMENT', count: 17 },
+    ] as const
+
+    expect(categoryCountsInOrder(alphabetical).map((c) => c.category)).toEqual([
+      ...ASSET_CATEGORIES,
+    ])
+  })
+
+  it('zero-fills a category the facet query returned no group for', () => {
+    // Prisma's `groupBy` omits empty groups, so the last CRYPTO listing being
+    // sold makes that category vanish from `facets` entirely. The tile must
+    // read 0, not disappear.
+    const counts = categoryCountsInOrder([{ category: 'BANK', count: 4 }])
+
+    expect(counts).toHaveLength(ASSET_CATEGORIES.length)
+    expect(counts.find((c) => c.category === 'CRYPTO')).toEqual({
+      category: 'CRYPTO',
+      count: 0,
+    })
+  })
+
+  it('returns all five zeros for an empty catalog', () => {
+    expect(categoryCountsInOrder([])).toEqual(
+      ASSET_CATEGORIES.map((category) => ({ category, count: 0 })),
+    )
+  })
+
+  it('preserves the counts it was given', () => {
+    const counts = categoryCountsInOrder([
+      { category: 'PAYMENT', count: 17 },
+      { category: 'FINTECH', count: 5 },
+    ])
+
+    expect(counts.find((c) => c.category === 'PAYMENT')?.count).toBe(17)
+    expect(counts.find((c) => c.category === 'FINTECH')?.count).toBe(5)
   })
 })

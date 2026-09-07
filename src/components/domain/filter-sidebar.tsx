@@ -4,9 +4,9 @@ import type { FormEvent } from 'react'
 import { useTranslations } from 'next-intl'
 import { Link, useRouter } from '@/i18n/navigation'
 import {
-  ASSET_CATEGORIES,
   BUSINESS_STATUSES,
   assetFiltersToSearchParams,
+  categoryCountsInOrder,
   type AssetFilters,
 } from '@/lib/filters/asset-filters'
 import { toCountryCodes } from '@/lib/filters/shared'
@@ -87,7 +87,12 @@ export function FilterSidebar({
     })
   }
 
-  const facetCount = new Map(facets.map((facet) => [facet.category, facet.count]))
+  // All five categories, in the product's order, with a zero for any the
+  // facet query returned no group for. Shared with the landing page's
+  // category strip (`categoryCountsInOrder`, `@/lib/filters/asset-filters`)
+  // so the two surfaces cannot drift into different orders — this used to be
+  // an inline `Map` lookup here, which was the same rule written once.
+  const categoryCounts = categoryCountsInOrder(facets)
   // Forces the uncontrolled country/price inputs to reset their displayed
   // value whenever those fields change from elsewhere (smart search, a
   // filter chip, browser back/forward) rather than from this form's own submit.
@@ -112,7 +117,7 @@ export function FilterSidebar({
 
       <fieldset className="flex flex-col gap-2">
         <legend className="meta-label mb-1">{t('filters.categoryLabel')}</legend>
-        {ASSET_CATEGORIES.map((category) => (
+        {categoryCounts.map(({ category, count }) => (
           <label key={category} className="flex items-center gap-2 text-sm text-ink">
             <input
               type="checkbox"
@@ -121,7 +126,7 @@ export function FilterSidebar({
               className={checkboxClass}
             />
             <span className="flex-1">{t(`category.${category}`)}</span>
-            <span className="text-xs text-ink-muted">{facetCount.get(category) ?? 0}</span>
+            <span className="text-xs text-ink-muted">{count}</span>
           </label>
         ))}
       </fieldset>

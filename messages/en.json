@@ -58,6 +58,30 @@
     "reasonLabel": "Reason",
     "noReason": "No reason was recorded for this suspension."
   },
+  "home": {
+    "hero": {
+      "eyebrow": "Licensed institutions, brokered discreetly",
+      "title": "Buy or sell a regulated financial business.",
+      "body": "N5Deal is where banks, e-money and payment institutions, fintechs and crypto businesses change hands in Europe. Every listing is an anonymous teaser until its seller approves your access request — so a company can be for sale without the market finding out.",
+      "ctaBuy": "Start Buying",
+      "ctaSell": "Start Selling",
+      "stats": {
+        "listings": "{count, plural, one {licensed institution for sale} other {licensed institutions for sale}}",
+        "combinedValue": "Combined asking price"
+      }
+    },
+    "categories": {
+      "title": "Browse by category",
+      "subtitle": "Live counts from the catalog. Every tile opens the same filter the sidebar sets.",
+      "listings": "{count, plural, one {listing} other {listings}}"
+    },
+    "recent": {
+      "title": "Recently published",
+      "subtitle": "The newest listings to clear review, in the order the catalog shows them.",
+      "viewAll": "View all listings",
+      "empty": "Nothing is published right now. New listings appear here as soon as a manager approves them."
+    }
+  },
   "assets": {
     "title": "All listings",
     "subtitle": "{count, plural, one {# licensed institution for sale} other {# licensed institutions for sale}}",

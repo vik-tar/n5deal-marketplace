@@ -1,6 +1,11 @@
-import type { AccessStatus, AssetCategory, AssetStatus, Prisma } from '@/generated/prisma/client'
+import type { AccessStatus, AssetStatus, Prisma } from '@/generated/prisma/client'
 import { prisma } from '@/server/db'
-import type { AssetFilters } from '@/lib/filters/asset-filters'
+import {
+  categoryCountsInOrder,
+  parseAssetFilters,
+  type AssetFilters,
+  type CategoryCount,
+} from '@/lib/filters/asset-filters'
 import { PAGE_SIZE } from '@/lib/filters/shared'
 import { isFullAsset, toAssetDto, toTeaserAsset, type AssetDto, type TeaserAsset } from '@/lib/dto/asset'
 import {
@@ -40,11 +45,17 @@ import { unreadForViewerWhere } from './conversation-where'
 // and `@/lib/*` only, never this file.
 import { MANDATE_SELECT, toMandateCriteria } from './buyers'
 
-/** One category's result count under the current filters, for the sidebar checkboxes. */
-export interface CategoryFacet {
-  category: AssetCategory
-  count: number
-}
+/**
+ * One category's result count under the current filters, for the sidebar
+ * checkboxes and the landing page's category strip.
+ *
+ * An alias rather than its own interface: the shape is declared once, in
+ * `@/lib/filters/asset-filters` beside `ASSET_CATEGORIES` and
+ * `categoryCountsInOrder`, so the module that owns the category universe also
+ * owns the shape of "a category and its count". The name stays because every
+ * existing caller (`FilterSidebar`, `listAssets`) speaks of facets.
+ */
+export type CategoryFacet = CategoryCount
 
 export interface ListAssetsResult {
   items: TeaserAsset[]
@@ -115,6 +126,117 @@ export async function listAssets(
   const items = rows.map(toTeaserAsset)
 
   return { items, total, facets }
+}
+
+/**
+ * How many recently published listings the landing page shows. Six fills two
+ * rows of the grid it renders into and is deliberately half a catalog page —
+ * this is a sample that ends in "see all", not a second catalog.
+ *
+ * It must stay `<= PAGE_SIZE`: `getMarketplaceSummary` slices these off the
+ * first catalog page rather than running its own `findMany`, so a limit
+ * larger than a page would silently return fewer rows than it asks for.
+ */
+export const LANDING_RECENT_LIMIT = 6
+
+/** Everything the landing page shows, all of it derived from one catalog read. */
+export interface MarketplaceSummary {
+  /**
+   * The number the hero prints, and — by construction, not by coincidence —
+   * the number the catalog header prints for the same viewer with no filters
+   * applied.
+   */
+  listingCount: number
+  /**
+   * Summed asking prices across the same set, in cents, already narrowed from
+   * Prisma's `bigint` (see `toTeaserAsset`, `@/lib/dto/asset`, for the same
+   * narrowing on a row). `0` for an empty catalog, never `null` — the hero
+   * formats this with `formatCents` and "€0" is a sane thing to render where
+   * `NaN` is not.
+   */
+  totalValueCents: number
+  /** All five categories, in the product's order, zero-filled. */
+  categories: CategoryFacet[]
+  /** The newest `LANDING_RECENT_LIMIT` listings, in the catalog's own order. */
+  recent: TeaserAsset[]
+}
+
+/**
+ * The landing page's figures.
+ *
+ * **Every number here comes from `listAssets` itself**, called with the
+ * filters an empty query string parses to — which is exactly what an
+ * anonymous visitor opening `/listings` gets. That is the whole point of this
+ * function's shape. A landing page that counts published listings on its own
+ * is one edit away from disagreeing with the catalog it links to, and the
+ * half that gets forgotten is never `status: 'PUBLISHED'` — it is the seller's
+ * account status, the second half of `VISIBILITY_FLOOR` (`./asset-where`).
+ * The seeded database makes the difference visible: 35 rows are `PUBLISHED`
+ * and 34 are in the catalog, because one belongs to a suspended seller.
+ * Calling the catalog's own query means this page cannot be the surface that
+ * says 35.
+ *
+ * `parseAssetFilters({})` rather than a hand-written "no filters" object for
+ * the same reason: `@/lib/filters/asset-filters` owns what "no filters" means
+ * (including the default `newest` sort and page 1), and the catalog reaches
+ * that value through this same parser.
+ *
+ * Three consequences worth stating, because each is a decision:
+ *
+ * - **The facets are the category strip's counts.** They are per-category
+ *   counts over `buildWhere(filters, true)` — every active filter except the
+ *   category selection — and with no filters set that is the floor alone. So
+ *   each tile's number is the `total` its own `?categories=X` URL will
+ *   produce when followed, computed by the same builder rather than by a
+ *   second query that would have to be kept in step. `categoryCountsInOrder`
+ *   then zero-fills and reorders them; see its doc for why both are needed.
+ * - **The recent listings are the first page's first six.** `listAssets`
+ *   already returned page 1 under the default `newest` sort, so slicing is
+ *   free and — more importantly — guarantees these are literally the six the
+ *   catalog shows at the top of its list, rather than six rows a second
+ *   `findMany` ordered by a comparator someone has to keep identical.
+ * - **The value sum is the one thing `listAssets` does not return**, so it is
+ *   a second read — but of `buildWhere(filters, false)`, the *same* predicate
+ *   object the count came from, not of a re-stated `where`. The two reads are
+ *   not in one transaction snapshot, so a listing published between them
+ *   could be counted in one and not the other; on a figure rendered as
+ *   "€170.5M" that is invisible, and paying for a snapshot would mean either
+ *   duplicating `listAssets`' transaction here or widening its return type for
+ *   a number only this page wants.
+ *
+ * `viewer` is threaded through to `listAssets` rather than hardcoded to
+ * `null`. Today that query provably ignores it — the floor is
+ * viewer-independent — but if it ever stopped ignoring it, a landing page
+ * pinned to the anonymous view would start disagreeing with the catalog for
+ * exactly the viewers whose view changed, which is the failure this whole
+ * function is shaped to prevent.
+ */
+export async function getMarketplaceSummary(
+  viewer: MaybeViewer,
+): Promise<MarketplaceSummary> {
+  const filters = parseAssetFilters({})
+
+  const [catalog, value] = await Promise.all([
+    listAssets(filters, viewer),
+    prisma.asset.aggregate({
+      where: buildWhere(filters, false),
+      _sum: { askingPriceCents: true },
+    }),
+  ])
+
+  return {
+    listingCount: catalog.total,
+    // `bigint` → `number` at the read, in this module, so nothing downstream
+    // has to know the column is a `bigint`: React cannot serialise one across
+    // the server/client boundary, and `Number.MAX_SAFE_INTEGER` is €90
+    // trillion in cents. `null` is what Prisma returns for a sum over zero
+    // rows, not an error. The fallback is the `number` `0` rather than the
+    // `bigint` `0n` because this project's `tsconfig` target predates BigInt
+    // literals — `Number()` takes either.
+    totalValueCents: Number(value._sum.askingPriceCents ?? 0),
+    categories: categoryCountsInOrder(catalog.facets),
+    recent: catalog.items.slice(0, LANDING_RECENT_LIMIT),
+  }
 }
 
 /**

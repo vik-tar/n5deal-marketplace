@@ -85,3 +85,54 @@ export function assetFiltersToSearchParams(
   if (filters.page && filters.page !== 1) sp.set('page', String(filters.page))
   return sp
 }
+
+/**
+ * One category and how many listings are in it.
+ *
+ * Declared here rather than beside the query that produces it because this
+ * module already owns `ASSET_CATEGORIES` — the universe of categories and the
+ * order the product presents them in — and, more practically, because
+ * `@/server/queries/assets` builds a Prisma client at import time and so
+ * cannot be imported by a unit test. `CategoryFacet` there is an alias of this
+ * type, not a second declaration of the same shape.
+ */
+export interface CategoryCount {
+  category: AssetCategory
+  count: number
+}
+
+/**
+ * The five categories in `ASSET_CATEGORIES` order, each with its count, and
+ * zero for any the caller had no row for.
+ *
+ * Both halves are rules, and both are invisible in today's seeded data —
+ * which has at least one published listing in every category, in an order that
+ * happens to differ from the one that comes back:
+ *
+ * - **Zero-filling.** Prisma's `groupBy` emits a row only for groups that
+ *   exist, so a category whose last published listing is sold, suspended, or
+ *   loses its seller drops out of the facets entirely. A category tile that
+ *   disappears reads as "this category was removed", not "nothing for sale in
+ *   it right now".
+ * - **Ordering.** `listAssets` (`@/server/queries/assets`) orders its facets
+ *   by `category` ascending, which is alphabetical over the enum's *values*
+ *   (BANK, CRYPTO, EMI, FINTECH, PAYMENT) and not `ASSET_CATEGORIES`
+ *   (BANK, FINTECH, PAYMENT, EMI, CRYPTO). The catalog sidebar has always
+ *   rendered the latter, so anything else showing the same five categories
+ *   must use it too, or the same five things appear in two different orders
+ *   one click apart.
+ *
+ * A category in `facets` that is not in the allowlist is dropped rather than
+ * appended: the allowlist is the whole `AssetCategory` universe by
+ * construction (`satisfies readonly AssetCategory[]`), so a value outside it
+ * could only come from a row this app has no translated name for anyway.
+ */
+export function categoryCountsInOrder(
+  facets: readonly CategoryCount[],
+): CategoryCount[] {
+  const byCategory = new Map(facets.map((facet) => [facet.category, facet.count]))
+  return ASSET_CATEGORIES.map((category) => ({
+    category,
+    count: byCategory.get(category) ?? 0,
+  }))
+}
