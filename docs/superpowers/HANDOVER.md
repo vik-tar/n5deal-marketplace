@@ -9,35 +9,42 @@ Written 2026-09-04, mid-execution, so work can resume after a shutdown.
 - **Spec:** `docs/superpowers/specs/2026-09-04-n5deal-marketplace-design.md`.
 - **Full execution ledger:** `docs/superpowers/EXECUTION-LEDGER.md` — every ruling, every deferred minor, every interface fact, in order. This is the file to read first on resume. A live copy also sits at `.superpowers/sdd/2026-09-04-n5deal-marketplace/progress.md`, which is git-ignored scratch and will be destroyed by `git clean -fdx`; the committed copy is the durable one.
 
-## Status: 21 of 23 complete and reviewed
+## Status: 22 of 23 complete and reviewed
 
-Complete and reviewed: 1-20 as before, plus 21 landing page.
+Complete and reviewed: 1-21 as before, plus 22 end-to-end tests.
 
-**355 tests pass, and the whole suite passes with `DATABASE_URL` unset** — no unit test depends on
-infrastructure. Keep that property.
+**355 unit tests pass with `DATABASE_URL` set and unset**, and **3 Playwright specs pass** in ~29s.
+Keep the first property: `vitest.config.mts` includes only `tests/unit/**`, so the e2e specs stay
+out of the unit run.
 
-## Task 21 is complete and reviewed
+## Task 22 is complete and reviewed
 
-`b45b80b` implementer, `48d6072` fix round. The page's figures agree with the catalog **by
-construction**: the count and the value are now two fields of one aggregate off one `where`
-binding, and the six recent listings are literally the catalog's first six rows.
+`885b345`. Every spec was proven able to fail — four deliberate breaks, each red on the right line.
+The controller independently reproduced one of them by hand (broke `canViewFullAsset` to ignore the
+grant; the buyer spec went red on "confidential heading absent"; restored; green).
 
-Two lessons from its review worth carrying:
+Two facts worth carrying:
 
-- **Headless Chromium lays out correctly down to 320px in this environment.** The implementer
-  reported otherwise and left the narrow band unmeasured; the review found a clipped hero eyebrow
-  at 390px in Russian sitting exactly there. Measure, do not reason from CSS.
-- **A silent clip does not move `scrollWidth`.** `overflow-hidden` on a section swallows an
-  over-wide child without producing horizontal page scroll, so the usual "does the page scroll
-  sideways" check passes while the first screen is visibly broken.
+- **`prisma migrate reset` refuses to run for an AI agent** (Prisma 7.10) and demands a consent
+  variable carrying the user's own words. `resetDb()` therefore runs `pnpm db:seed` alone. That is
+  sufficient, and verified twice: all ten models in the schema have a matching `deleteMany` in
+  `prisma/seed.ts` before any write, so the seed *is* a full data reset. A developer whose schema
+  has drifted must run `pnpm db:migrate` themselves.
+- **`pnpm test:e2e` reseeds before and after**, so it is destructive to local demo data by design
+  and leaves the database exactly seeded.
 
-## Resume here: Task 22
+## Resume here: Task 23 — the last one
 
-Task 22 (end-to-end tests) is an **accelerated cycle**. Brief:
-`.superpowers/sdd/2026-09-04-n5deal-marketplace/task-22-brief.md`.
+Task 23 (README and deployment) is an **accelerated cycle**. Brief:
+`.superpowers/sdd/2026-09-04-n5deal-marketplace/task-23-brief.md`.
 
-It is the first task that adds a dependency (`@playwright/test`) and the first whose own runtime
-mutates the seeded database on purpose. Both need care — see the brief.
+**Its Step 2 (deploy to Vercel + Neon) is the only thing in the whole plan that needs the user.**
+The README, `.env.example` and the deployment instructions can and should be finished without it.
+
+## After Task 23
+
+A final whole-branch review still owes a triage of the ~40 deferred minor findings recorded
+throughout this ledger, and the branch has never been merged to `master`.
 
 ## One open ruling for the user
 
@@ -70,8 +77,7 @@ Demo logins: `buyer@n5deal.demo`, `seller@n5deal.demo`, `manager@n5deal.demo`, p
 
 | Task | | Cycle |
 |---|---|---|
-| 22 | End-to-end tests | accelerated — **resume here** |
-| 23 | README and deployment | accelerated |
+| 23 | README and deployment | accelerated — **resume here** |
 
 Full cycle = implementer, task review, and a dispatched scoped re-review after every fix round.
 Accelerated = implementer, task review, and one fix round the controller verifies directly from

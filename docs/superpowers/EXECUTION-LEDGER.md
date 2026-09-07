@@ -1145,3 +1145,41 @@ Task 21: NOT fixed, accepted — LANDING_RECENT_LIMIT <= PAGE_SIZE is enforced b
   module no unit test may import); the category tile splits the count from its unit; getViewer()
   runs twice per request, pre-existing at all eight call sites in src/app.
 Task 21: complete (commits 068f94c..48d6072). 355 passing with and without DATABASE_URL.
+
+Task 22: implementer DONE (commit 885b345). Unit suite untouched at 355, passing with and without
+  DATABASE_URL; typecheck, lint, build clean; 3 e2e specs pass in ~29s; database left in the
+  seeded state and verified (max publicRef back to N5-740, so the N5-741 the seller spec creates
+  is gone).
+Task 22: Ruling: ACCEPTED the implementer's deviation from both plan and brief — resetDb() runs
+  `pnpm db:seed` alone, NOT `prisma migrate reset`. Prisma 7.10 refuses `migrate reset` when it
+  detects an AI agent invoked it, and demands PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION carrying
+  the user's own words. The implementer declined to manufacture that consent, which is correct: no
+  agent message is the user's consent. It then verified the substitute is sufficient rather than
+  merely convenient, and the controller re-verified independently — all TEN models in
+  prisma/schema.prisma have a matching deleteMany in prisma/seed.ts, in reverse dependency order,
+  before any write. So the seed IS a full data reset; migrate reset added only destructive DDL that
+  is a no-op unless the schema drifted. Consequence to state in the README: a developer whose
+  schema has drifted must run pnpm db:migrate themselves, because the suite will not repair it.
+Task 22: every spec was PROVEN able to fail, which was the task's main requirement — a green e2e
+  suite that cannot go red launders confidence. Four deliberate breaks, each red on the right line
+  and restored: APPROVE.to changed to DRAFT (seller spec, red on the anonymous-visitor assertion,
+  and correctly NOT on the earlier admin-table one); canViewFullAsset made to ignore the grant
+  (buyer spec, red on "confidential heading absent"); the category clause disabled in buildWhere
+  (buyer spec, red with 11 of 12 non-EMI cards, which also proves the selector finds one cell per
+  card); the owner-status half of VISIBILITY_FLOOR deleted (manager spec, red on the
+  post-suspension assertion). The CONTROLLER independently reproduced the second one by hand.
+Task 22: the buyer spec's gate assertion is the one the ledger's own trap would have eaten. A
+  page.content() grep would pass with the gate WIDE OPEN, because next-intl ships the whole `gate`
+  namespace in the flight payload. The spec uses getByRole, which resolves to a rendered element.
+Task 22: two plan inaccuracies found, neither a bug. There is no "EMI badge" — AssetCard renders
+  the category as a plain span in its meta-label row, and the only Badge on a card is on the
+  `included` chips; the spec asserts the real thing. And no demo seller owns a published EMI
+  listing (EMI is i mod 8 == 3, seller@n5deal.demo owns i mod 5 == 0, the only intersection under
+  40 is i=35 which is SOLD), so the buyer flow's two halves necessarily use different listings.
+Task 22: config decisions beyond the brief — `workers: 1` as well as `fullyParallel: false`
+  (the latter only serialises within a file, and three files would still get three workers while a
+  suspension is global), `retries: 0` (a retry launders a real race), and a globalTeardown, which
+  globalSetup alone cannot substitute for.
+Task 22: NOT covered, stated rather than implied — the `ru` locale, messaging/inbox, both
+  dashboards, /buyers, the AI-enabled paths, and any responsive/viewport claim.
+Task 22: complete (commit 885b345).
